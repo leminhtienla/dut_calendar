@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -39,7 +40,7 @@ def parse_exam_duty(html: str, hoc_ky_label: str = "") -> list[dict[str, Any]]:
         if len(tds) < 10:
             continue
 
-        texts = [td.get_text(strip=True) for td in tds]
+        texts = [unicodedata.normalize("NFC", td.get_text(strip=True)) for td in tds]
         ma_ca_thi = texts[1]
         ten_mon = texts[2]
         thoi_gian = texts[3]
@@ -148,7 +149,7 @@ def parse_class_list(html: str) -> list[dict[str, Any]]:
         if not m:
             continue
         tds = tr.find_all("td")
-        texts = [td.get_text(strip=True) for td in tds]
+        texts = [unicodedata.normalize("NFC", td.get_text(strip=True)) for td in tds]
         if len(texts) < 3:
             continue
 
@@ -281,7 +282,7 @@ def filter_exam_duty_by_lecturer(
     — so khớp không phân biệt hoa/thường, kiểu chuỗi con, trên cả 2
     cột 'Cán bộ 1' và 'Cán bộ 2'.
     """
-    name = lecturer_name.strip().lower()
+    name = unicodedata.normalize("NFC", lecturer_name.strip().lower())
     if not name:
         return []
 

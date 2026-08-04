@@ -5,6 +5,15 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-08-04
+
+### Sửa lỗi (2 lỗi thật, phát hiện qua đối chiếu attributes sensor thật của người dùng)
+- **Bỏ sót từ khóa khớp do lệch chuẩn Unicode (nguyên nhân chính gây "thiếu dữ liệu" khi lọc theo "Hiệu trưởng"):** trang nguồn (và cổng `cb.dut.udn.vn`) trộn lẫn 2 cách encode dấu tiếng Việt — NFC (dựng sẵn) và NFD (tổ hợp) — tùy người nhập liệu. Hai chuỗi **nhìn giống hệt nhau** nhưng khác byte, khiến so khớp kiểu chuỗi con (`in`) âm thầm trả về `False`. Đã chuẩn hóa **NFC** cho toàn bộ text trích từ trang (`_clean_text` ở `parser_public.py`, trích cột bảng ở `parser_exam.py`) VÀ cho từ khóa/tên giảng viên người dùng nhập (`parse_keyword_groups`, `filter_exam_duty_by_lecturer`) — đảm bảo luôn so sánh cùng 1 chuẩn.
+- **Lỗi tách "Thứ/Ngày" khi dính liền** (vd `Thứ tư05/08/2026` không tách được thành `Thứ tư` + `05/08/2026`, ngày bị để trống): trang nguồn không đồng nhất khoảng trắng giữa tên Thứ và ngày (một số thứ tách đúng qua `\n`, một số dính liền thành 1 chuỗi). Đã đổi sang tách bằng **regex theo đúng định dạng `dd/mm/yyyy`**, không phụ thuộc khoảng trắng/newline nguồn — hoạt động đúng với cả 2 kiểu.
+
+### Kỹ thuật
+- Cả 2 lỗi test bằng dữ liệu `attributes` sensor thật do người dùng cung cấp (không phải dữ liệu giả lập), đã xác nhận sửa đúng và không hồi quy trên toàn bộ test case cũ.
+
 ## [1.7.0] - 2026-08-04
 
 ### Thêm mới
@@ -97,7 +106,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.7.1
 [1.7.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.7.0
 [1.6.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.6.0
 [1.5.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.5.1

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -74,6 +75,11 @@ def entry_hash(entry: dict[str, Any]) -> str:
 
 
 def _clean_text(text: str) -> str:
+    # Chuẩn hóa Unicode về dạng dựng sẵn (NFC). Trang nguồn có thể trộn
+    # lẫn 2 cách encode dấu tiếng Việt (NFC dựng sẵn / NFD tổ hợp) tùy
+    # người nhập liệu — nhìn giống hệt nhau nhưng khác byte, khiến so
+    # khớp từ khóa (substring) lặng lẽ thất bại nếu không chuẩn hóa.
+    text = unicodedata.normalize("NFC", text)
     text = text.replace("\xa0", " ")
     text = re.sub(r"\s+", " ", text)
     return text.strip()
@@ -111,10 +117,18 @@ def parse_schedule(html: str, week_label: str = "") -> list[dict[str, Any]]:
 
             first_classes = tds[0].get("class", []) or []
             if "week" in first_classes:
-                raw_parts = tds[0].get_text(separator="\n", strip=True).split("\n")
-                parts = [_clean_text(p) for p in raw_parts if _clean_text(p)]
-                current_day = parts[0] if parts else ""
-                current_date = parts[1] if len(parts) > 1 else ""
+                combined = _clean_text(tds[0].get_text(separator=" ", strip=True))
+                # Trang nguồn không đồng nhất khoảng trắng giữa tên Thứ và
+                # ngày (có thứ tách đúng qua "\n", có thứ dính liền thành
+                # 1 chuỗi, vd "Thứ tư05/08/2026") -> tách bằng regex theo
+                # đúng định dạng ngày dd/mm/yyyy thay vì dựa vào separator.
+                date_match = re.search(r"(\d{2}/\d{2}/\d{4})", combined)
+                if date_match:
+                    current_date = date_match.group(1)
+                    current_day = _clean_text(combined[: date_match.start()])
+                else:
+                    current_day = combined
+                    current_date = ""
                 rest = tds[1:]
             else:
                 rest = tds
@@ -211,6 +225,7 @@ def parse_keyword_groups(raw: str) -> list[dict[str, Any]]:
     Trả về: [{"label": "Lê Minh Tiến", "variants": ["Lê Minh Tiến", "LMT", ...]}, ...]
     """
     groups: list[dict[str, Any]] = []
+    raw = unicodedata.normalize("NFC", raw)
     for raw_line in raw.replace(";", "\n").splitlines():
         line = raw_line.strip()
         if not line:
