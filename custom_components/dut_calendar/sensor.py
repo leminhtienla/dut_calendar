@@ -233,7 +233,7 @@ class ExamDutySensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
         ]
         return {
             "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
-            "giang_vien_khac_theo_doi": self.coordinator.extra_lecturer,
+            "giang_vien_khac_theo_doi": self.coordinator.extra_lecturers,
             "so_ca_sap_toi": len(self._upcoming),
             "so_ca_moi_lan_quet_gan_nhat": len(new_duties),
             "ca_thi": simplified,

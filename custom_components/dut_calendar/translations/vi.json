@@ -36,8 +36,7 @@
           "password": "Mật khẩu",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
-          "notify_service": "Notify service tùy chọn",
-          "extra_lecturer": "Theo dõi thêm giảng viên khác (tên, để trống nếu không cần)"
+          "notify_service": "Notify service tùy chọn"
         }
       },
       "dut_deadline_diem_account": {
@@ -63,6 +62,20 @@
         "description": "Có thể tick chọn nhiều học kỳ cùng lúc (vd cả kỳ hiện tại lẫn kỳ tới, hoặc các kỳ giao thoa lịch, để không bỏ sót).",
         "data": {
           "hoc_ky": "Học kỳ"
+        }
+      },
+      "chon_khoa": {
+        "title": "Theo dõi thêm giảng viên khác (tùy chọn)",
+        "description": "Chọn khoa để rút gọn danh sách tên ở bước sau, hoặc bỏ qua nếu không cần theo dõi ai khác ngoài chính bạn.",
+        "data": {
+          "khoa": "Khoa"
+        }
+      },
+      "chon_giang_vien": {
+        "title": "Chọn giảng viên cần theo dõi thêm",
+        "description": "Có thể chọn nhiều người. Gõ để tìm kiếm nếu danh sách dài.",
+        "data": {
+          "extra_lecturers": "Giảng viên"
         }
       }
     },
@@ -91,7 +104,6 @@
           "password": "Mật khẩu mới (để trống = giữ nguyên)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
           "update_mode": "Chế độ cập nhật",
-          "extra_lecturer": "Theo dõi thêm giảng viên khác (tên, để trống nếu không cần)",
           "clear_history": "Xóa lịch sử cũ (tick để xóa 1 lần, tự tắt lại sau khi xóa)"
         }
       },
@@ -100,6 +112,20 @@
         "description": "Có thể tick chọn nhiều học kỳ cùng lúc.",
         "data": {
           "hoc_ky": "Học kỳ"
+        }
+      },
+      "chon_khoa": {
+        "title": "Theo dõi thêm giảng viên khác (tùy chọn)",
+        "description": "Chọn khoa để rút gọn danh sách tên ở bước sau, hoặc bỏ qua nếu không cần theo dõi ai khác ngoài chính bạn.",
+        "data": {
+          "khoa": "Khoa"
+        }
+      },
+      "chon_giang_vien": {
+        "title": "Chọn giảng viên cần theo dõi thêm",
+        "description": "Có thể chọn nhiều người. Gõ để tìm kiếm nếu danh sách dài.",
+        "data": {
+          "extra_lecturers": "Giảng viên"
         }
       }
     },

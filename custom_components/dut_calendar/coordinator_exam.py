@@ -15,6 +15,7 @@ from .api_exam import CBDutAuthError, CBDutClient
 from .const import (
     CONF_EXAM_DURATION,
     CONF_EXTRA_LECTURER,
+    CONF_EXTRA_LECTURERS,
     CONF_HOC_KY,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
@@ -35,6 +36,7 @@ from .const import (
 from .parser_exam import (
     exam_hash,
     filter_exam_duty_by_lecturer,
+    filter_exam_duty_by_lecturers,
     parse_class_deadline,
     parse_class_list,
     parse_exam_datetime,
@@ -110,12 +112,22 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self.entry.data.get(CONF_TYPE) == TYPE_DEADLINE_DIEM
 
     @property
-    def extra_lecturer(self) -> str | None:
-        """Tên giảng viên khác cần theo dõi thêm (ngoài tài khoản đang đăng nhập)."""
-        val = self.entry.options.get(
+    def extra_lecturers(self) -> list[str]:
+        """Danh sách tên giảng viên khác cần theo dõi thêm (đã chọn qua
+        UI khoa/tên). Vẫn đọc tương thích ngược cấu hình CŨ (1 tên dạng
+        text tự do) nếu entry chưa được cấu hình lại theo cách mới.
+        """
+        names = self.entry.options.get(
+            CONF_EXTRA_LECTURERS, self.entry.data.get(CONF_EXTRA_LECTURERS, None)
+        )
+        if isinstance(names, list) and names:
+            return [n for n in names if n and n.strip()]
+
+        # Tương thích ngược: cấu hình cũ chỉ có 1 tên dạng text tự do
+        old_val = self.entry.options.get(
             CONF_EXTRA_LECTURER, self.entry.data.get(CONF_EXTRA_LECTURER, "")
         )
-        return val.strip() if val and val.strip() else None
+        return [old_val.strip()] if old_val and old_val.strip() else []
 
     async def _async_load_storage(self) -> None:
         if self._loaded_storage:
@@ -157,11 +169,11 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 d["extra_lecturer_match"] = False
             all_duties.extend(duties)
 
-        # --- Theo dõi thêm 1 giảng viên khác (nếu bật) ---
+        # --- Theo dõi thêm giảng viên khác (nếu có chọn) ---
         # Tải danh sách TOÀN BỘ (không giới hạn theo tài khoản đăng nhập)
-        # rồi lọc cục bộ theo tên, gộp thêm vào all_duties.
-        lecturer = self.extra_lecturer
-        if self.is_coithi and lecturer:
+        # rồi lọc cục bộ theo (các) tên đã chọn, gộp thêm vào all_duties.
+        lecturers = self.extra_lecturers
+        if self.is_coithi and lecturers:
             for hoc_ky in hoc_ky_list:
                 try:
                     html_all = await self._client.fetch_exam_duty_all_html(hoc_ky)
@@ -178,7 +190,7 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     parse_exam_duty, html_all, hoc_ky
                 )
                 matched = await self.hass.async_add_executor_job(
-                    filter_exam_duty_by_lecturer, all_that_week, lecturer
+                    filter_exam_duty_by_lecturers, all_that_week, lecturers
                 )
                 for d in matched:
                     d["extra_lecturer_match"] = True

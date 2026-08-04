@@ -48,7 +48,8 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_HOC_KY = "hoc_ky"
 CONF_EXAM_DURATION = "exam_duration"
-CONF_EXTRA_LECTURER = "extra_lecturer"  # tên giảng viên khác cần theo dõi thêm (chỉ dut_coithi)
+CONF_EXTRA_LECTURER = "extra_lecturer"  # (cũ, giữ để đọc tương thích ngược) 1 tên dạng text tự do
+CONF_EXTRA_LECTURERS = "extra_lecturers"  # danh sách tên đã chọn qua UI khoa/tên (chỉ dut_coithi)
 
 DEFAULT_SCAN_INTERVAL_EXAM = 120
 DEFAULT_EXAM_DURATION = 90

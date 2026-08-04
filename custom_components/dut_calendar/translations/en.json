@@ -36,8 +36,7 @@
           "password": "Password",
           "scan_interval": "Check interval (minutes)",
           "exam_duration": "Default exam duration (minutes)",
-          "notify_service": "Optional notify service",
-          "extra_lecturer": "Also track another lecturer (name, leave empty if not needed)"
+          "notify_service": "Optional notify service"
         }
       },
       "dut_deadline_diem_account": {
@@ -63,6 +62,20 @@
         "description": "You can select multiple semesters (e.g. current + next, or overlapping ones), so nothing is missed.",
         "data": {
           "hoc_ky": "Semester"
+        }
+      },
+      "chon_khoa": {
+        "title": "Track another invigilator (optional)",
+        "description": "Pick a department to shorten the name list below, or skip if you don't need to track anyone besides yourself.",
+        "data": {
+          "khoa": "Department"
+        }
+      },
+      "chon_giang_vien": {
+        "title": "Select lecturer(s) to track",
+        "description": "Multiple selection supported. Type to search if the list is long.",
+        "data": {
+          "extra_lecturers": "Lecturer(s)"
         }
       }
     },
@@ -91,7 +104,6 @@
           "password": "New password (empty = keep current)",
           "exam_duration": "Default exam duration (minutes)",
           "update_mode": "Update mode",
-          "extra_lecturer": "Also track another lecturer (name, leave empty if not needed)",
           "clear_history": "Clear old history (check to clear once, auto-unchecks after clearing)"
         }
       },
@@ -100,6 +112,20 @@
         "description": "You can select multiple semesters.",
         "data": {
           "hoc_ky": "Semester"
+        }
+      },
+      "chon_khoa": {
+        "title": "Track another invigilator (optional)",
+        "description": "Pick a department to shorten the name list below, or skip if you don't need to track anyone besides yourself.",
+        "data": {
+          "khoa": "Department"
+        }
+      },
+      "chon_giang_vien": {
+        "title": "Select lecturer(s) to track",
+        "description": "Multiple selection supported. Type to search if the list is long.",
+        "data": {
+          "extra_lecturers": "Lecturer(s)"
         }
       }
     },

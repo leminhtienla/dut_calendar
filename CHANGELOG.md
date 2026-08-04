@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-04
+
+### Thay đổi
+- **`dut_coithi` — chọn giảng viên khác qua UI thay vì gõ tay**: thêm 2 bước mới sau khi chọn học kỳ — chọn **Khoa** (rút gọn danh sách, hoặc bỏ qua/chọn tất cả) rồi chọn **tên** (nhiều lựa chọn, gõ để tìm kiếm). Tên lấy trực tiếp từ dữ liệu thật (`mã khoa-Tên`, vd `103-Lê Minh Tiến`), khớp **chính xác** thay vì kiểu chuỗi con như trước — tránh sai chính tả/khớp nhầm. Áp dụng cho cả khi thêm mới lẫn sửa qua Options. Vẫn đọc tương thích ngược cấu hình cũ (1 tên gõ tay) nếu entry chưa cấu hình lại theo cách mới.
+- `parser_exam.py`: thêm `build_lecturer_directory()` (gom tên theo mã khoa từ dữ liệu thật) và `filter_exam_duty_by_lecturers()` (lọc theo danh sách, khớp chính xác) — test bằng dữ liệu thật (724 ca, 265 tên, 32 khoa).
+
 ## [1.10.0] - 2026-08-04
 
 ### Thêm mới
@@ -136,7 +142,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.0
 [1.10.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.10.0
 [1.9.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.9.0
 [1.8.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.2

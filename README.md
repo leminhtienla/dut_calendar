@@ -145,17 +145,37 @@ nếu không muốn đổi.
 - Chọn học kỳ cần theo dõi từ danh sách thật (xem mục "quy trình cài
   đặt 2 bước" phía trên), không cần nhớ mã số.
 - Tạo sensor `Lịch coi thi` + Calendar `calendar.coi_thi`.
+- **Ý nghĩa số đếm sensor `Lịch coi thi`:** tổng số ca coi thi **sắp
+  tới** (chưa diễn ra) trong các học kỳ đang theo dõi — khác với các
+  sensor "Hôm nay"/"Tuần này"... chỉ đếm theo 1 khoảng ngày cụ thể.
+  Khi không còn ca nào sắp tới, giá trị đúng là `0`; nếu thấy
+  `unknown`, đó là dấu hiệu sensor **chưa từng lấy được dữ liệu lần
+  nào** (coordinator lỗi/chưa cập nhật xong), không phải nghĩa là
+  "hết ca thi".
 - Chỉ cảnh báo ca thi **mới**.
-- **Theo dõi thêm 1 giảng viên khác** (tùy chọn, nhập tên ở bước đăng
-  nhập hoặc sửa qua Options): khi bật, mỗi lần quét sẽ tải thêm danh
-  sách **toàn bộ ca thi** (không giới hạn theo tài khoản đăng nhập,
-  response lớn hơn — chỉ dùng khi thực sự cần) rồi lọc theo tên đã
-  nhập (so khớp không phân biệt hoa/thường, kiểu chuỗi con, trên cả
-  cột "Cán bộ 1" và "Cán bộ 2"). Ca thi tìm được sẽ gắn cờ
-  `giang_vien_khac: true` trong attributes, có tiền tố `[Tên giảng
-  viên]` trong tiêu đề sự kiện Calendar và trong thông báo. Nếu giảng
-  viên đó vốn đã là "Cán bộ 2" cùng coi thi với bạn, ca đó chỉ tính 1
-  lần (không hiện trùng lặp).
+- **Theo dõi thêm giảng viên khác** (tùy chọn, sau bước chọn học kỳ —
+  cả khi thêm mới lẫn sửa qua Options): thay vì gõ tay, chọn qua **3
+  bước**:
+  1. Chọn **Khoa** (dropdown, kèm số người mỗi khoa) để rút gọn danh
+     sách — hoặc **"Không theo dõi thêm ai"** để bỏ qua tính năng này,
+     hoặc **"— Tất cả các khoa —"** để hiện toàn bộ.
+  2. Chọn **tên** (nhiều lựa chọn cùng lúc, gõ để tìm kiếm nếu danh
+     sách dài) — tên lấy trực tiếp từ dữ liệu thật trên hệ thống
+     (dạng `mã khoa-Tên`, vd `103-Lê Minh Tiến`), không gõ tay nên
+     không lo sai chính tả/không khớp.
+
+  Khi có chọn, mỗi lần quét sẽ tải thêm danh sách **toàn bộ ca thi**
+  (không giới hạn theo tài khoản đăng nhập, response lớn hơn — chỉ
+  tải khi thực sự có chọn ai) rồi lọc theo đúng (các) tên đã chọn
+  (khớp **chính xác**, không phải chuỗi con như trước). Ca thi tìm
+  được gắn cờ `giang_vien_khac: true` trong attributes, có tiền tố
+  `[Tên]` trong tiêu đề sự kiện Calendar và trong thông báo. Nếu
+  giảng viên đó vốn đã là "Cán bộ 2" cùng coi thi với bạn, ca đó chỉ
+  tính 1 lần (không hiện trùng lặp).
+
+  *Nếu không tải được danh sách khoa/tên lúc cấu hình (lỗi mạng...),
+  vẫn tạo/lưu entry bình thường — chỉ là bỏ qua tính năng này lần đó,
+  có thể vào lại Options để thử chọn lại sau.*
 
 ## `dut_deadline_diem` — Hạn nộp điểm
 

@@ -277,10 +277,9 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
 def filter_exam_duty_by_lecturer(
     entries: list[dict[str, Any]], lecturer_name: str
 ) -> list[dict[str, Any]]:
-    """Lọc danh sách ca thi (từ parse_exam_duty với dữ liệu TOÀN BỘ,
-    không phải chỉ của tài khoản đăng nhập) theo tên 1 giảng viên khác
-    — so khớp không phân biệt hoa/thường, kiểu chuỗi con, trên cả 2
-    cột 'Cán bộ 1' và 'Cán bộ 2'.
+    """(Cũ, giữ tương thích ngược cho cấu hình dạng text tự do) Lọc theo
+    1 tên, kiểu chuỗi con. Cấu hình mới nên dùng
+    filter_exam_duty_by_lecturers (khớp chính xác từ danh sách thật).
     """
     name = unicodedata.normalize("NFC", lecturer_name.strip().lower())
     if not name:
@@ -291,6 +290,53 @@ def filter_exam_duty_by_lecturer(
         for e in entries
         if name in e.get("can_bo_1", "").lower() or name in e.get("can_bo_2", "").lower()
     ]
+
+
+def filter_exam_duty_by_lecturers(
+    entries: list[dict[str, Any]], lecturer_names: list[str]
+) -> list[dict[str, Any]]:
+    """Lọc ca thi theo DANH SÁCH tên đã chọn từ UI (khớp CHÍNH XÁC,
+    không phải chuỗi con) — an toàn hơn filter_exam_duty_by_lecturer
+    vì tên lấy trực tiếp từ danh sách thật trên trang, không gõ tay
+    nên không có sai sót/trùng lặp ngoài ý muốn.
+    """
+    normalized = {
+        unicodedata.normalize("NFC", n.strip().lower()) for n in lecturer_names if n.strip()
+    }
+    if not normalized:
+        return []
+
+    return [
+        e
+        for e in entries
+        if unicodedata.normalize("NFC", e.get("can_bo_1", "").strip().lower()) in normalized
+        or unicodedata.normalize("NFC", e.get("can_bo_2", "").strip().lower()) in normalized
+    ]
+
+
+def build_lecturer_directory(duties: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Từ danh sách ca thi TOÀN BỘ (fetch_exam_duty_all_html), gom các
+    tên "Cán bộ 1"/"Cán bộ 2" duy nhất, nhóm theo mã khoa (tiền tố
+    trước dấu '-', vd '103-Lê Minh Tiến' -> khoa '103'). Dùng để hiển
+    thị UI chọn khoa -> chọn tên thay vì gõ tay.
+    """
+    names: set[str] = set()
+    for d in duties:
+        for key in ("can_bo_1", "can_bo_2"):
+            n = (d.get(key) or "").strip()
+            if n:
+                names.add(n)
+
+    khoa_map: dict[str, list[str]] = {}
+    for n in names:
+        m = re.match(r"^(\d{2,3})-", n)
+        code = m.group(1) if m else "khac"
+        khoa_map.setdefault(code, []).append(n)
+
+    for code in khoa_map:
+        khoa_map[code].sort()
+
+    return khoa_map
 
 
 def exam_hash(entry: dict[str, Any]) -> str:
