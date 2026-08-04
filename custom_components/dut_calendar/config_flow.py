@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -23,6 +24,7 @@ from homeassistant.helpers.selector import (
 
 from .api_exam import CBDutAuthError, CBDutClient
 from .const import (
+    CONF_CLEAR_HISTORY,
     CONF_EXAM_DURATION,
     CONF_EXTRA_LECTURER,
     CONF_HOC_KY,
@@ -139,6 +141,9 @@ def _schema_lichtuan(defaults: dict[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_CLEAR_HISTORY, default=defaults.get(CONF_CLEAR_HISTORY, False)
+            ): BooleanSelector(),
         }
     )
 

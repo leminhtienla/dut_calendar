@@ -17,6 +17,7 @@ CONF_SCAN_INTERVAL = "scan_interval"  # phút
 CONF_WEEKS_AHEAD = "weeks_ahead"
 CONF_NOTIFY_SERVICE = "notify_service"
 CONF_UPDATE_MODE = "update_mode"
+CONF_CLEAR_HISTORY = "clear_history"  # tick 1 lần để xóa sạch lịch sử đã lưu, tự tắt lại sau khi xóa
 
 UPDATE_MODE_SMART = "smart"  # chỉ tuần hiện tại + tuần mới (từ thứ 6 trở đi)
 UPDATE_MODE_FULL = "full"  # tuần hiện tại + weeks_ahead, mỗi lần quét

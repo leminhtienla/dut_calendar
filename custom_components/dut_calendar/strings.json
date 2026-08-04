@@ -17,7 +17,8 @@
           "scan_interval": "Tần suất kiểm tra (phút)",
           "weeks_ahead": "Số tuần kiểm tra thêm (0 = chỉ tuần hiện tại)",
           "notify_service": "Notify service tùy chọn (vd: notify.mobile_app_dien_thoai)",
-          "update_mode": "Chế độ cập nhật"
+          "update_mode": "Chế độ cập nhật",
+          "clear_history": "Xóa lịch sử cũ (tick để xóa 1 lần, tự tắt lại sau khi xóa)"
         }
       },
       "dut_coithi_account": {
@@ -90,7 +91,8 @@
           "password": "Mật khẩu mới (để trống = giữ nguyên)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
           "update_mode": "Chế độ cập nhật",
-          "extra_lecturer": "Theo dõi thêm giảng viên khác (tên, để trống nếu không cần)"
+          "extra_lecturer": "Theo dõi thêm giảng viên khác (tên, để trống nếu không cần)",
+          "clear_history": "Xóa lịch sử cũ (tick để xóa 1 lần, tự tắt lại sau khi xóa)"
         }
       },
       "hocky": {

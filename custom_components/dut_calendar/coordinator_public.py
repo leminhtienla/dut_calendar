@@ -1,6 +1,7 @@
 """Coordinator: tải trang lịch tuần định kỳ, lọc từ khóa, cảnh báo."""
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import date, timedelta
 from typing import Any
@@ -12,6 +13,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_CLEAR_HISTORY,
     CONF_KEYWORDS,
     CONF_NOTIFY_SERVICE,
     CONF_SCAN_INTERVAL,
@@ -66,6 +68,7 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # để Calendar/sensor không bị mất dữ liệu ngay khi trang chuyển
         # sang tuần mới — chỉ dọn bớt mục quá cũ (xem _prune_history).
         self._history: dict[str, dict[str, Any]] = {}
+        self._keywords_signature: str | None = None
         self._loaded_storage = False
 
     @property
@@ -82,6 +85,19 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def keyword_labels(self) -> list[str]:
         """Danh sách nhãn nhóm từ khóa (dùng để tạo 1 sensor / nhóm)."""
         return [g["label"] for g in self.keyword_groups]
+
+    @property
+    def _current_keywords_signature(self) -> str:
+        """Chữ ký (hash) của cấu hình từ khóa hiện tại — dùng để phát
+        hiện từ khóa vừa bị đổi, nhằm xóa sạch lịch sử cũ (tránh hiện
+        lại mục đã khớp theo tiêu chí CŨ, không còn đúng với hiện tại).
+        """
+        raw = self.entry.options.get(
+            CONF_KEYWORDS, self.entry.data.get(CONF_KEYWORDS, "")
+        )
+        if isinstance(raw, list):
+            raw = "\n".join(raw)
+        return hashlib.sha1(str(raw).encode("utf-8")).hexdigest()
 
     @property
     def weeks_ahead(self) -> int:
@@ -112,6 +128,8 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._seen_hashes = set(data["seen"])
         if data and isinstance(data.get("history"), dict):
             self._history = data["history"]
+        if data and isinstance(data.get("keywords_signature"), str):
+            self._keywords_signature = data["keywords_signature"]
         self._loaded_storage = True
 
     def _prune_history(self) -> None:
@@ -154,10 +172,40 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Giới hạn kích thước lưu trữ để không phình to vô hạn
         hashes = list(self._seen_hashes)[-MAX_STORED_HASHES:]
         self._seen_hashes = set(hashes)
-        await self._store.async_save({"seen": hashes, "history": self._history})
+        await self._store.async_save(
+            {
+                "seen": hashes,
+                "history": self._history,
+                "keywords_signature": self._keywords_signature,
+            }
+        )
 
     async def _async_update_data(self) -> dict[str, Any]:
         await self._async_load_storage()
+
+        # Nếu từ khóa vừa bị đổi (khác chữ ký đã lưu lần trước) -> xóa
+        # sạch lịch sử cũ trước khi quét lại. Bắt buộc phải làm vậy vì
+        # lịch sử cũ có thể chứa mục chỉ khớp theo tiêu chí CŨ (vd từ
+        # khóa đã bị xóa) — nếu giữ lại sẽ hiện sai dữ liệu không còn
+        # đúng với cấu hình hiện tại, tệ hơn nhiều so với việc tạm mất
+        # phần lịch sử của các tuần không được quét lại trong lần này.
+        current_signature = self._current_keywords_signature
+        if self._keywords_signature is not None and self._keywords_signature != current_signature:
+            _LOGGER.info("Từ khóa đã thay đổi, xóa lịch sử cũ và quét lại từ đầu")
+            self._history = {}
+            self._seen_hashes = set()
+        self._keywords_signature = current_signature
+
+        # --- Tick "Xóa lịch sử cũ" trong Options (thủ công) ---
+        # Tick 1 lần để xóa sạch, sau đó tự TẮT lại (ghi vào entry.options)
+        # để không xóa lặp lại ở những lần quét sau.
+        if self.entry.options.get(CONF_CLEAR_HISTORY, False):
+            _LOGGER.info("Người dùng yêu cầu xóa lịch sử lịch tuần qua Options")
+            self._history = {}
+            self._seen_hashes = set()
+            reset_options = dict(self.entry.options)
+            reset_options[CONF_CLEAR_HISTORY] = False
+            self.hass.config_entries.async_update_entry(self.entry, options=reset_options)
 
         keyword_groups = self.keyword_groups
         if not keyword_groups:

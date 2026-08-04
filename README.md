@@ -67,6 +67,16 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
   thị song song trên Calendar. Vẫn có cảnh báo báo "có thay đổi" như
   bình thường (vì nội dung chi tiết đã khác), chỉ là không bị nhân đôi
   khi hiển thị.
+- **Nếu đổi từ khóa trong Options thì sao?** Toàn bộ lịch sử **bị xóa
+  sạch và quét lại từ đầu** — cố ý làm vậy để tránh hiện lại mục chỉ
+  khớp theo từ khóa CŨ (đã xóa/đổi), dữ liệu không còn đúng với cấu
+  hình hiện tại. Đánh đổi: mất tạm phần lịch sử của các tuần không
+  còn được quét lại ngay trong lần quét đó — chấp nhận được, vì hiện
+  dữ liệu sai còn tệ hơn nhiều so với tạm thời thiếu vài mục cũ.
+- **Xóa lịch sử thủ công:** trong Options có tick **"Xóa lịch sử cũ"**
+  (mặc định **tắt**) — tick vào rồi Submit sẽ xóa sạch toàn bộ lịch sử
+  đã lưu ngay lần quét kế tiếp, sau đó tick **tự tắt lại**, không cần
+  tự tắt tay và không xóa lặp lại ở các lần quét sau.
 
 ## Sensor đếm số sự kiện (cả 3 loại)
 

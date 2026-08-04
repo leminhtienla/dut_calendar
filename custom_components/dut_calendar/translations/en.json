@@ -17,7 +17,8 @@
           "scan_interval": "Check interval (minutes)",
           "weeks_ahead": "Extra weeks to check (0 = current week only)",
           "notify_service": "Optional notify service",
-          "update_mode": "Update mode"
+          "update_mode": "Update mode",
+          "clear_history": "Clear old history (check to clear once, auto-unchecks after clearing)"
         }
       },
       "dut_coithi_account": {
@@ -90,7 +91,8 @@
           "password": "New password (empty = keep current)",
           "exam_duration": "Default exam duration (minutes)",
           "update_mode": "Update mode",
-          "extra_lecturer": "Also track another lecturer (name, leave empty if not needed)"
+          "extra_lecturer": "Also track another lecturer (name, leave empty if not needed)",
+          "clear_history": "Clear old history (check to clear once, auto-unchecks after clearing)"
         }
       },
       "hocky": {

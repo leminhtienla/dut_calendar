@@ -5,6 +5,19 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-08-04
+
+### Thêm mới
+- **`dut_lichtuan` — tick "Xóa lịch sử cũ" trong Options** (mặc định tắt). Tick vào rồi Submit sẽ xóa sạch toàn bộ lịch sử đã lưu (kể cả các mục vẫn còn khớp đúng) ngay lần quét kế tiếp, tự tắt lại ngay sau đó — không cần tự tắt tay, không xóa lặp lại các lần quét sau. Hữu ích khi muốn dọn sạch thủ công mà không cần đổi từ khóa (vốn đã tự động xóa lịch sử từ v1.8.2).
+
+## [1.8.2] - 2026-08-04
+
+### Sửa lỗi (phát hiện qua đối chiếu attributes thật của người dùng: đổi "Hiệu trưởng" → "Giám đốc", 13/16 mục cũ không liên quan vẫn còn nguyên)
+- **Đổi từ khóa trong Options không xóa các mục chỉ khớp theo từ khóa CŨ.** Cơ chế giữ lịch sử (thêm ở 1.8.0) chỉ cộng dồn/ghi đè mục còn khớp, không bao giờ chủ động gỡ mục khi từ khóa đổi — khiến dữ liệu sai (theo tiêu chí không còn áp dụng) hiển thị lẫn với dữ liệu đúng, tới 14 ngày sau mới tự hết hạn. Đã sửa: lưu thêm "chữ ký" cấu hình từ khóa; phát hiện từ khóa vừa đổi (khác chữ ký lần quét trước) sẽ **xóa sạch lịch sử cũ**, quét lại từ đầu — đảm bảo không bao giờ hiện dữ liệu không còn đúng với cấu hình hiện tại.
+
+### Đánh đổi có chủ đích
+- Sau khi đổi từ khóa, lịch sử của các tuần không nằm trong phạm vi quét lần đó sẽ tạm thời trống cho tới lần quét kế tiếp bao gồm chúng — chấp nhận được, vì ưu tiên "không hiện sai" hơn "không thiếu tạm thời".
+
 ## [1.8.1] - 2026-08-04
 
 ### Sửa lỗi
@@ -117,7 +130,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.9.0
+[1.8.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.2
 [1.8.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.1
 [1.8.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.0
 [1.7.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.7.1
