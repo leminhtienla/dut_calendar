@@ -5,6 +5,27 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-04
+
+### Thêm mới
+- **`dut_lichtuan` — Chế độ cập nhật:** thêm lựa chọn "Chỉ tuần hiện tại + tuần mới (từ cuối tuần)" bên cạnh chế độ "Toàn bộ" cũ. Chế độ mới mặc định gọn nhẹ hơn: chỉ 1 request/lần quét (tuần hiện tại), tự tải thêm tuần kế tiếp từ Thứ 6 trở đi trong tuần (thời điểm trường thường công bố lịch tuần sau).
+- **`dut_coithi` — Theo dõi thêm 1 giảng viên khác:** tùy chọn nhập tên giảng viên (ngoài tài khoản đang đăng nhập) để lọc và cảnh báo thêm ca thi của người đó. Tải danh sách toàn bộ ca thi (không giới hạn theo tài khoản), lọc cục bộ theo tên, khử trùng nếu trùng với ca của chính mình. Gắn cờ `giang_vien_khac`/tiền tố `[Tên]` để phân biệt trong sensor, Calendar, và thông báo.
+
+### Kỹ thuật
+- `parser_exam.filter_exam_duty_by_lecturer()` mới, test độc lập bằng dữ liệu thật (lọc đúng 4/11 ca thi mẫu).
+- `api_exam.fetch_exam_duty_all_html()` mới (dùng `NCB=true&DDK=false`).
+- Field "Tên giảng viên khác" chỉ hiện ở form của `dut_coithi`, không hiện ở `dut_deadline_diem`.
+
+## [1.6.0] - 2026-08-04
+
+### Sửa lỗi (quan trọng — người dùng phát hiện qua kiểm tra thực tế)
+- **`dut_lichtuan` bỏ sót gần 1/4 dữ liệu**: trang `lichtuan.dut.udn.vn` đã được viết lại (kiến trúc mới, đăng nhập qua Microsoft OAuth cho admin, PDF export riêng...) và giờ có thêm **bảng "PHỤ LỤC"** tách biệt hoàn toàn với bảng lịch chính — parser cũ chỉ đọc bảng đầu tiên (`soup.find`), bỏ sót toàn bộ Phụ lục. Đã sửa đọc **tất cả bảng** (`soup.find_all`), phân biệt bảng chính/phụ lục qua heading `<h*>` đứng trước, gắn cờ `phu_luc` vào từng mục. Test thực tế: từ 26 mục (chỉ bảng chính) lên 35 mục (cả 2 bảng) cho cùng 1 tuần.
+- **Công thức tính năm học sai, khiến `weeks_ahead` (quét thêm tuần tới) không hoạt động đúng**: công thức cũ giả định năm học bắt đầu cố định ngày 1/9, nhưng thực tế trường không dùng ranh giới cố định (năm học có thể 52 hoặc 53 tuần, bắt đầu lệch ngày tuỳ năm). Đã bỏ hoàn toàn công thức tự tính — giờ **đọc trực tiếp** dropdown "Tuần"/"Năm học" có sẵn trên chính trang (`parse_current_week_info()`) để lấy tuần/năm học hiện tại chính xác 100%, chỉ chuyển sang năm học kế tiếp khi tuần cần quét thực sự vượt quá tuần cuối cùng đã biết.
+- Thêm cờ `[Phụ lục]` trong thông báo cảnh báo và trường `phu_luc` trong attributes/mô tả Calendar để phân biệt nguồn.
+
+### Ghi chú
+- Không phát hiện thay đổi cấu trúc bảng chính (class `week` cho ô ngày, thứ tự cột) — logic đọc dòng/cột không đổi, chỉ mở rộng phạm vi bảng được đọc.
+
 ## [1.5.1] - 2026-08-04
 
 ### Sửa lỗi
@@ -76,7 +97,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.7.0
+[1.6.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.6.0
 [1.5.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.5.1
 [1.5.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.5.0
 [1.4.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.4.0

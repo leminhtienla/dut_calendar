@@ -24,17 +24,20 @@ from homeassistant.helpers.selector import (
 from .api_exam import CBDutAuthError, CBDutClient
 from .const import (
     CONF_EXAM_DURATION,
+    CONF_EXTRA_LECTURER,
     CONF_HOC_KY,
     CONF_KEYWORDS,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
     CONF_TYPE,
+    CONF_UPDATE_MODE,
     CONF_USERNAME,
     CONF_WEEKS_AHEAD,
     DEFAULT_EXAM_DURATION,
     DEFAULT_SCAN_INTERVAL_EXAM,
     DEFAULT_SCAN_INTERVAL_PUBLIC,
+    DEFAULT_UPDATE_MODE,
     DEFAULT_WEEKS_AHEAD,
     DOMAIN,
     MAX_SCAN_INTERVAL_EXAM,
@@ -45,6 +48,8 @@ from .const import (
     TYPE_COITHI,
     TYPE_DEADLINE_DIEM,
     TYPE_LICHTUAN,
+    UPDATE_MODE_FULL,
+    UPDATE_MODE_SMART,
 )
 from .parser_exam import parse_hoc_ky_options
 from .parser_public import parse_keyword_groups
@@ -108,6 +113,24 @@ def _schema_lichtuan(defaults: dict[str, Any]) -> vol.Schema:
                     unit_of_measurement="phút",
                 )
             ),
+            vol.Required(
+                CONF_UPDATE_MODE,
+                default=defaults.get(CONF_UPDATE_MODE, DEFAULT_UPDATE_MODE),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(
+                            value=UPDATE_MODE_SMART,
+                            label="Chỉ tuần hiện tại + tuần mới (từ cuối tuần)",
+                        ),
+                        SelectOptionDict(
+                            value=UPDATE_MODE_FULL,
+                            label="Toàn bộ (tuần hiện tại + số tuần quét thêm bên dưới)",
+                        ),
+                    ],
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Optional(
                 CONF_WEEKS_AHEAD, default=defaults.get(CONF_WEEKS_AHEAD, DEFAULT_WEEKS_AHEAD)
             ): NumberSelector(
@@ -120,43 +143,50 @@ def _schema_lichtuan(defaults: dict[str, Any]) -> vol.Schema:
     )
 
 
-def _schema_login_credentials(defaults: dict[str, Any], require_password: bool) -> vol.Schema:
+def _schema_login_credentials(
+    defaults: dict[str, Any], require_password: bool, show_extra_lecturer: bool = False
+) -> vol.Schema:
     """Bước 1: tài khoản/mật khẩu + các tuỳ chọn khác (KHÔNG có học kỳ)."""
     pw_key = (
         vol.Required(CONF_PASSWORD)
         if require_password
         else vol.Optional(CONF_PASSWORD, default="")
     )
-    return vol.Schema(
-        {
-            vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): TextSelector(
-                TextSelectorConfig(type=TextSelectorType.TEXT)
-            ),
-            pw_key: TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-            vol.Required(
-                CONF_SCAN_INTERVAL,
-                default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_EXAM),
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=MIN_SCAN_INTERVAL_EXAM,
-                    max=MAX_SCAN_INTERVAL_EXAM,
-                    step=5,
-                    mode=NumberSelectorMode.BOX,
-                    unit_of_measurement="phút",
-                )
-            ),
-            vol.Optional(
-                CONF_EXAM_DURATION, default=defaults.get(CONF_EXAM_DURATION, DEFAULT_EXAM_DURATION)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=15, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="phút"
-                )
-            ),
-            vol.Optional(
-                CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
-            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
-        }
-    )
+    schema_dict: dict[Any, Any] = {
+        vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.TEXT)
+        ),
+        pw_key: TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        vol.Required(
+            CONF_SCAN_INTERVAL,
+            default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_EXAM),
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=MIN_SCAN_INTERVAL_EXAM,
+                max=MAX_SCAN_INTERVAL_EXAM,
+                step=5,
+                mode=NumberSelectorMode.BOX,
+                unit_of_measurement="phút",
+            )
+        ),
+        vol.Optional(
+            CONF_EXAM_DURATION, default=defaults.get(CONF_EXAM_DURATION, DEFAULT_EXAM_DURATION)
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=15, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="phút"
+            )
+        ),
+        vol.Optional(
+            CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
+        ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+    }
+
+    if show_extra_lecturer:
+        schema_dict[
+            vol.Optional(CONF_EXTRA_LECTURER, default=defaults.get(CONF_EXTRA_LECTURER, ""))
+        ] = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
+
+    return vol.Schema(schema_dict)
 
 
 def _schema_hocky(
@@ -319,7 +349,9 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id=f"{base_step}_login",
             data_schema=_schema_login_credentials(
-                user_input or prefill or {}, require_password=True
+                user_input or prefill or {},
+                require_password=True,
+                show_extra_lecturer=(type_value == TYPE_COITHI),
             ),
             errors=errors,
         )
@@ -407,7 +439,11 @@ class DutCalendarOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_schema_login_credentials(user_input or current, require_password=False),
+            data_schema=_schema_login_credentials(
+                user_input or current,
+                require_password=False,
+                show_extra_lecturer=(self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI),
+            ),
             errors=errors,
         )
 

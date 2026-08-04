@@ -94,6 +94,25 @@ class CBDutClient:
 
         return text
 
+    async def fetch_exam_duty_all_html(self, hoc_ky: str) -> str:
+        """Lấy TOÀN BỘ danh sách ca thi (mọi khoa, mọi cán bộ coi thi)
+        cho 1 mã học kỳ — dùng để lọc cục bộ theo tên 1 giảng viên khác
+        (xem CONF_EXTRA_LECTURER). Response lớn hơn nhiều so với
+        fetch_exam_duty_html (chỉ trả về ca của chính tài khoản đăng
+        nhập), nên chỉ gọi khi tính năng này được bật.
+        """
+        await self.ensure_logged_in()
+        text = await self._call_exam_api_all(hoc_ky)
+
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_exam_api_all(hoc_ky)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+
+        return text
+
     async def fetch_grade_deadline_html(self, ma_ca_thi: str) -> str:
         """Lấy response API LTDICT cho 1 mã ca thi — chỉ dùng để đọc phần
         header hạn nhập điểm ở đầu response (xem parser.parse_grade_deadline).
@@ -196,6 +215,27 @@ class CBDutClient:
             "HK": hoc_ky,
             "NCB": "false",
             "DDK": "true",
+            "KHOA": "ALL",
+        }
+        headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": PAGE_COITHI_URL,
+        }
+        async with self._session.post(
+            EXAM_AJAX_URL, params=params, headers=headers, timeout=30
+        ) as resp:
+            return await resp.text()
+
+    async def _call_exam_api_all(self, hoc_ky: str) -> str:
+        """Giống _call_exam_api nhưng NCB=true&DDK=false -> trả về TOÀN
+        BỘ ca thi mọi cán bộ, mọi khoa (không giới hạn theo tài khoản
+        đăng nhập). Response có thể tới ~1MB.
+        """
+        params = {
+            "E": "PhongThiDK",
+            "HK": hoc_ky,
+            "NCB": "true",
+            "DDK": "false",
             "KHOA": "ALL",
         }
         headers = {

@@ -16,7 +16,8 @@
           "keywords": "Keyword groups (one per line)",
           "scan_interval": "Check interval (minutes)",
           "weeks_ahead": "Extra weeks to check (0 = current week only)",
-          "notify_service": "Optional notify service"
+          "notify_service": "Optional notify service",
+          "update_mode": "Update mode"
         }
       },
       "dut_coithi_account": {
@@ -34,7 +35,8 @@
           "password": "Password",
           "scan_interval": "Check interval (minutes)",
           "exam_duration": "Default exam duration (minutes)",
-          "notify_service": "Optional notify service"
+          "notify_service": "Optional notify service",
+          "extra_lecturer": "Also track another lecturer (name, leave empty if not needed)"
         }
       },
       "dut_deadline_diem_account": {
@@ -57,8 +59,8 @@
       },
       "hocky": {
         "title": "Choose semesters to track",
-        "description": "You can select multiple semesters (e.g. current + next, or overlapping ones), so nothing is missed."
-        ,"data": {
+        "description": "You can select multiple semesters (e.g. current + next, or overlapping ones), so nothing is missed.",
+        "data": {
           "hoc_ky": "Semester"
         }
       }
@@ -86,7 +88,9 @@
           "notify_service": "Optional notify service",
           "username": "Username",
           "password": "New password (empty = keep current)",
-          "exam_duration": "Default exam duration (minutes)"
+          "exam_duration": "Default exam duration (minutes)",
+          "update_mode": "Update mode",
+          "extra_lecturer": "Also track another lecturer (name, leave empty if not needed)"
         }
       },
       "hocky": {

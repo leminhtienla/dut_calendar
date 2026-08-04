@@ -15,15 +15,38 @@ from bs4 import BeautifulSoup
 from .const import LICHTUAN_BASE_URL as BASE_URL
 
 
-def get_academic_year(d: date) -> str:
-    """Trả về năm học dạng '2025-2026'.
+def parse_current_week_info(html: str) -> dict[str, Any] | None:
+    """Đọc dropdown 'Tuần'/'Năm học' có sẵn trên trang để biết CHÍNH XÁC
+    tuần/năm học hiện tại theo hệ thống của trường — không tự suy luận
+    bằng công thức (năm học không bắt đầu cố định 1/9 hay 1/8, ranh
+    giới do trường tự set, có năm 52 tuần có năm 53 tuần).
 
-    Quy ước: năm học bắt đầu từ tháng 9. Vậy tháng 1-8 thuộc năm học
-    (year-1)-(year), tháng 9-12 thuộc năm học (year)-(year+1).
+    Trả về None nếu không tìm thấy dropdown (cấu trúc trang đã đổi).
     """
-    if d.month >= 9:
-        return f"{d.year}-{d.year + 1}"
-    return f"{d.year - 1}-{d.year}"
+    soup = BeautifulSoup(html, "html.parser")
+    week_select = soup.find("select", id="week-container")
+    year_select = soup.find("select", id="year-select")
+    if week_select is None or year_select is None:
+        return None
+
+    selected_week = week_select.find("option", selected=True)
+    selected_year = year_select.find("option", selected=True)
+    all_week_values = [o.get("value") for o in week_select.find_all("option") if o.get("value")]
+    if not selected_week or not selected_year or not all_week_values:
+        return None
+
+    return {
+        "current_week": selected_week.get("value"),
+        "current_year": selected_year.get("value"),
+        "min_week_in_year": min(all_week_values),
+        "max_week_in_year": max(all_week_values),
+    }
+
+
+def next_year_label(year_label: str) -> str:
+    """'2025-2026' -> '2026-2027'."""
+    start = int(year_label.split("-")[0])
+    return f"{start + 1}-{start + 2}"
 
 
 def get_week_monday(d: date) -> date:
@@ -31,10 +54,10 @@ def get_week_monday(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def build_week_url(monday: date) -> str:
-    """Dựng URL lịch tuần cho ngày Thứ Hai đã cho."""
-    year_str = get_academic_year(monday)
-    return f"{BASE_URL}?week={monday.isoformat()}&year={year_str}"
+def build_week_url(monday: date, year_label: str) -> str:
+    """Dựng URL lịch tuần cho ngày Thứ Hai + năm học đã xác định trước
+    (lấy từ parse_current_week_info, không tự tính công thức)."""
+    return f"{BASE_URL}?week={monday.isoformat()}&year={year_label}"
 
 
 def entry_hash(entry: dict[str, Any]) -> str:
@@ -59,63 +82,73 @@ def _clean_text(text: str) -> str:
 def parse_schedule(html: str, week_label: str = "") -> list[dict[str, Any]]:
     """Phân tích HTML trang lịch tuần, trả về danh sách các mục.
 
+    Trang có thể có NHIỀU bảng (bảng "Lịch Công Tác Tuần" chính, và
+    bảng "PHỤ LỤC" riêng nếu có) — đọc TẤT CẢ, không chỉ bảng đầu
+    tiên, để không bỏ sót các mục nằm trong Phụ lục.
+
     Mỗi mục gồm: day (Thứ), date (ngày), time, content, participants,
-    location, host, extra, week_label.
+    location, host, extra, week_label, phu_luc (bool).
     """
     soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table", class_="table")
-    if table is None:
-        return []
-    tbody = table.find("tbody")
-    if tbody is None:
+    tables = soup.find_all("table", class_="table")
+    if not tables:
         return []
 
     entries: list[dict[str, Any]] = []
-    current_day = ""
-    current_date = ""
 
-    for tr in tbody.find_all("tr", recursive=False):
-        tds = tr.find_all("td", recursive=False)
-        if not tds:
-            continue
+    for table in tables:
+        heading = table.find_previous(["h1", "h2", "h3", "h4", "h5"])
+        is_phu_luc = bool(heading and "PHỤ LỤC" in heading.get_text(strip=True).upper())
 
-        first_classes = tds[0].get("class", []) or []
-        if "week" in first_classes:
-            raw_parts = tds[0].get_text(separator="\n", strip=True).split("\n")
-            parts = [_clean_text(p) for p in raw_parts if _clean_text(p)]
-            current_day = parts[0] if parts else ""
-            current_date = parts[1] if len(parts) > 1 else ""
-            rest = tds[1:]
-        else:
-            rest = tds
+        tbody = table.find("tbody") or table
+        current_day = ""
+        current_date = ""
 
-        if len(rest) < 5:
-            # Dòng không đủ cột dữ liệu (thời gian/nội dung/thành phần/địa điểm/chủ trì)
-            continue
+        for tr in tbody.find_all("tr", recursive=False):
+            tds = tr.find_all("td", recursive=False)
+            if not tds:
+                continue
 
-        time_txt = _clean_text(rest[0].get_text(separator=" ", strip=True))
-        content_txt = _clean_text(rest[1].get_text(separator=" ", strip=True))
-        participants_txt = _clean_text(rest[2].get_text(separator=" ", strip=True))
-        location_txt = _clean_text(rest[3].get_text(separator=" ", strip=True))
-        host_txt = _clean_text(rest[4].get_text(separator=" ", strip=True))
-        extra_txt = _clean_text(rest[5].get_text(separator=" ", strip=True)) if len(rest) > 5 else ""
+            first_classes = tds[0].get("class", []) or []
+            if "week" in first_classes:
+                raw_parts = tds[0].get_text(separator="\n", strip=True).split("\n")
+                parts = [_clean_text(p) for p in raw_parts if _clean_text(p)]
+                current_day = parts[0] if parts else ""
+                current_date = parts[1] if len(parts) > 1 else ""
+                rest = tds[1:]
+            else:
+                rest = tds
 
-        if not any([time_txt, content_txt, participants_txt, location_txt, host_txt]):
-            continue
+            if len(rest) < 5:
+                # Dòng không đủ cột dữ liệu (thời gian/nội dung/thành phần/địa điểm/chủ trì)
+                continue
 
-        entries.append(
-            {
-                "day": current_day,
-                "date": current_date,
-                "time": time_txt,
-                "content": content_txt,
-                "participants": participants_txt,
-                "location": location_txt,
-                "host": host_txt,
-                "extra": extra_txt,
-                "week_label": week_label,
-            }
-        )
+            time_txt = _clean_text(rest[0].get_text(separator=" ", strip=True))
+            content_txt = _clean_text(rest[1].get_text(separator=" ", strip=True))
+            participants_txt = _clean_text(rest[2].get_text(separator=" ", strip=True))
+            location_txt = _clean_text(rest[3].get_text(separator=" ", strip=True))
+            host_txt = _clean_text(rest[4].get_text(separator=" ", strip=True))
+            extra_txt = (
+                _clean_text(rest[5].get_text(separator=" ", strip=True)) if len(rest) > 5 else ""
+            )
+
+            if not any([time_txt, content_txt, participants_txt, location_txt, host_txt]):
+                continue
+
+            entries.append(
+                {
+                    "day": current_day,
+                    "date": current_date,
+                    "time": time_txt,
+                    "content": content_txt,
+                    "participants": participants_txt,
+                    "location": location_txt,
+                    "host": host_txt,
+                    "extra": extra_txt,
+                    "week_label": week_label,
+                    "phu_luc": is_phu_luc,
+                }
+            )
 
     return entries
 

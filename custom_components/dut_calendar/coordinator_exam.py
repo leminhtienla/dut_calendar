@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api_exam import CBDutAuthError, CBDutClient
 from .const import (
     CONF_EXAM_DURATION,
+    CONF_EXTRA_LECTURER,
     CONF_HOC_KY,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
@@ -33,6 +34,7 @@ from .const import (
 )
 from .parser_exam import (
     exam_hash,
+    filter_exam_duty_by_lecturer,
     parse_class_deadline,
     parse_class_list,
     parse_exam_datetime,
@@ -107,6 +109,14 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def is_deadline_diem(self) -> bool:
         return self.entry.data.get(CONF_TYPE) == TYPE_DEADLINE_DIEM
 
+    @property
+    def extra_lecturer(self) -> str | None:
+        """Tên giảng viên khác cần theo dõi thêm (ngoài tài khoản đang đăng nhập)."""
+        val = self.entry.options.get(
+            CONF_EXTRA_LECTURER, self.entry.data.get(CONF_EXTRA_LECTURER, "")
+        )
+        return val.strip() if val and val.strip() else None
+
     async def _async_load_storage(self) -> None:
         if self._loaded_storage:
             return
@@ -143,7 +153,50 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             duties = await self.hass.async_add_executor_job(
                 parse_exam_duty, html, hoc_ky
             )
+            for d in duties:
+                d["extra_lecturer_match"] = False
             all_duties.extend(duties)
+
+        # --- Theo dõi thêm 1 giảng viên khác (nếu bật) ---
+        # Tải danh sách TOÀN BỘ (không giới hạn theo tài khoản đăng nhập)
+        # rồi lọc cục bộ theo tên, gộp thêm vào all_duties.
+        lecturer = self.extra_lecturer
+        if self.is_coithi and lecturer:
+            for hoc_ky in hoc_ky_list:
+                try:
+                    html_all = await self._client.fetch_exam_duty_all_html(hoc_ky)
+                except CBDutAuthError as err:
+                    raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "Không lấy được danh sách toàn bộ ca thi cho HK %s (giảng viên khác)",
+                        hoc_ky,
+                    )
+                    continue
+
+                all_that_week = await self.hass.async_add_executor_job(
+                    parse_exam_duty, html_all, hoc_ky
+                )
+                matched = await self.hass.async_add_executor_job(
+                    filter_exam_duty_by_lecturer, all_that_week, lecturer
+                )
+                for d in matched:
+                    d["extra_lecturer_match"] = True
+                all_duties.extend(matched)
+
+        # Khử trùng theo id (vd giảng viên khác vốn đã là "Cán bộ 2" cùng
+        # coi thi với tài khoản đang đăng nhập -> giữ lại bản ghi xuất
+        # hiện TRƯỚC, tức bản của chính tài khoản đăng nhập).
+        seen_ids: set[str] = set()
+        deduped: list[dict[str, Any]] = []
+        for d in all_duties:
+            _id = exam_hash(d)
+            d["id"] = _id
+            if _id in seen_ids:
+                continue
+            seen_ids.add(_id)
+            deduped.append(d)
+        all_duties = deduped
 
         # Tính start/end + id cho từng ca thi
         duration = self.exam_duration
@@ -306,8 +359,12 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for d in new_duties[:10]:
             start = d["start"]
             time_str = start.strftime("%H:%M %d/%m/%Y") if start else d["thoi_gian_raw"]
+            if d.get("extra_lecturer_match"):
+                tag = f"[{d.get('can_bo_1') or d.get('can_bo_2')}] "
+            else:
+                tag = ""
             lines.append(
-                f"• {d['mon_thi']} — {time_str}, phòng {d['phong']} "
+                f"• {tag}{d['mon_thi']} — {time_str}, phòng {d['phong']} "
                 f"(cùng coi thi: {d['can_bo_2']})"
             )
         if len(new_duties) > 10:

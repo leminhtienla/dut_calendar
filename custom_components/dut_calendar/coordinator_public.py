@@ -15,18 +15,25 @@ from .const import (
     CONF_KEYWORDS,
     CONF_NOTIFY_SERVICE,
     CONF_SCAN_INTERVAL,
+    CONF_UPDATE_MODE,
     CONF_WEEKS_AHEAD,
     DEFAULT_SCAN_INTERVAL_PUBLIC as DEFAULT_SCAN_INTERVAL,
+    DEFAULT_UPDATE_MODE,
     DEFAULT_WEEKS_AHEAD,
     DOMAIN,
     EVENT_MATCH_FOUND,
+    LICHTUAN_BASE_URL,
     MAX_STORED_HASHES_PUBLIC as MAX_STORED_HASHES,
+    SMART_MODE_WEEKDAY_THRESHOLD,
     STORAGE_KEY_TEMPLATE,
     STORAGE_VERSION,
+    UPDATE_MODE_SMART,
 )
 from .parser_public import (
     build_week_url,
     filter_by_keywords,
+    next_year_label,
+    parse_current_week_info,
     parse_keyword_groups,
     parse_schedule,
 )
@@ -79,6 +86,12 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     @property
+    def update_mode(self) -> str:
+        return self.entry.options.get(
+            CONF_UPDATE_MODE, self.entry.data.get(CONF_UPDATE_MODE, DEFAULT_UPDATE_MODE)
+        )
+
+    @property
     def notify_service(self) -> str | None:
         val = self.entry.options.get(
             CONF_NOTIFY_SERVICE, self.entry.data.get(CONF_NOTIFY_SERVICE, "")
@@ -107,23 +120,68 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return {"matches": [], "total_entries": 0, "new_matches": []}
 
         session = async_get_clientsession(self.hass)
-        today = date.today()
+
+        # --- Bước 1: lấy tuần/năm học HIỆN TẠI thật từ chính trang ---
+        # (không tự tính công thức, vì năm học không cố định bắt đầu
+        # 1/9 hay 1/8 — ranh giới do trường tự đặt và có thể lệch).
+        try:
+            async with session.get(LICHTUAN_BASE_URL, timeout=30) as resp:
+                resp.raise_for_status()
+                anchor_html = await resp.text()
+        except Exception as err:  # noqa: BLE001
+            raise UpdateFailed(f"Lỗi tải trang lịch tuần gốc: {err}") from err
+
+        anchor = await self.hass.async_add_executor_job(parse_current_week_info, anchor_html)
+        if anchor is None:
+            raise UpdateFailed(
+                "Không đọc được dropdown Tuần/Năm học trên trang — "
+                "có thể trang đã đổi cấu trúc, cần cập nhật lại integration."
+            )
+
+        anchor_monday = date.fromisoformat(anchor["current_week"])
+        anchor_year = anchor["current_year"]
+        max_week_in_year = anchor["max_week_in_year"]
+
         all_entries: list[dict[str, Any]] = []
 
-        for offset in range(self.weeks_ahead + 1):
-            monday = today - timedelta(days=today.weekday()) + timedelta(weeks=offset)
-            url = build_week_url(monday)
-            week_label = f"{monday.strftime('%d/%m/%Y')} - {(monday + timedelta(days=6)).strftime('%d/%m/%Y')}"
-            try:
-                async with session.get(url, timeout=30) as resp:
-                    resp.raise_for_status()
-                    html = await resp.text()
-            except Exception as err:  # noqa: BLE001
-                raise UpdateFailed(f"Lỗi tải lịch tuần ({url}): {err}") from err
+        # --- Xác định các tuần cần quét theo chế độ đã chọn ---
+        if self.update_mode == UPDATE_MODE_SMART:
+            # Chế độ gọn: luôn quét tuần hiện tại; chỉ quét thêm tuần kế
+            # tiếp khi đã tới "cuối tuần" (mặc định từ Thứ 6), vì trường
+            # thường công bố lịch tuần mới vào khoảng cuối tuần trước đó.
+            offsets = [0]
+            if date.today().weekday() >= SMART_MODE_WEEKDAY_THRESHOLD:
+                offsets.append(1)
+        else:
+            # Chế độ toàn bộ: tuần hiện tại + đúng số tuần weeks_ahead đã cấu hình
+            offsets = list(range(self.weeks_ahead + 1))
 
-            entries = await self.hass.async_add_executor_job(
-                parse_schedule, html, week_label
+        for offset in offsets:
+            monday = anchor_monday + timedelta(weeks=offset)
+            # Nếu tuần mục tiêu vượt quá tuần cuối của năm học hiện tại,
+            # tự động chuyển sang năm học kế tiếp (hiếm khi xảy ra, chỉ
+            # khi weeks_ahead đẩy qua đúng dịp chuyển năm học).
+            year_label = anchor_year
+            if monday.isoformat() > max_week_in_year:
+                year_label = next_year_label(anchor_year)
+
+            if offset == 0:
+                # Tuần hiện tại: dùng luôn HTML đã tải ở bước anchor,
+                # khỏi tải lại lần 2 cho cùng 1 trang.
+                html = anchor_html
+            else:
+                url = build_week_url(monday, year_label)
+                try:
+                    async with session.get(url, timeout=30) as resp:
+                        resp.raise_for_status()
+                        html = await resp.text()
+                except Exception as err:  # noqa: BLE001
+                    raise UpdateFailed(f"Lỗi tải lịch tuần ({url}): {err}") from err
+
+            week_label = (
+                f"{monday.strftime('%d/%m/%Y')} - {(monday + timedelta(days=6)).strftime('%d/%m/%Y')}"
             )
+            entries = await self.hass.async_add_executor_job(parse_schedule, html, week_label)
             all_entries.extend(entries)
 
         matches = await self.hass.async_add_executor_job(
@@ -152,8 +210,9 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for m in new_matches[:10]:
             kw = ", ".join(m["matched_keywords"])
             variants = ", ".join(m.get("matched_variants", []))
+            tag = "[Phụ lục] " if m.get("phu_luc") else ""
             lines.append(
-                f"• {m['day']} {m['date']} {m['time']} — {m['content']} "
+                f"• {tag}{m['day']} {m['date']} {m['time']} — {m['content']} "
                 f"(từ khóa: {kw} [{variants}], tại: {m['location']})"
             )
         if len(new_matches) > 10:

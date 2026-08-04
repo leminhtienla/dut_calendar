@@ -16,7 +16,8 @@
           "keywords": "Danh sách nhóm từ khóa (mỗi dòng 1 nhóm)",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "weeks_ahead": "Số tuần kiểm tra thêm (0 = chỉ tuần hiện tại)",
-          "notify_service": "Notify service tùy chọn (vd: notify.mobile_app_dien_thoai)"
+          "notify_service": "Notify service tùy chọn (vd: notify.mobile_app_dien_thoai)",
+          "update_mode": "Chế độ cập nhật"
         }
       },
       "dut_coithi_account": {
@@ -34,7 +35,8 @@
           "password": "Mật khẩu",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
-          "notify_service": "Notify service tùy chọn"
+          "notify_service": "Notify service tùy chọn",
+          "extra_lecturer": "Theo dõi thêm giảng viên khác (tên, để trống nếu không cần)"
         }
       },
       "dut_deadline_diem_account": {
@@ -86,7 +88,9 @@
           "notify_service": "Notify service tùy chọn",
           "username": "Tài khoản",
           "password": "Mật khẩu mới (để trống = giữ nguyên)",
-          "exam_duration": "Thời lượng ca thi mặc định (phút)"
+          "exam_duration": "Thời lượng ca thi mặc định (phút)",
+          "update_mode": "Chế độ cập nhật",
+          "extra_lecturer": "Theo dõi thêm giảng viên khác (tên, để trống nếu không cần)"
         }
       },
       "hocky": {

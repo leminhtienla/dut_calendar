@@ -273,6 +273,25 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
     return events
 
 
+def filter_exam_duty_by_lecturer(
+    entries: list[dict[str, Any]], lecturer_name: str
+) -> list[dict[str, Any]]:
+    """Lọc danh sách ca thi (từ parse_exam_duty với dữ liệu TOÀN BỘ,
+    không phải chỉ của tài khoản đăng nhập) theo tên 1 giảng viên khác
+    — so khớp không phân biệt hoa/thường, kiểu chuỗi con, trên cả 2
+    cột 'Cán bộ 1' và 'Cán bộ 2'.
+    """
+    name = lecturer_name.strip().lower()
+    if not name:
+        return []
+
+    return [
+        e
+        for e in entries
+        if name in e.get("can_bo_1", "").lower() or name in e.get("can_bo_2", "").lower()
+    ]
+
+
 def exam_hash(entry: dict[str, Any]) -> str:
     """Mã băm ổn định cho 1 ca thi, dùng để chống báo trùng."""
     raw = "|".join(

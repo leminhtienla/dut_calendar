@@ -83,6 +83,8 @@ class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], Calendar
             kw = ", ".join(m.get("matched_keywords", []))
             variants = ", ".join(m.get("matched_variants", []))
             desc_lines = [f"Từ khóa khớp: {kw} ({variants})"]
+            if m.get("phu_luc"):
+                desc_lines.append("(Nguồn: bảng Phụ lục)")
             if m.get("participants"):
                 desc_lines.append(f"Thành phần: {m['participants']}")
             if m.get("host"):
@@ -156,6 +158,8 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             end = end.replace(tzinfo=tzinfo)
 
             desc_lines = [f"Mã ca thi: {d.get('ma_ca_thi')}"]
+            if d.get("extra_lecturer_match"):
+                desc_lines.append(f"Cán bộ 1: {d.get('can_bo_1')}")
             if d.get("can_bo_2"):
                 desc_lines.append(f"Cùng coi thi: {d['can_bo_2']}")
             if d.get("xuat"):
@@ -163,11 +167,17 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             if d.get("hoc_ky_label"):
                 desc_lines.append(f"Học kỳ: {d['hoc_ky_label']}")
 
+            summary_prefix = (
+                f"[{d.get('can_bo_1') or d.get('can_bo_2')}] "
+                if d.get("extra_lecturer_match")
+                else ""
+            )
+
             events.append(
                 CalendarEvent(
                     start=start,
                     end=end,
-                    summary=f"Coi thi: {d.get('mon_thi') or '(không rõ môn)'}",
+                    summary=f"{summary_prefix}Coi thi: {d.get('mon_thi') or '(không rõ môn)'}",
                     description="\n".join(desc_lines),
                     location=d.get("phong") or "",
                     uid=d.get("id"),

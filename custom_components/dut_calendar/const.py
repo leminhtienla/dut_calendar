@@ -16,6 +16,14 @@ CONF_KEYWORDS = "keywords"
 CONF_SCAN_INTERVAL = "scan_interval"  # phút
 CONF_WEEKS_AHEAD = "weeks_ahead"
 CONF_NOTIFY_SERVICE = "notify_service"
+CONF_UPDATE_MODE = "update_mode"
+
+UPDATE_MODE_SMART = "smart"  # chỉ tuần hiện tại + tuần mới (từ thứ 6 trở đi)
+UPDATE_MODE_FULL = "full"  # tuần hiện tại + weeks_ahead, mỗi lần quét
+DEFAULT_UPDATE_MODE = UPDATE_MODE_FULL
+# Từ thứ mấy trong tuần (0=Thứ 2 ... 6=Chủ nhật) thì bắt đầu coi là
+# "cuối tuần" và quét thêm tuần kế tiếp ở chế độ smart. Thứ 6 = 4.
+SMART_MODE_WEEKDAY_THRESHOLD = 4
 
 DEFAULT_SCAN_INTERVAL_PUBLIC = 60
 DEFAULT_WEEKS_AHEAD = 0
@@ -34,6 +42,7 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_HOC_KY = "hoc_ky"
 CONF_EXAM_DURATION = "exam_duration"
+CONF_EXTRA_LECTURER = "extra_lecturer"  # tên giảng viên khác cần theo dõi thêm (chỉ dut_coithi)
 
 DEFAULT_SCAN_INTERVAL_EXAM = 120
 DEFAULT_EXAM_DURATION = 90

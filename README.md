@@ -38,6 +38,22 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
   ```
 - Tạo 1 sensor tổng + 1 sensor riêng mỗi nhóm từ khóa, và Calendar `calendar.lich_tuan`.
 - Chỉ cảnh báo mục **mới**, không lặp lại.
+- Quét **cả bảng lịch chính lẫn bảng "PHỤ LỤC"** (2 bảng tách biệt trên
+  trang) — mục nào tới từ Phụ lục sẽ có gắn cờ `phu_luc: true` trong
+  attributes và tiền tố `[Phụ lục]` trong thông báo, để phân biệt.
+- Tuần/năm học hiện tại được **đọc trực tiếp** từ dropdown có sẵn trên
+  trang (không tự tính công thức) — an toàn trước việc trường đổi
+  ranh giới năm học hoặc số tuần mỗi năm (52 hay 53 tuần) mà không
+  báo trước.
+- **Chế độ cập nhật** (chọn khi cài đặt hoặc sửa qua Options):
+  - **"Chỉ tuần hiện tại + tuần mới (từ cuối tuần)"** — mặc định gọn
+    nhẹ nhất: mỗi lần quét chỉ tải tuần hiện tại (1 request); từ
+    **Thứ 6** trở đi trong tuần mới tải thêm tuần kế tiếp (trường
+    thường công bố lịch tuần sau vào khoảng cuối tuần). Bỏ qua cấu
+    hình "Số tuần kiểm tra thêm" ở chế độ này.
+  - **"Toàn bộ"** — hành vi như trước: luôn tải tuần hiện tại + đúng
+    số tuần đã cấu hình ở "Số tuần kiểm tra thêm", bất kể ngày nào
+    trong tuần.
 
 ## Sensor đếm số sự kiện (cả 3 loại)
 
@@ -100,6 +116,16 @@ nếu không muốn đổi.
   đặt 2 bước" phía trên), không cần nhớ mã số.
 - Tạo sensor `Lịch coi thi` + Calendar `calendar.coi_thi`.
 - Chỉ cảnh báo ca thi **mới**.
+- **Theo dõi thêm 1 giảng viên khác** (tùy chọn, nhập tên ở bước đăng
+  nhập hoặc sửa qua Options): khi bật, mỗi lần quét sẽ tải thêm danh
+  sách **toàn bộ ca thi** (không giới hạn theo tài khoản đăng nhập,
+  response lớn hơn — chỉ dùng khi thực sự cần) rồi lọc theo tên đã
+  nhập (so khớp không phân biệt hoa/thường, kiểu chuỗi con, trên cả
+  cột "Cán bộ 1" và "Cán bộ 2"). Ca thi tìm được sẽ gắn cờ
+  `giang_vien_khac: true` trong attributes, có tiền tố `[Tên giảng
+  viên]` trong tiêu đề sự kiện Calendar và trong thông báo. Nếu giảng
+  viên đó vốn đã là "Cán bộ 2" cùng coi thi với bạn, ca đó chỉ tính 1
+  lần (không hiện trùng lặp).
 
 ## `dut_deadline_diem` — Hạn nộp điểm
 

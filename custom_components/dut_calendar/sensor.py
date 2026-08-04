@@ -73,6 +73,7 @@ def _simplify_public(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "host": m.get("host"),
             "matched_keywords": m.get("matched_keywords"),
             "week": m.get("week_label"),
+            "phu_luc": m.get("phu_luc", False),
         }
         for m in matches[:MAX_ATTR_ENTRIES]
     ]
@@ -215,13 +216,16 @@ class ExamDutySensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
                 "mon_thi": d.get("mon_thi"),
                 "thoi_gian": d.get("thoi_gian_raw"),
                 "phong": d.get("phong"),
+                "can_bo_1": d.get("can_bo_1"),
                 "can_bo_2": d.get("can_bo_2"),
                 "hoc_ky": d.get("hoc_ky_label"),
+                "giang_vien_khac": d.get("extra_lecturer_match", False),
             }
             for d in self._upcoming[:MAX_ATTR_ENTRIES]
         ]
         return {
             "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
+            "giang_vien_khac_theo_doi": self.coordinator.extra_lecturer,
             "so_ca_sap_toi": len(self._upcoming),
             "so_ca_moi_lan_quet_gan_nhat": len(new_duties),
             "ca_thi": simplified,
