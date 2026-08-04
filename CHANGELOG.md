@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-04
+
+### Thêm mới
+- **2 khoảng đếm mới: "Tuần này" và "Tuần sau"** (Thứ 2 → Chủ nhật) — áp dụng cho cả 3 loại (`dut_lichtuan`, `dut_coithi`, `dut_deadline_diem`), nâng tổng số khoảng đếm từ 3 lên 5 (Hôm nay/Ngày mai/Tuần này/Tuần sau/Tháng này).
+- **`dut_lichtuan` — bộ sensor đếm riêng cho TỪNG NHÓM từ khóa**: trước đây chỉ có 1 bộ đếm TỔNG (gộp mọi nhóm); giờ mỗi nhóm từ khóa có thêm 5 sensor đếm riêng (vd "Lê Minh Tiến: Hôm nay"), bên cạnh bộ tổng vẫn giữ nguyên.
+
 ## [1.9.0] - 2026-08-04
 
 ### Thêm mới
@@ -130,7 +136,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.10.0
 [1.9.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.9.0
 [1.8.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.2
 [1.8.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.1

@@ -81,15 +81,22 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
 ## Sensor đếm số sự kiện (cả 3 loại)
 
 Mỗi loại (`dut_lichtuan`, `dut_coithi`, `dut_deadline_diem`) đều có
-thêm 3 sensor đếm, tính theo giờ hệ thống của Home Assistant:
+thêm 5 sensor đếm, tính theo giờ hệ thống của Home Assistant:
 
 - **Hôm nay** — số sự kiện rơi đúng ngày hôm nay.
 - **Ngày mai** — số sự kiện rơi đúng ngày mai.
+- **Tuần này** — số sự kiện trong tuần hiện tại (Thứ 2 → Chủ nhật).
+- **Tuần sau** — số sự kiện trong tuần kế tiếp (Thứ 2 → Chủ nhật).
 - **Tháng này** — số sự kiện trong tháng hiện tại.
 
 Với `dut_lichtuan`: đếm theo mục lịch tuần khớp từ khóa. Với
 `dut_coithi`: đếm theo ca coi thi. Với `dut_deadline_diem`: đếm theo
 mốc hạn nộp điểm (thi chung + từng lớp gộp lại).
+
+**Riêng `dut_lichtuan`: có thêm 1 bộ 5 sensor đếm này cho TỪNG NHÓM từ
+khóa** (vd "Lê Minh Tiến: Hôm nay", "Lê Minh Tiến: Tuần này"...), bên
+cạnh bộ đếm TỔNG (gộp mọi nhóm) đã có sẵn — tổng cộng `5 × (1 + số
+nhóm từ khóa)` sensor đếm cho riêng `dut_lichtuan`.
 
 ## Calendar — tên rút gọn
 

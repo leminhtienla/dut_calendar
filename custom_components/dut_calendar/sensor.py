@@ -20,7 +20,7 @@ from .parser_exam import build_deadline_events, parse_vn_date
 from .parser_public import parse_event_datetime
 
 MAX_ATTR_ENTRIES = 25
-PERIODS = ("today", "tomorrow", "month")
+PERIODS = ("today", "tomorrow", "week", "next_week", "month")
 
 
 async def async_setup_entry(
@@ -30,11 +30,19 @@ async def async_setup_entry(
 
     if isinstance(coordinator, LichTuanDutCoordinator):
         entities: list[SensorEntity] = [PublicTotalSensor(coordinator, entry)]
-        for label in coordinator.keyword_labels:
+        labels = coordinator.keyword_labels
+        for label in labels:
             entities.append(PublicKeywordSensor(coordinator, entry, label))
+        # Bộ đếm TỔNG (mọi nhóm gộp lại)
         entities += [
             PublicCountSensor(coordinator, entry, period) for period in PERIODS
         ]
+        # Bộ đếm RIÊNG cho từng nhóm từ khóa
+        for label in labels:
+            entities += [
+                PublicCountSensor(coordinator, entry, period, keyword_label=label)
+                for period in PERIODS
+            ]
         async_add_entities(entities)
     elif isinstance(coordinator, CBDutCoordinator):
         entry_type = entry.data.get(CONF_TYPE)
@@ -311,10 +319,18 @@ class GradeDeadlineSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
 # Sensor đếm số sự kiện: Hôm nay / Ngày mai / Tháng này
 # (dùng chung cho cả 3 loại, mỗi loại override _event_dates())
 # =====================================================================
-_PERIOD_LABELS = {"today": "Hôm nay", "tomorrow": "Ngày mai", "month": "Tháng này"}
+_PERIOD_LABELS = {
+    "today": "Hôm nay",
+    "tomorrow": "Ngày mai",
+    "week": "Tuần này",
+    "next_week": "Tuần sau",
+    "month": "Tháng này",
+}
 _PERIOD_ICONS = {
     "today": "mdi:calendar-today",
     "tomorrow": "mdi:calendar-arrow-right",
+    "week": "mdi:calendar-week",
+    "next_week": "mdi:calendar-week-begin",
     "month": "mdi:calendar-month",
 }
 
@@ -354,23 +370,46 @@ class _CountSensorBase(CoordinatorEntity, SensorEntity):
             return sum(1 for d in dates if d == today)
         if self._period == "tomorrow":
             return sum(1 for d in dates if d == today + timedelta(days=1))
+        if self._period in ("week", "next_week"):
+            week_start = today - timedelta(days=today.weekday())  # Thứ 2 tuần này
+            if self._period == "next_week":
+                week_start += timedelta(days=7)
+            week_end = week_start + timedelta(days=6)  # Chủ nhật
+            return sum(1 for d in dates if week_start <= d <= week_end)
         # "month"
         return sum(1 for d in dates if d.year == today.year and d.month == today.month)
 
 
 class PublicCountSensor(_CountSensorBase):
-    """Đếm số mục lịch tuần khớp từ khóa theo hôm nay/ngày mai/tháng này."""
+    """Đếm số mục lịch tuần khớp từ khóa theo từng khoảng thời gian.
+
+    Nếu `keyword_label` được truyền vào, CHỈ đếm các mục thuộc đúng
+    nhóm từ khóa đó (dùng để tạo bộ sensor đếm RIÊNG cho từng nhóm,
+    bên cạnh bộ đếm TỔNG khi không truyền tham số này).
+    """
 
     def __init__(
-        self, coordinator: LichTuanDutCoordinator, entry: ConfigEntry, period: str
+        self,
+        coordinator: LichTuanDutCoordinator,
+        entry: ConfigEntry,
+        period: str,
+        keyword_label: str | None = None,
     ) -> None:
         super().__init__(coordinator, entry, period)
         self._attr_device_info = _device_info_public(entry)
+        self._keyword_label = keyword_label
+        if keyword_label:
+            period_label = _PERIOD_LABELS[period]
+            self._attr_name = f"{keyword_label}: {period_label}"
+            kw_hash = hashlib.sha1(keyword_label.strip().lower().encode("utf-8")).hexdigest()[:12]
+            self._attr_unique_id = f"{entry.entry_id}_count_{period}_{kw_hash}"
 
     def _event_dates(self) -> list[date]:
         data = self.coordinator.data or {}
         dates: list[date] = []
         for m in data.get("matches", []):
+            if self._keyword_label and self._keyword_label not in m.get("matched_keywords", []):
+                continue
             start, _end, _all_day = parse_event_datetime(m.get("date", ""), m.get("time", ""))
             d = _to_date(start)
             if d:
