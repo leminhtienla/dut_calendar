@@ -62,7 +62,13 @@ def build_week_url(monday: date, year_label: str) -> str:
 
 
 def entry_hash(entry: dict[str, Any]) -> str:
-    """Tạo mã băm ổn định cho một mục lịch, dùng để chống báo trùng."""
+    """Mã băm CHI TIẾT của một mục lịch (ngày+giờ+nội dung+chủ trì).
+
+    Đổi bất kỳ trường nào (kể cả chỉ sửa giờ) là ra mã khác — dùng để
+    phát hiện "có thay đổi cần báo" (self._seen_hashes), KHÔNG dùng
+    làm khóa lưu trữ lịch sử (xem entry_stable_id bên dưới, tránh hiện
+    trùng 2 bản khi trường chỉ sửa nhẹ 1 mục đã có).
+    """
     raw = "|".join(
         [
             entry.get("date", ""),
@@ -71,6 +77,18 @@ def entry_hash(entry: dict[str, Any]) -> str:
             entry.get("host", ""),
         ]
     )
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def entry_stable_id(entry: dict[str, Any]) -> str:
+    """Khóa định danh ỔN ĐỊNH cho 1 mục lịch (chỉ dựa ngày + nội dung).
+
+    Dùng làm khóa lưu trữ lịch sử — nếu trường sửa giờ/địa điểm/chủ
+    trì của MỘT sự kiện đã có (cùng ngày, cùng nội dung), bản ghi cũ
+    được GHI ĐÈ bằng bản mới thay vì cộng dồn thành 2 mục hiển thị
+    song song trên Calendar.
+    """
+    raw = "|".join([entry.get("date", ""), entry.get("content", "")])
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 

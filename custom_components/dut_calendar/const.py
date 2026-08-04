@@ -34,6 +34,11 @@ MAX_WEEKS_AHEAD = 3
 LICHTUAN_BASE_URL = "https://lichtuan.dut.udn.vn/home"
 EVENT_MATCH_FOUND = f"{DOMAIN}_match_found"
 MAX_STORED_HASHES_PUBLIC = 1000
+# Giữ lại mục lịch tuần đã khớp bao nhiêu ngày SAU ngày diễn ra sự kiện,
+# để Calendar/sensor vẫn còn dữ liệu khi duyệt lùi lại tuần trước, thay
+# vì mất ngay khi trang chuyển sang tuần mới. Không giữ vô hạn để tránh
+# phình to theo thời gian.
+PUBLIC_HISTORY_RETENTION_DAYS = 14
 
 # =====================================================================
 # Nguồn 2: Lịch coi thi & hạn nộp điểm (cb.dut.udn.vn - cần đăng nhập)

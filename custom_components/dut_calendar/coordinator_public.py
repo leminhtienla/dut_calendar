@@ -24,6 +24,7 @@ from .const import (
     EVENT_MATCH_FOUND,
     LICHTUAN_BASE_URL,
     MAX_STORED_HASHES_PUBLIC as MAX_STORED_HASHES,
+    PUBLIC_HISTORY_RETENTION_DAYS,
     SMART_MODE_WEEKDAY_THRESHOLD,
     STORAGE_KEY_TEMPLATE,
     STORAGE_VERSION,
@@ -31,6 +32,7 @@ from .const import (
 )
 from .parser_public import (
     build_week_url,
+    entry_stable_id,
     filter_by_keywords,
     next_year_label,
     parse_current_week_info,
@@ -60,6 +62,10 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass, STORAGE_VERSION, STORAGE_KEY_TEMPLATE.format(entry_id=entry.entry_id)
         )
         self._seen_hashes: set[str] = set()
+        # Lịch sử các mục đã khớp (id -> mục), giữ lại qua nhiều lần quét
+        # để Calendar/sensor không bị mất dữ liệu ngay khi trang chuyển
+        # sang tuần mới — chỉ dọn bớt mục quá cũ (xem _prune_history).
+        self._history: dict[str, dict[str, Any]] = {}
         self._loaded_storage = False
 
     @property
@@ -104,13 +110,51 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data = await self._store.async_load()
         if data and isinstance(data.get("seen"), list):
             self._seen_hashes = set(data["seen"])
+        if data and isinstance(data.get("history"), dict):
+            self._history = data["history"]
         self._loaded_storage = True
+
+    def _prune_history(self) -> None:
+        """Dọn khỏi lịch sử các mục có ngày diễn ra đã quá cũ (quá
+        PUBLIC_HISTORY_RETENTION_DAYS ngày so với hôm nay), và giới hạn
+        tổng số lượng để không phình vô hạn nếu ngày parse lỗi.
+        """
+        today = date.today()
+        cutoff = today - timedelta(days=PUBLIC_HISTORY_RETENTION_DAYS)
+
+        kept: dict[str, dict[str, Any]] = {}
+        for entry_id, m in self._history.items():
+            try:
+                d, mo, y = (int(x) for x in m.get("date", "").split("/"))
+                ev_date = date(y, mo, d)
+            except (ValueError, AttributeError):
+                # Không parse được ngày -> giữ lại (an toàn hơn xóa nhầm)
+                kept[entry_id] = m
+                continue
+            if ev_date >= cutoff:
+                kept[entry_id] = m
+        self._history = kept
+
+        # Giới hạn cứng tổng số lượng, phòng trường hợp cutoff theo ngày
+        # vẫn để lọt quá nhiều mục (vd cấu hình weeks_ahead lớn).
+        if len(self._history) > MAX_STORED_HASHES:
+            # Giữ lại các mục có ngày GẦN NHẤT (mới nhất)
+            def _sort_key(item: tuple[str, dict[str, Any]]) -> str:
+                m = item[1]
+                try:
+                    d, mo, y = (int(x) for x in m.get("date", "").split("/"))
+                    return f"{y:04d}-{mo:02d}-{d:02d} {m.get('time', '')}"
+                except (ValueError, AttributeError):
+                    return ""
+
+            newest = sorted(self._history.items(), key=_sort_key, reverse=True)
+            self._history = dict(newest[:MAX_STORED_HASHES])
 
     async def _async_save_storage(self) -> None:
         # Giới hạn kích thước lưu trữ để không phình to vô hạn
         hashes = list(self._seen_hashes)[-MAX_STORED_HASHES:]
         self._seen_hashes = set(hashes)
-        await self._store.async_save({"seen": hashes})
+        await self._store.async_save({"seen": hashes, "history": self._history})
 
     async def _async_update_data(self) -> dict[str, Any]:
         await self._async_load_storage()
@@ -190,15 +234,34 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         new_matches = [m for m in matches if m["id"] not in self._seen_hashes]
 
+        # Gộp kết quả lần quét này vào lịch sử — dùng KHÓA ỔN ĐỊNH
+        # (ngày + nội dung) làm key lưu trữ, để nếu trường chỉ sửa nhẹ
+        # 1 mục đã có (đổi giờ/địa điểm/chủ trì) thì bản mới GHI ĐÈ bản
+        # cũ tại đúng vị trí, không tạo thành 2 mục hiển thị song song.
+        for m in matches:
+            self._history[entry_stable_id(m)] = m
+
         if new_matches:
             for m in new_matches:
                 self._seen_hashes.add(m["id"])
                 self.hass.bus.async_fire(EVENT_MATCH_FOUND, m)
-            await self._async_save_storage()
             await self._async_notify(new_matches)
 
+        self._prune_history()
+        await self._async_save_storage()
+
+        def _sort_key(m: dict[str, Any]) -> tuple[str, str]:
+            try:
+                d, mo, y = (int(x) for x in m.get("date", "").split("/"))
+                date_key = f"{y:04d}-{mo:02d}-{d:02d}"
+            except (ValueError, AttributeError):
+                date_key = ""
+            return (date_key, m.get("time", ""))
+
+        all_matches = sorted(self._history.values(), key=_sort_key)
+
         return {
-            "matches": matches,
+            "matches": all_matches,
             "total_entries": len(all_entries),
             "new_matches": new_matches,
         }

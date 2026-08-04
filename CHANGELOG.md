@@ -5,6 +5,17 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-08-04
+
+### Sửa lỗi
+- **Sửa 1 mục đã có (đổi giờ/địa điểm/chủ trì) tạo ra 2 bản hiển thị song song** trên Calendar/sensor (bug mới phát sinh từ cơ chế giữ lịch sử ở 1.8.0 — vì khóa lưu trữ trước đó dựa trên mã băm CHI TIẾT, đổi bất kỳ trường nào cũng ra khóa khác, bản cũ + bản mới cùng tồn tại tới khi bản cũ hết hạn 14 ngày). Đã đổi khóa lưu trữ lịch sử sang **khóa ổn định** (chỉ dựa ngày + nội dung) — bản sửa giờ ghi đè đúng vị trí bản cũ, không nhân đôi. Vẫn giữ nguyên việc báo "có thay đổi" khi chi tiết khác (dùng mã băm chi tiết riêng cho việc này, tách khỏi khóa lưu trữ).
+
+## [1.8.0] - 2026-08-04
+
+### Thay đổi
+- **`dut_lichtuan` giờ giữ lại lịch sử mục đã khớp qua nhiều lần quét**, thay vì dựng lại hoàn toàn từ đầu mỗi lần (trước đây: khi trang chuyển sang tuần mới, dữ liệu tuần cũ biến mất ngay khỏi sensor/Calendar vì mỗi lần quét chỉ lấy đúng tuần đang quét). Giờ mỗi mục khớp được gộp vào lịch sử, giữ lại **14 ngày** kể từ ngày diễn ra sự kiện rồi mới tự dọn — Calendar duyệt lùi lại tuần trước vẫn còn dữ liệu.
+- Sửa lỗi sắp xếp ngày kiểu chuỗi (`dd/mm/yyyy` so sánh trực tiếp bằng string cho kết quả sai khi khác tháng/năm, vd "01/09" bị coi nhỏ hơn "15/08") — giờ sắp xếp theo ngày thật.
+
 ## [1.7.1] - 2026-08-04
 
 ### Sửa lỗi (2 lỗi thật, phát hiện qua đối chiếu attributes sensor thật của người dùng)
@@ -106,7 +117,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.1
+[1.8.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.8.0
 [1.7.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.7.1
 [1.7.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.7.0
 [1.6.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.6.0

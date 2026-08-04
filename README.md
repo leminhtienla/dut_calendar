@@ -54,6 +54,19 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
   - **"Toàn bộ"** — hành vi như trước: luôn tải tuần hiện tại + đúng
     số tuần đã cấu hình ở "Số tuần kiểm tra thêm", bất kể ngày nào
     trong tuần.
+- **Dữ liệu tuần cũ có được giữ lại không?** Có — mỗi mục khớp từ khóa
+  được **gộp vào lịch sử** thay vì bị thay thế hoàn toàn mỗi lần quét.
+  Khi trang chuyển sang tuần mới (không còn được quét tới nữa), mục
+  của tuần cũ vẫn hiển thị trên sensor/Calendar trong **14 ngày** kể
+  từ ngày diễn ra sự kiện, sau đó tự động dọn bớt để không phình to
+  vô hạn. Nhờ vậy duyệt lùi lại tuần trước trên Lovelace Calendar vẫn
+  thấy dữ liệu, không bị trống.
+- **Nếu trường sửa lại 1 mục đã có (đổi giờ/địa điểm/chủ trì) thì
+  sao?** Bản sửa sẽ **ghi đè** đúng vị trí bản cũ trong lịch sử (dựa
+  trên khóa ổn định = ngày + nội dung), **không** tạo thành 2 mục hiển
+  thị song song trên Calendar. Vẫn có cảnh báo báo "có thay đổi" như
+  bình thường (vì nội dung chi tiết đã khác), chỉ là không bị nhân đôi
+  khi hiển thị.
 
 ## Sensor đếm số sự kiện (cả 3 loại)
 
