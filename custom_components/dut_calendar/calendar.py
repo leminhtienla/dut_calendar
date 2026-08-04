@@ -52,7 +52,7 @@ def _start_as_datetime(value: Any) -> datetime:
 class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], CalendarEntity):
     """Lịch gồm mọi mục đang khớp bất kỳ nhóm từ khóa nào đã cấu hình."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False  # tránh trùng với tên thiết bị -> hiện gọn "Lịch tuần"
     _attr_name = "Lịch tuần"
     _attr_icon = "mdi:calendar-text"
 
@@ -128,7 +128,7 @@ class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], Calendar
 class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     """Lịch gồm mọi ca coi thi đã đăng ký trong các học kỳ đang theo dõi."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False  # tránh trùng với tên thiết bị -> hiện gọn "Coi thi"
     _attr_name = "Coi thi"
     _attr_icon = "mdi:calendar-clock"
 
@@ -195,7 +195,7 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
 class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     """Lịch gồm mọi mốc hạn nộp điểm (thi chung + từng lớp) đang theo dõi."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False  # tránh trùng với tên thiết bị -> hiện gọn "Nhập điểm"
     _attr_name = "Nhập điểm"
     _attr_icon = "mdi:calendar-alert"
 

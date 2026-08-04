@@ -5,6 +5,11 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-08-04
+
+### Sửa lỗi
+- **Tên Calendar bị lặp chữ trong giao diện Lovelace** (vd "DUT Calendar - Coi thi Coi thi") do Home Assistant tự ghép "tên thiết bị + tên entity" khi cả hai đều chứa cùng nội dung. Đã tắt `has_entity_name` riêng cho 3 Calendar entity — giờ hiển thị gọn đúng: `Lịch tuần`, `Coi thi`, `Nhập điểm`. Sensor không đổi (vẫn ghép tên thiết bị, vì ở đó không bị trùng và ghép tên giúp dễ phân biệt hơn, vd "DUT Calendar - Coi thi Hôm nay").
+
 ## [1.5.0] - 2026-08-04
 
 ### Thêm mới
@@ -71,7 +76,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.5.1
 [1.5.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.5.0
 [1.4.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.4.0
 [1.3.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.3.0
