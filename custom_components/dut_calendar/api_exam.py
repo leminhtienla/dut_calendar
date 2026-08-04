@@ -229,7 +229,8 @@ class CBDutClient:
     async def _call_exam_api_all(self, hoc_ky: str) -> str:
         """Giống _call_exam_api nhưng NCB=true&DDK=false -> trả về TOÀN
         BỘ ca thi mọi cán bộ, mọi khoa (không giới hạn theo tài khoản
-        đăng nhập). Response có thể tới ~1MB.
+        đăng nhập). Response có thể tới ~1MB, cần timeout dài hơn các
+        API khác trong file này (30s không đủ dưới mạng chậm/server tải).
         """
         params = {
             "E": "PhongThiDK",
@@ -243,6 +244,6 @@ class CBDutClient:
             "Referer": PAGE_COITHI_URL,
         }
         async with self._session.post(
-            EXAM_AJAX_URL, params=params, headers=headers, timeout=30
+            EXAM_AJAX_URL, params=params, headers=headers, timeout=90
         ) as resp:
             return await resp.text()

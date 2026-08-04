@@ -84,7 +84,8 @@
       "no_hoc_ky": "Please select at least one semester.",
       "no_hocky_options": "Login succeeded but the semester list could not be fetched, try again later.",
       "invalid_auth": "Invalid username or password.",
-      "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later."
+      "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later.",
+      "cannot_fetch_directory": "Could not load the department/lecturer list (possibly slow network, ~1MB response) — auto-retried twice. You can press \"Retry\" or choose \"Don't track anyone\" to skip this feature."
     },
     "abort": {
       "already_configured": "This source is already configured."
@@ -134,7 +135,8 @@
       "no_hoc_ky": "Please select at least one semester.",
       "no_hocky_options": "Login succeeded but the semester list could not be fetched, try again later.",
       "invalid_auth": "Invalid username or password.",
-      "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later."
+      "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later.",
+      "cannot_fetch_directory": "Could not load the department/lecturer list (possibly slow network, ~1MB response) — auto-retried twice. You can press \"Retry\" or choose \"Don't track anyone\" to skip this feature."
     }
   }
 }

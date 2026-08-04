@@ -5,6 +5,14 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-08-04
+
+### Sửa lỗi
+- **Tải danh sách khoa/giảng viên (bước cấu hình `dut_coithi`) không ổn định**, lúc được lúc mất dữ liệu. Nguyên nhân: timeout 30s không đủ cho response ~1MB (`NCB=true&DDK=false&KHOA=ALL`) dưới mạng chậm/server tải, và khi lỗi thì code cũ **âm thầm bỏ qua** tính năng luôn (không cho biết lý do, không cho thử lại ngay). Đã sửa:
+  - Tăng timeout riêng cho API này lên **90s** (các API khác trong file vẫn giữ 30s).
+  - Tự động **thử lại 2 lần** trước khi báo lỗi hẳn, có log rõ nguyên nhân từng lần thử để chẩn đoán được qua HA logs.
+  - Khi vẫn lỗi sau 2 lần thử: UI hiện rõ thông báo lỗi + nút **"🔄 Thử tải lại"** ngay tại chỗ (không phải thoát ra làm lại từ đầu), bên cạnh lựa chọn "Không theo dõi thêm ai" để bỏ qua nếu muốn.
+
 ## [1.11.0] - 2026-08-04
 
 ### Thay đổi
@@ -142,7 +150,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.1
 [1.11.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.0
 [1.10.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.10.0
 [1.9.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.9.0

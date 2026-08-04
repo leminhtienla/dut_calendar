@@ -84,7 +84,8 @@
       "no_hoc_ky": "Vui lòng chọn ít nhất một học kỳ.",
       "no_hocky_options": "Đăng nhập thành công nhưng không lấy được danh sách học kỳ, thử lại sau.",
       "invalid_auth": "Sai tài khoản hoặc mật khẩu.",
-      "cannot_connect": "Không kết nối được tới cb.dut.udn.vn, thử lại sau."
+      "cannot_connect": "Không kết nối được tới cb.dut.udn.vn, thử lại sau.",
+      "cannot_fetch_directory": "Không tải được danh sách khoa/giảng viên (có thể do mạng chậm, response lớn ~1MB) — đã tự thử lại 2 lần. Bạn có thể bấm \"Thử tải lại\" hoặc chọn \"Không theo dõi thêm ai\" để bỏ qua tính năng này."
     },
     "abort": {
       "already_configured": "Nguồn này đã được cấu hình rồi."
@@ -134,7 +135,8 @@
       "no_hoc_ky": "Vui lòng chọn ít nhất một học kỳ.",
       "no_hocky_options": "Đăng nhập thành công nhưng không lấy được danh sách học kỳ, thử lại sau.",
       "invalid_auth": "Sai tài khoản hoặc mật khẩu.",
-      "cannot_connect": "Không kết nối được tới cb.dut.udn.vn, thử lại sau."
+      "cannot_connect": "Không kết nối được tới cb.dut.udn.vn, thử lại sau.",
+      "cannot_fetch_directory": "Không tải được danh sách khoa/giảng viên (có thể do mạng chậm, response lớn ~1MB) — đã tự thử lại 2 lần. Bạn có thể bấm \"Thử tải lại\" hoặc chọn \"Không theo dõi thêm ai\" để bỏ qua tính năng này."
     }
   }
 }

@@ -2,6 +2,7 @@
 (bước 1: xác thực tài khoản, bước 2: chọn học kỳ từ danh sách thật)."""
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import aiohttp
@@ -56,6 +57,8 @@ from .const import (
 )
 from .parser_exam import build_lecturer_directory, parse_exam_duty, parse_hoc_ky_options
 from .parser_public import parse_keyword_groups
+
+_LOGGER = logging.getLogger(__name__)
 
 KEYWORDS_EXAMPLE = (
     "Lê Minh Tiến: Lê Minh Tiến, LMT, Thầy Tiến\n"
@@ -197,18 +200,29 @@ def _schema_login_credentials(defaults: dict[str, Any], require_password: bool) 
 # Giá trị đặc biệt cho bước chọn khoa
 KHOA_NONE_SENTINEL = "__none__"  # không theo dõi thêm ai
 KHOA_ALL_SENTINEL = "__all__"  # gộp tất cả khoa vào 1 danh sách để chọn
+KHOA_RETRY_SENTINEL = "__retry__"  # tải danh sách lỗi -> thử lại
 
 
-def _schema_chon_khoa(khoa_counts: dict[str, int], default: str) -> vol.Schema:
-    """Bước chọn khoa (để rút gọn danh sách tên ở bước sau)."""
+def _schema_chon_khoa(
+    khoa_counts: dict[str, int], default: str, failed: bool = False
+) -> vol.Schema:
+    """Bước chọn khoa (để rút gọn danh sách tên ở bước sau).
+
+    Khi `failed=True` (tải danh sách lỗi), chỉ hiện 2 lựa chọn: bỏ qua
+    hẳn tính năng này, hoặc thử tải lại — không hiện danh sách khoa
+    (vì không có dữ liệu thật để hiện).
+    """
     options = [
         SelectOptionDict(value=KHOA_NONE_SENTINEL, label="Không theo dõi thêm ai"),
-        SelectOptionDict(value=KHOA_ALL_SENTINEL, label="— Tất cả các khoa —"),
     ]
-    for code in sorted(khoa_counts):
-        options.append(
-            SelectOptionDict(value=code, label=f"Khoa {code} ({khoa_counts[code]} người)")
-        )
+    if failed:
+        options.append(SelectOptionDict(value=KHOA_RETRY_SENTINEL, label="🔄 Thử tải lại"))
+    else:
+        options.append(SelectOptionDict(value=KHOA_ALL_SENTINEL, label="— Tất cả các khoa —"))
+        for code in sorted(khoa_counts):
+            options.append(
+                SelectOptionDict(value=code, label=f"Khoa {code} ({khoa_counts[code]} người)")
+            )
     return vol.Schema(
         {
             vol.Required("khoa", default=default): SelectSelector(
@@ -284,20 +298,39 @@ async def _fetch_lecturer_directory(
     giảng viên duy nhất theo mã khoa — dùng để hiển thị UI chọn khoa
     rồi chọn tên, thay vì phải gõ tay dễ sai chính tả/trùng tên.
 
-    Trả về None nếu lỗi (đăng nhập/tải/parse) — khi đó UI vẫn cho phép
-    bỏ qua tính năng theo dõi giảng viên khác, không chặn cài đặt.
+    Response có thể tới ~1MB nên đôi khi timeout/lỗi tạm thời (mạng
+    chậm, server tải) — tự thử lại tối đa 2 lần trước khi báo lỗi hẳn.
+    Trả về None nếu vẫn lỗi sau khi thử lại — khi đó UI vẫn cho phép
+    bỏ qua tính năng theo dõi giảng viên khác (không chặn cài đặt),
+    nhưng có nút "Thử lại" riêng để không phải làm lại từ đầu.
     """
-    session = aiohttp.ClientSession()
-    try:
-        client = CBDutClient(session, username, password)
-        await client.ensure_logged_in()
-        html = await client.fetch_exam_duty_all_html(hoc_ky)
-        duties = parse_exam_duty(html, hoc_ky)
-        return build_lecturer_directory(duties)
-    except Exception:  # noqa: BLE001
-        return None
-    finally:
-        await session.close()
+    last_err: Exception | None = None
+    for attempt in range(2):
+        session = aiohttp.ClientSession()
+        try:
+            client = CBDutClient(session, username, password)
+            await client.ensure_logged_in()
+            html = await client.fetch_exam_duty_all_html(hoc_ky)
+            duties = parse_exam_duty(html, hoc_ky)
+            directory = build_lecturer_directory(duties)
+            if not directory:
+                # Parse ra rỗng dù request "thành công" -> coi như lỗi,
+                # thử lại (có thể do response bị cắt giữa chừng).
+                raise ValueError("Danh sách rỗng sau khi parse")
+            return directory
+        except Exception as err:  # noqa: BLE001
+            last_err = err
+            _LOGGER.warning(
+                "Lần %d/2 tải danh sách giảng viên (HK %s) thất bại: %s",
+                attempt + 1,
+                hoc_ky,
+                err,
+            )
+        finally:
+            await session.close()
+
+    _LOGGER.error("Không tải được danh sách giảng viên sau 2 lần thử: %s", last_err)
+    return None
 
 
 # =====================================================================
@@ -313,6 +346,7 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         self._lecturer_directory: dict[str, list[str]] | None = None
         self._chosen_khoa: str | None = None
         self._pending_first_hoc_ky: str | None = None
+        self._directory_failed: bool = False
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> Any:
         return self.async_show_menu(
@@ -459,25 +493,12 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_chon_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
         errors: dict[str, str] = {}
 
-        if self._lecturer_directory is None:
-            directory = await _fetch_lecturer_directory(
-                self._pending_data[CONF_USERNAME],
-                self._pending_data[CONF_PASSWORD],
-                self._pending_first_hoc_ky,
-            )
-            if directory is None:
-                # Không tải được danh sách -> vẫn cho tạo entry, chỉ là
-                # không có tính năng theo dõi giảng viên khác lần này
-                # (có thể bổ sung sau qua Options).
-                self._pending_data[CONF_EXTRA_LECTURERS] = []
-                return self.async_create_entry(
-                    title=f"DUT Calendar - Coi thi ({self._pending_data[CONF_USERNAME]})",
-                    data=self._pending_data,
-                )
-            self._lecturer_directory = directory
-
         if user_input is not None:
             khoa = user_input["khoa"]
+            if khoa == KHOA_RETRY_SENTINEL:
+                self._lecturer_directory = None
+                self._directory_failed = False
+                return await self.async_step_chon_khoa()
             if khoa == KHOA_NONE_SENTINEL:
                 self._pending_data[CONF_EXTRA_LECTURERS] = []
                 return self.async_create_entry(
@@ -486,6 +507,25 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             self._chosen_khoa = khoa
             return await self.async_step_chon_giang_vien()
+
+        if self._lecturer_directory is None and not self._directory_failed:
+            directory = await _fetch_lecturer_directory(
+                self._pending_data[CONF_USERNAME],
+                self._pending_data[CONF_PASSWORD],
+                self._pending_first_hoc_ky,
+            )
+            if directory is None:
+                self._directory_failed = True
+                errors["base"] = "cannot_fetch_directory"
+            else:
+                self._lecturer_directory = directory
+
+        if self._directory_failed:
+            return self.async_show_form(
+                step_id="chon_khoa",
+                data_schema=_schema_chon_khoa({}, KHOA_NONE_SENTINEL, failed=True),
+                errors=errors,
+            )
 
         khoa_counts = {k: len(v) for k, v in self._lecturer_directory.items()}
         return self.async_show_form(
@@ -530,6 +570,7 @@ class DutCalendarOptionsFlow(OptionsFlow):
         self._lecturer_directory: dict[str, list[str]] | None = None
         self._chosen_khoa: str | None = None
         self._pending_first_hoc_ky: str | None = None
+        self._directory_failed: bool = False
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> Any:
         entry_type = self._config_entry.data.get(CONF_TYPE)
@@ -617,26 +658,36 @@ class DutCalendarOptionsFlow(OptionsFlow):
         )
         default_khoa = KHOA_NONE_SENTINEL if not current_lecturers else KHOA_ALL_SENTINEL
 
-        if self._lecturer_directory is None:
+        if user_input is not None:
+            khoa = user_input["khoa"]
+            if khoa == KHOA_RETRY_SENTINEL:
+                self._lecturer_directory = None
+                self._directory_failed = False
+                return await self.async_step_chon_khoa()
+            if khoa == KHOA_NONE_SENTINEL:
+                self._pending_data[CONF_EXTRA_LECTURERS] = []
+                return self.async_create_entry(title="", data=self._pending_data)
+            self._chosen_khoa = khoa
+            return await self.async_step_chon_giang_vien()
+
+        if self._lecturer_directory is None and not self._directory_failed:
             directory = await _fetch_lecturer_directory(
                 self._pending_data[CONF_USERNAME],
                 self._pending_data[CONF_PASSWORD],
                 self._pending_first_hoc_ky,
             )
             if directory is None:
-                # Không tải được danh sách lần này -> giữ nguyên lựa
-                # chọn giảng viên cũ (nếu có), không chặn lưu Options.
-                self._pending_data[CONF_EXTRA_LECTURERS] = current_lecturers
-                return self.async_create_entry(title="", data=self._pending_data)
-            self._lecturer_directory = directory
+                self._directory_failed = True
+                errors["base"] = "cannot_fetch_directory"
+            else:
+                self._lecturer_directory = directory
 
-        if user_input is not None:
-            khoa = user_input["khoa"]
-            if khoa == KHOA_NONE_SENTINEL:
-                self._pending_data[CONF_EXTRA_LECTURERS] = []
-                return self.async_create_entry(title="", data=self._pending_data)
-            self._chosen_khoa = khoa
-            return await self.async_step_chon_giang_vien()
+        if self._directory_failed:
+            return self.async_show_form(
+                step_id="chon_khoa",
+                data_schema=_schema_chon_khoa({}, KHOA_NONE_SENTINEL, failed=True),
+                errors=errors,
+            )
 
         khoa_counts = {k: len(v) for k, v in self._lecturer_directory.items()}
         return self.async_show_form(
