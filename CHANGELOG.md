@@ -5,6 +5,13 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-08-04
+
+### Sửa lỗi (nguyên nhân thật của "danh sách khoa/tên không ổn định, lúc thiếu")
+- **Tìm ra nguyên nhân chính xác** qua ảnh chụp thật của người dùng: danh sách khoa bị **thiếu hẳn khoa 103** (khoa của chính tài khoản đang cấu hình). Không phải do timeout (đã loại trừ ở 1.11.1) — mà do code chỉ lấy dữ liệu từ **1 học kỳ đầu tiên** trong số các học kỳ đã chọn (`selected[0]`), trong khi học kỳ đó có thể chưa có đủ dữ liệu coi thi cho mọi khoa (vd học kỳ mới chưa xếp lịch hết).
+- Đã sửa: `_fetch_lecturer_directory()` giờ nhận **danh sách** học kỳ, tải và **gộp** dữ liệu từ TẤT CẢ học kỳ đã chọn (không chỉ 1) — khoa/tên xuất hiện ở BẤT KỲ học kỳ nào cũng sẽ có trong danh sách cuối cùng. Test mô phỏng xác nhận: học kỳ đơn lẻ thiếu khoa 103, gộp nhiều học kỳ thì đầy đủ 18 người khoa 103.
+- Nếu 1 số học kỳ lỗi khi tải (mạng/timeout) nhưng học kỳ khác thành công, vẫn trả về danh sách gộp từ các học kỳ tải được — chỉ báo lỗi hẳn (None) khi TẤT CẢ học kỳ đều lỗi.
+
 ## [1.11.1] - 2026-08-04
 
 ### Sửa lỗi
@@ -150,7 +157,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.11.2...HEAD
+[1.11.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.2
 [1.11.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.1
 [1.11.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.0
 [1.10.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.10.0

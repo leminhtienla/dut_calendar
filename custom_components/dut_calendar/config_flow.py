@@ -292,45 +292,69 @@ async def _try_login_and_fetch_hocky(
 
 
 async def _fetch_lecturer_directory(
-    username: str, password: str, hoc_ky: str
+    username: str, password: str, hoc_ky_list: list[str]
 ) -> dict[str, list[str]] | None:
-    """Đăng nhập + tải TOÀN BỘ ca thi của 1 học kỳ, gom danh sách tên
-    giảng viên duy nhất theo mã khoa — dùng để hiển thị UI chọn khoa
-    rồi chọn tên, thay vì phải gõ tay dễ sai chính tả/trùng tên.
+    """Đăng nhập + tải TOÀN BỘ ca thi của MỌI học kỳ đang chọn (không
+    chỉ 1 học kỳ đầu tiên), gộp danh sách tên giảng viên duy nhất theo
+    mã khoa — dùng để hiển thị UI chọn khoa rồi chọn tên.
 
-    Response có thể tới ~1MB nên đôi khi timeout/lỗi tạm thời (mạng
-    chậm, server tải) — tự thử lại tối đa 2 lần trước khi báo lỗi hẳn.
-    Trả về None nếu vẫn lỗi sau khi thử lại — khi đó UI vẫn cho phép
-    bỏ qua tính năng theo dõi giảng viên khác (không chặn cài đặt),
-    nhưng có nút "Thử lại" riêng để không phải làm lại từ đầu.
+    QUAN TRỌNG: chỉ dùng 1 học kỳ có thể bỏ sót khoa/tên nếu học kỳ đó
+    chưa có đủ dữ liệu coi thi cho khoa đó (vd học kỳ mới, lịch coi
+    thi chưa xếp hết) — gộp nhiều học kỳ giúp danh sách đầy đủ hơn.
+
+    Mỗi học kỳ response có thể tới ~1MB nên đôi khi timeout/lỗi tạm
+    thời (mạng chậm, server tải) — mỗi học kỳ tự thử lại tối đa 2 lần.
+    Trả về None nếu TẤT CẢ học kỳ đều lỗi — khi đó UI vẫn cho phép bỏ
+    qua tính năng theo dõi giảng viên khác (không chặn cài đặt), nhưng
+    có nút "Thử lại" riêng để không phải làm lại từ đầu. Nếu CHỈ MỘT
+    SỐ học kỳ lỗi, vẫn trả về danh sách gộp từ các học kỳ tải được.
     """
-    last_err: Exception | None = None
-    for attempt in range(2):
-        session = aiohttp.ClientSession()
-        try:
-            client = CBDutClient(session, username, password)
-            await client.ensure_logged_in()
-            html = await client.fetch_exam_duty_all_html(hoc_ky)
-            duties = parse_exam_duty(html, hoc_ky)
-            directory = build_lecturer_directory(duties)
-            if not directory:
-                # Parse ra rỗng dù request "thành công" -> coi như lỗi,
-                # thử lại (có thể do response bị cắt giữa chừng).
-                raise ValueError("Danh sách rỗng sau khi parse")
-            return directory
-        except Exception as err:  # noqa: BLE001
-            last_err = err
-            _LOGGER.warning(
-                "Lần %d/2 tải danh sách giảng viên (HK %s) thất bại: %s",
-                attempt + 1,
-                hoc_ky,
-                err,
-            )
-        finally:
-            await session.close()
+    merged: dict[str, set[str]] = {}
+    any_success = False
 
-    _LOGGER.error("Không tải được danh sách giảng viên sau 2 lần thử: %s", last_err)
-    return None
+    session = aiohttp.ClientSession()
+    try:
+        client = CBDutClient(session, username, password)
+        try:
+            await client.ensure_logged_in()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error("Không đăng nhập được để tải danh sách giảng viên: %s", err)
+            return None
+
+        for hoc_ky in hoc_ky_list:
+            last_err: Exception | None = None
+            for attempt in range(2):
+                try:
+                    html = await client.fetch_exam_duty_all_html(hoc_ky)
+                    duties = parse_exam_duty(html, hoc_ky)
+                    directory = build_lecturer_directory(duties)
+                    if not directory:
+                        raise ValueError("Danh sách rỗng sau khi parse")
+                    for code, names in directory.items():
+                        merged.setdefault(code, set()).update(names)
+                    any_success = True
+                    break
+                except Exception as err:  # noqa: BLE001
+                    last_err = err
+                    _LOGGER.warning(
+                        "Lần %d/2 tải danh sách giảng viên (HK %s) thất bại: %s",
+                        attempt + 1,
+                        hoc_ky,
+                        err,
+                    )
+            else:
+                _LOGGER.error(
+                    "Không tải được danh sách giảng viên cho HK %s sau 2 lần thử: %s",
+                    hoc_ky,
+                    last_err,
+                )
+    finally:
+        await session.close()
+
+    if not any_success:
+        return None
+
+    return {code: sorted(names) for code, names in merged.items()}
 
 
 # =====================================================================
@@ -345,7 +369,7 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         self._pending_type: str | None = None
         self._lecturer_directory: dict[str, list[str]] | None = None
         self._chosen_khoa: str | None = None
-        self._pending_first_hoc_ky: str | None = None
+        self._pending_hoc_ky_list: list[str] = []
         self._directory_failed: bool = False
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> Any:
@@ -475,7 +499,7 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_TYPE: self._pending_type,
                 }
                 if self._pending_type == TYPE_COITHI:
-                    self._pending_first_hoc_ky = selected[0]
+                    self._pending_hoc_ky_list = selected
                     return await self.async_step_chon_khoa()
                 return self.async_create_entry(
                     title=f"DUT Calendar - Hạn nộp điểm ({self._pending_data[CONF_USERNAME]})",
@@ -512,7 +536,7 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
             directory = await _fetch_lecturer_directory(
                 self._pending_data[CONF_USERNAME],
                 self._pending_data[CONF_PASSWORD],
-                self._pending_first_hoc_ky,
+                self._pending_hoc_ky_list,
             )
             if directory is None:
                 self._directory_failed = True
@@ -569,7 +593,7 @@ class DutCalendarOptionsFlow(OptionsFlow):
         self._hocky_options: list[dict[str, Any]] = []
         self._lecturer_directory: dict[str, list[str]] | None = None
         self._chosen_khoa: str | None = None
-        self._pending_first_hoc_ky: str | None = None
+        self._pending_hoc_ky_list: list[str] = []
         self._directory_failed: bool = False
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> Any:
@@ -640,7 +664,7 @@ class DutCalendarOptionsFlow(OptionsFlow):
             else:
                 self._pending_data = {**self._pending_data, CONF_HOC_KY: ", ".join(selected)}
                 if self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI:
-                    self._pending_first_hoc_ky = selected[0]
+                    self._pending_hoc_ky_list = selected
                     return await self.async_step_chon_khoa()
                 return self.async_create_entry(title="", data=self._pending_data)
 
@@ -674,7 +698,7 @@ class DutCalendarOptionsFlow(OptionsFlow):
             directory = await _fetch_lecturer_directory(
                 self._pending_data[CONF_USERNAME],
                 self._pending_data[CONF_PASSWORD],
-                self._pending_first_hoc_ky,
+                self._pending_hoc_ky_list,
             )
             if directory is None:
                 self._directory_failed = True

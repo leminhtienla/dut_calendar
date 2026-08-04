@@ -164,6 +164,12 @@ nếu không muốn đổi.
      (dạng `mã khoa-Tên`, vd `103-Lê Minh Tiến`), không gõ tay nên
      không lo sai chính tả/không khớp.
 
+  Danh sách khoa/tên được **gộp từ TẤT CẢ học kỳ** đã chọn ở bước
+  trước (không chỉ học kỳ đầu tiên) — vì 1 học kỳ đơn lẻ có thể chưa
+  có đủ dữ liệu coi thi cho mọi khoa (vd học kỳ mới chưa xếp lịch hết,
+  hoặc khoa của chính bạn tình cờ chưa có ca nào trong học kỳ đó),
+  khiến danh sách bị thiếu nếu chỉ dựa vào 1 học kỳ.
+
   Khi có chọn, mỗi lần quét sẽ tải thêm danh sách **toàn bộ ca thi**
   (không giới hạn theo tài khoản đăng nhập, response lớn hơn — chỉ
   tải khi thực sự có chọn ai) rồi lọc theo đúng (các) tên đã chọn
