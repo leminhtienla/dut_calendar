@@ -5,6 +5,15 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-04
+
+### Thêm mới
+- **`dut_coithi` — tick bật/tắt tính năng theo dõi giảng viên khác ngay ở bước đăng nhập gốc**: mặc định tắt, không tải gì thêm, không tốn thời gian. Chỉ khi tick bật mới đi qua các bước chọn khoa/tên (tải dữ liệu ~1MB). Khi sửa qua Options, nếu entry đã có sẵn giảng viên đang theo dõi thì tick tự mặc định bật; bỏ tick đi thì giữ nguyên lựa chọn hiện tại, không xóa.
+- **`dut_lichtuan` — tiêu đề sự kiện Calendar có tiền tố `[Tên nhóm từ khóa]`** (vd `[Khoa Cơ khí Giao thông] Hội ý Ban Giám hiệu`), tương tự cách hiện `[Tên giảng viên]` bên `dut_coithi` — biết ngay mục nào khớp theo nhóm nào khi nhìn lịch.
+
+### Sửa lỗi
+- **Dọn code chết/lỗi từ phiên bản trước**: `async_step_hoi_theo_doi_gv` bị gọi nhưng chưa từng được định nghĩa (sót lại từ 1 lần chỉnh sửa dở dang) — sẽ gây lỗi crash khi cấu hình `dut_coithi` mới hoàn toàn qua ConfigFlow (không phải Options). Đã xóa code chết và thay bằng cơ chế tick hoàn chỉnh nêu trên.
+
 ## [1.11.2] - 2026-08-04
 
 ### Sửa lỗi (nguyên nhân thật của "danh sách khoa/tên không ổn định, lúc thiếu")
@@ -157,7 +166,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.12.0
 [1.11.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.2
 [1.11.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.1
 [1.11.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.0

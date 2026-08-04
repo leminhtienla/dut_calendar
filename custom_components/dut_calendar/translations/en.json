@@ -36,7 +36,8 @@
           "password": "Password",
           "scan_interval": "Check interval (minutes)",
           "exam_duration": "Default exam duration (minutes)",
-          "notify_service": "Optional notify service"
+          "notify_service": "Optional notify service",
+          "configure_extra_lecturer": "Track another invigilator? (enabling loads the department/name list next, ~1MB, may take a moment)"
         }
       },
       "dut_deadline_diem_account": {
@@ -105,7 +106,8 @@
           "password": "New password (empty = keep current)",
           "exam_duration": "Default exam duration (minutes)",
           "update_mode": "Update mode",
-          "clear_history": "Clear old history (check to clear once, auto-unchecks after clearing)"
+          "clear_history": "Clear old history (check to clear once, auto-unchecks after clearing)",
+          "configure_extra_lecturer": "Track another invigilator? (enabling loads the department/name list next, ~1MB, may take a moment)"
         }
       },
       "hocky": {

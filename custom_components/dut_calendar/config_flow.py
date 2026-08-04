@@ -26,6 +26,7 @@ from homeassistant.helpers.selector import (
 from .api_exam import CBDutAuthError, CBDutClient
 from .const import (
     CONF_CLEAR_HISTORY,
+    CONF_CONFIGURE_EXTRA_LECTURER,
     CONF_EXAM_DURATION,
     CONF_EXTRA_LECTURER,
     CONF_EXTRA_LECTURERS,
@@ -152,49 +153,60 @@ def _schema_lichtuan(defaults: dict[str, Any]) -> vol.Schema:
     )
 
 
-def _schema_login_credentials(defaults: dict[str, Any], require_password: bool) -> vol.Schema:
+def _schema_login_credentials(
+    defaults: dict[str, Any], require_password: bool, show_lecturer_toggle: bool = False
+) -> vol.Schema:
     """Bước 1: tài khoản/mật khẩu + các tuỳ chọn khác (KHÔNG có học kỳ).
 
     Tính năng "theo dõi thêm giảng viên khác" (chỉ dut_coithi) được
     cấu hình ở 2 bước RIÊNG sau bước chọn học kỳ (xem
-    _schema_chon_khoa/_schema_chon_giang_vien), không còn là field
-    text tự do ở đây — tránh gõ sai tên/không khớp dữ liệu thật.
+    _schema_chon_khoa/_schema_chon_giang_vien) — CHỈ đi qua các bước
+    đó (và tải dữ liệu ~1MB để dựng danh sách) nếu tick bật ở đây.
+    Bỏ tick thì bỏ qua hoàn toàn, tiết kiệm thời gian khi không cần.
     """
     pw_key = (
         vol.Required(CONF_PASSWORD)
         if require_password
         else vol.Optional(CONF_PASSWORD, default="")
     )
-    return vol.Schema(
-        {
-            vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): TextSelector(
-                TextSelectorConfig(type=TextSelectorType.TEXT)
-            ),
-            pw_key: TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-            vol.Required(
-                CONF_SCAN_INTERVAL,
-                default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_EXAM),
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=MIN_SCAN_INTERVAL_EXAM,
-                    max=MAX_SCAN_INTERVAL_EXAM,
-                    step=5,
-                    mode=NumberSelectorMode.BOX,
-                    unit_of_measurement="phút",
-                )
-            ),
+    schema_dict: dict[Any, Any] = {
+        vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.TEXT)
+        ),
+        pw_key: TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        vol.Required(
+            CONF_SCAN_INTERVAL,
+            default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_EXAM),
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=MIN_SCAN_INTERVAL_EXAM,
+                max=MAX_SCAN_INTERVAL_EXAM,
+                step=5,
+                mode=NumberSelectorMode.BOX,
+                unit_of_measurement="phút",
+            )
+        ),
+        vol.Optional(
+            CONF_EXAM_DURATION, default=defaults.get(CONF_EXAM_DURATION, DEFAULT_EXAM_DURATION)
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=15, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="phút"
+            )
+        ),
+        vol.Optional(
+            CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
+        ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+    }
+
+    if show_lecturer_toggle:
+        schema_dict[
             vol.Optional(
-                CONF_EXAM_DURATION, default=defaults.get(CONF_EXAM_DURATION, DEFAULT_EXAM_DURATION)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=15, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="phút"
-                )
-            ),
-            vol.Optional(
-                CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
-            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
-        }
-    )
+                CONF_CONFIGURE_EXTRA_LECTURER,
+                default=defaults.get(CONF_CONFIGURE_EXTRA_LECTURER, False),
+            )
+        ] = BooleanSelector()
+
+    return vol.Schema(schema_dict)
 
 
 # Giá trị đặc biệt cho bước chọn khoa
@@ -479,7 +491,9 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id=f"{base_step}_login",
             data_schema=_schema_login_credentials(
-                user_input or prefill or {}, require_password=True
+                user_input or prefill or {},
+                require_password=True,
+                show_lecturer_toggle=(type_value == TYPE_COITHI),
             ),
             errors=errors,
         )
@@ -498,9 +512,16 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_HOC_KY: ", ".join(selected),
                     CONF_TYPE: self._pending_type,
                 }
-                if self._pending_type == TYPE_COITHI:
+                want_lecturer = self._pending_data.get(CONF_CONFIGURE_EXTRA_LECTURER, False)
+                if self._pending_type == TYPE_COITHI and want_lecturer:
                     self._pending_hoc_ky_list = selected
                     return await self.async_step_chon_khoa()
+                if self._pending_type == TYPE_COITHI:
+                    self._pending_data[CONF_EXTRA_LECTURERS] = []
+                    return self.async_create_entry(
+                        title=f"DUT Calendar - Coi thi ({self._pending_data[CONF_USERNAME]})",
+                        data=self._pending_data,
+                    )
                 return self.async_create_entry(
                     title=f"DUT Calendar - Hạn nộp điểm ({self._pending_data[CONF_USERNAME]})",
                     data=self._pending_data,
@@ -623,6 +644,10 @@ class DutCalendarOptionsFlow(OptionsFlow):
     async def _step_credentials(self, user_input: dict[str, Any] | None) -> Any:
         errors: dict[str, str] = {}
         current = {**self._config_entry.data, **self._config_entry.options}
+        current.setdefault(
+            CONF_CONFIGURE_EXTRA_LECTURER,
+            bool(current.get(CONF_EXTRA_LECTURERS) or current.get(CONF_EXTRA_LECTURER)),
+        )
 
         if user_input is not None:
             username = user_input[CONF_USERNAME]
@@ -641,7 +666,11 @@ class DutCalendarOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_schema_login_credentials(user_input or current, require_password=False),
+            data_schema=_schema_login_credentials(
+                user_input or current,
+                require_password=False,
+                show_lecturer_toggle=(self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI),
+            ),
             errors=errors,
         )
 
@@ -663,9 +692,17 @@ class DutCalendarOptionsFlow(OptionsFlow):
                 errors["base"] = "no_hoc_ky"
             else:
                 self._pending_data = {**self._pending_data, CONF_HOC_KY: ", ".join(selected)}
-                if self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI:
+                want_lecturer = self._pending_data.get(CONF_CONFIGURE_EXTRA_LECTURER, False)
+                if self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI and want_lecturer:
                     self._pending_hoc_ky_list = selected
                     return await self.async_step_chon_khoa()
+                if self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI:
+                    # Bỏ tick -> không đụng tới lựa chọn giảng viên đã có,
+                    # tiết kiệm thời gian không phải tải lại danh sách.
+                    self._pending_data[CONF_EXTRA_LECTURERS] = self._config_entry.options.get(
+                        CONF_EXTRA_LECTURERS,
+                        self._config_entry.data.get(CONF_EXTRA_LECTURERS, []),
+                    )
                 return self.async_create_entry(title="", data=self._pending_data)
 
         return self.async_show_form(

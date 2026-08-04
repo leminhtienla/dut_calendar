@@ -45,6 +45,11 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
   trang (không tự tính công thức) — an toàn trước việc trường đổi
   ranh giới năm học hoặc số tuần mỗi năm (52 hay 53 tuần) mà không
   báo trước.
+- **Tiêu đề sự kiện Calendar có tiền tố `[Tên nhóm từ khóa]`** (vd
+  `[Khoa Cơ khí Giao thông] Hội ý Ban Giám hiệu`) — biết ngay mục nào
+  khớp theo nhóm nào khi nhìn lịch, nhất là khi cấu hình nhiều nhóm
+  cùng lúc. Nếu 1 mục khớp nhiều nhóm, tiền tố liệt kê đủ (vd `[Lê
+  Minh Tiến, Khoa Cơ khí Giao thông]`).
 - **Chế độ cập nhật** (chọn khi cài đặt hoặc sửa qua Options):
   - **"Chỉ tuần hiện tại + tuần mới (từ cuối tuần)"** — mặc định gọn
     nhẹ nhất: mỗi lần quét chỉ tải tuần hiện tại (1 request); từ
@@ -153,13 +158,15 @@ nếu không muốn đổi.
   nào** (coordinator lỗi/chưa cập nhật xong), không phải nghĩa là
   "hết ca thi".
 - Chỉ cảnh báo ca thi **mới**.
-- **Theo dõi thêm giảng viên khác** (tùy chọn, sau bước chọn học kỳ —
-  cả khi thêm mới lẫn sửa qua Options): thay vì gõ tay, chọn qua **3
-  bước**:
-  1. Chọn **Khoa** (dropdown, kèm số người mỗi khoa) để rút gọn danh
+- **Theo dõi thêm giảng viên khác** (tùy chọn, tick bật ngay ở bước
+  đăng nhập — cả khi thêm mới lẫn sửa qua Options): mặc định **tắt**,
+  không tải gì thêm, không tốn thời gian. Chỉ khi **tick bật** mới đi
+  tiếp qua 3 bước:
+  1. Chọn học kỳ (như cũ)
+  2. Chọn **Khoa** (dropdown, kèm số người mỗi khoa) để rút gọn danh
      sách — hoặc **"Không theo dõi thêm ai"** để bỏ qua tính năng này,
      hoặc **"— Tất cả các khoa —"** để hiện toàn bộ.
-  2. Chọn **tên** (nhiều lựa chọn cùng lúc, gõ để tìm kiếm nếu danh
+  3. Chọn **tên** (nhiều lựa chọn cùng lúc, gõ để tìm kiếm nếu danh
      sách dài) — tên lấy trực tiếp từ dữ liệu thật trên hệ thống
      (dạng `mã khoa-Tên`, vd `103-Lê Minh Tiến`), không gõ tay nên
      không lo sai chính tả/không khớp.
@@ -169,6 +176,11 @@ nếu không muốn đổi.
   có đủ dữ liệu coi thi cho mọi khoa (vd học kỳ mới chưa xếp lịch hết,
   hoặc khoa của chính bạn tình cờ chưa có ca nào trong học kỳ đó),
   khiến danh sách bị thiếu nếu chỉ dựa vào 1 học kỳ.
+
+  *Khi sửa qua Options: nếu entry đã có sẵn giảng viên đang theo dõi,
+  tick này tự mặc định BẬT (để tiện chỉnh sửa); nếu bỏ tick đi, lựa
+  chọn giảng viên hiện tại được GIỮ NGUYÊN, không bị xóa — chỉ đơn
+  giản là không tải lại danh sách/không đổi gì lần lưu đó.*
 
   Khi có chọn, mỗi lần quét sẽ tải thêm danh sách **toàn bộ ca thi**
   (không giới hạn theo tài khoản đăng nhập, response lớn hơn — chỉ

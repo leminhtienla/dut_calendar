@@ -92,11 +92,13 @@ class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], Calendar
             if m.get("week_label"):
                 desc_lines.append(f"Tuần: {m['week_label']}")
 
+            prefix = f"[{kw}] " if kw else ""
+
             events.append(
                 CalendarEvent(
                     start=start,
                     end=end,
-                    summary=m.get("content") or "(không có nội dung)",
+                    summary=f"{prefix}{m.get('content') or '(không có nội dung)'}",
                     description="\n".join(desc_lines),
                     location=m.get("location") or "",
                     uid=m.get("id"),

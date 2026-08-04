@@ -36,7 +36,8 @@
           "password": "Mật khẩu",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
-          "notify_service": "Notify service tùy chọn"
+          "notify_service": "Notify service tùy chọn",
+          "configure_extra_lecturer": "Theo dõi thêm giảng viên khác? (bật thì bước sau sẽ tải danh sách khoa/tên, ~1MB, có thể mất chút thời gian)"
         }
       },
       "dut_deadline_diem_account": {
@@ -105,7 +106,8 @@
           "password": "Mật khẩu mới (để trống = giữ nguyên)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
           "update_mode": "Chế độ cập nhật",
-          "clear_history": "Xóa lịch sử cũ (tick để xóa 1 lần, tự tắt lại sau khi xóa)"
+          "clear_history": "Xóa lịch sử cũ (tick để xóa 1 lần, tự tắt lại sau khi xóa)",
+          "configure_extra_lecturer": "Theo dõi thêm giảng viên khác? (bật thì bước sau sẽ tải danh sách khoa/tên, ~1MB, có thể mất chút thời gian)"
         }
       },
       "hocky": {
