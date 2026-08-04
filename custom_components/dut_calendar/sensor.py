@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import homeassistant.util.dt as dt_util
@@ -16,9 +16,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
-from .parser_exam import parse_vn_date
+from .parser_exam import build_deadline_events, parse_vn_date
+from .parser_public import parse_event_datetime
 
 MAX_ATTR_ENTRIES = 25
+PERIODS = ("today", "tomorrow", "month")
 
 
 async def async_setup_entry(
@@ -30,13 +32,22 @@ async def async_setup_entry(
         entities: list[SensorEntity] = [PublicTotalSensor(coordinator, entry)]
         for label in coordinator.keyword_labels:
             entities.append(PublicKeywordSensor(coordinator, entry, label))
+        entities += [
+            PublicCountSensor(coordinator, entry, period) for period in PERIODS
+        ]
         async_add_entities(entities)
     elif isinstance(coordinator, CBDutCoordinator):
         entry_type = entry.data.get(CONF_TYPE)
         if entry_type == TYPE_COITHI:
-            async_add_entities([ExamDutySensor(coordinator, entry)])
+            async_add_entities(
+                [ExamDutySensor(coordinator, entry)]
+                + [CoithiCountSensor(coordinator, entry, period) for period in PERIODS]
+            )
         elif entry_type == TYPE_DEADLINE_DIEM:
-            async_add_entities([GradeDeadlineSensor(coordinator, entry)])
+            async_add_entities(
+                [GradeDeadlineSensor(coordinator, entry)]
+                + [DeadlineCountSensor(coordinator, entry, period) for period in PERIODS]
+            )
 
 
 # =====================================================================
@@ -290,3 +301,103 @@ class GradeDeadlineSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
             "chi_tiet_theo_hoc_ky": result,
             "last_checked": datetime.now().isoformat(timespec="seconds"),
         }
+
+
+# =====================================================================
+# Sensor đếm số sự kiện: Hôm nay / Ngày mai / Tháng này
+# (dùng chung cho cả 3 loại, mỗi loại override _event_dates())
+# =====================================================================
+_PERIOD_LABELS = {"today": "Hôm nay", "tomorrow": "Ngày mai", "month": "Tháng này"}
+_PERIOD_ICONS = {
+    "today": "mdi:calendar-today",
+    "tomorrow": "mdi:calendar-arrow-right",
+    "month": "mdi:calendar-month",
+}
+
+
+def _to_date(value: Any) -> date | None:
+    """Chuẩn hóa date hoặc datetime về date thuần để so sánh."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    return value
+
+
+class _CountSensorBase(CoordinatorEntity, SensorEntity):
+    """Lớp cơ sở: đếm số sự kiện rơi vào hôm nay/ngày mai/tháng này."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: Any, entry: ConfigEntry, period: str) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._period = period
+        self._attr_name = _PERIOD_LABELS[period]
+        self._attr_icon = _PERIOD_ICONS[period]
+        self._attr_unique_id = f"{entry.entry_id}_count_{period}"
+
+    def _event_dates(self) -> list[date]:
+        """Trả về danh sách ngày của mọi sự kiện đang có — subclass tự cài."""
+        raise NotImplementedError
+
+    @property
+    def native_value(self) -> int:
+        today = dt_util.now().date()
+        dates = [d for d in self._event_dates() if d]
+
+        if self._period == "today":
+            return sum(1 for d in dates if d == today)
+        if self._period == "tomorrow":
+            return sum(1 for d in dates if d == today + timedelta(days=1))
+        # "month"
+        return sum(1 for d in dates if d.year == today.year and d.month == today.month)
+
+
+class PublicCountSensor(_CountSensorBase):
+    """Đếm số mục lịch tuần khớp từ khóa theo hôm nay/ngày mai/tháng này."""
+
+    def __init__(
+        self, coordinator: LichTuanDutCoordinator, entry: ConfigEntry, period: str
+    ) -> None:
+        super().__init__(coordinator, entry, period)
+        self._attr_device_info = _device_info_public(entry)
+
+    def _event_dates(self) -> list[date]:
+        data = self.coordinator.data or {}
+        dates: list[date] = []
+        for m in data.get("matches", []):
+            start, _end, _all_day = parse_event_datetime(m.get("date", ""), m.get("time", ""))
+            d = _to_date(start)
+            if d:
+                dates.append(d)
+        return dates
+
+
+class CoithiCountSensor(_CountSensorBase):
+    """Đếm số ca coi thi theo hôm nay/ngày mai/tháng này."""
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry, period: str) -> None:
+        super().__init__(coordinator, entry, period)
+        self._attr_device_info = _device_info_coithi(entry)
+
+    def _event_dates(self) -> list[date]:
+        data = self.coordinator.data or {}
+        return [
+            _to_date(d["start"])
+            for d in data.get("duties", [])
+            if d.get("start")
+        ]
+
+
+class DeadlineCountSensor(_CountSensorBase):
+    """Đếm số mốc hạn nộp điểm theo hôm nay/ngày mai/tháng này."""
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry, period: str) -> None:
+        super().__init__(coordinator, entry, period)
+        self._attr_device_info = _device_info_deadline(entry)
+
+    def _event_dates(self) -> list[date]:
+        data = self.coordinator.data or {}
+        events = build_deadline_events(data.get("grade_deadlines", {}))
+        return [e["date"] for e in events]

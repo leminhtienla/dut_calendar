@@ -5,6 +5,23 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-04
+
+### Thêm mới
+- **Sensor đếm sự kiện** — mỗi loại (`dut_lichtuan`, `dut_coithi`, `dut_deadline_diem`) đều có thêm 3 sensor: `Hôm nay`, `Ngày mai`, `Tháng này`.
+- **Calendar `Nhập điểm`** cho `dut_deadline_diem` (trước đây loại này không có Calendar) — mỗi mốc hạn (giữa kỳ, thành phần, thi chung, đính chính) thành 1 sự kiện cả ngày, xem trực quan trên Lovelace.
+- Hàm `build_deadline_events()` mới trong `parser_exam.py` (thuần Python, test độc lập được), gộp phẳng mọi mốc hạn thành danh sách sự kiện có ngày cụ thể — dùng chung cho Calendar mới và các sensor đếm.
+
+### Xác nhận hành vi
+- Tên Calendar đã rút gọn đúng theo yêu cầu: `Lịch tuần`, `Coi thi`, `Nhập điểm`.
+- Đổi Options vẫn tự `async_reload` toàn bộ entry như trước — sensor/calendar tự cập nhật ngay, không cần thao tác thêm.
+
+## [1.4.0] - 2026-08-04
+
+### Thêm mới
+- **Dùng chung tài khoản giữa `dut_coithi` và `dut_deadline_diem`.** Khi thêm entry thứ 2 (loại còn lại) và đã có ≥1 tài khoản cấu hình sẵn, config flow cho chọn dùng lại tài khoản đó (bước mới trước bước đăng nhập) thay vì bắt gõ lại mật khẩu — mỗi entry vẫn giữ phiên đăng nhập độc lập với nhau như trước, chỉ là khỏi phải nhập lại thông tin.
+- Xác nhận: **sửa lại học kỳ sau khi đã thêm entry** vẫn làm được qua Options — đã có từ v1.3.0, không đổi gì thêm ở bản này.
+
 ## [1.3.0] - 2026-08-04
 
 ### Thêm mới
@@ -54,7 +71,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.5.0
+[1.4.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.4.0
 [1.3.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.3.0
 [1.2.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.2.0
 [1.1.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.1.0

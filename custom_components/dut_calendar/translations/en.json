@@ -19,8 +19,15 @@
           "notify_service": "Optional notify service"
         }
       },
-      "dut_coithi": {
-        "title": "Exam invigilation - Step 1: Log in",
+      "dut_coithi_account": {
+        "title": "Exam invigilation - Choose account",
+        "description": "A cb.dut.udn.vn account is already configured from another source. Reuse it to skip retyping the password, or add a different account.",
+        "data": {
+          "existing_account": "Account"
+        }
+      },
+      "dut_coithi_login": {
+        "title": "Exam invigilation - Log in",
         "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch salary data. After a successful login, the next step lets you pick semesters from a real list.",
         "data": {
           "username": "Username (e.g. 103LMTIEN)",
@@ -30,8 +37,15 @@
           "notify_service": "Optional notify service"
         }
       },
-      "dut_deadline_diem": {
-        "title": "Grade deadlines - Step 1: Log in",
+      "dut_deadline_diem_account": {
+        "title": "Grade deadlines - Choose account",
+        "description": "A cb.dut.udn.vn account is already configured from another source. Reuse it to skip retyping the password, or add a different account.",
+        "data": {
+          "existing_account": "Account"
+        }
+      },
+      "dut_deadline_diem_login": {
+        "title": "Grade deadlines - Log in",
         "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch student grades/names/IDs. After a successful login, the next step lets you pick semesters from a real list.",
         "data": {
           "username": "Username (e.g. 103LMTIEN)",
@@ -43,8 +57,8 @@
       },
       "hocky": {
         "title": "Choose semesters to track",
-        "description": "You can select multiple semesters (e.g. both the current and next one, so nothing is missed if published early).",
-        "data": {
+        "description": "You can select multiple semesters (e.g. current + next, or overlapping ones), so nothing is missed."
+        ,"data": {
           "hoc_ky": "Semester"
         }
       }

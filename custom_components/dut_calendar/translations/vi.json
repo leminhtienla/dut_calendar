@@ -19,8 +19,15 @@
           "notify_service": "Notify service tùy chọn (vd: notify.mobile_app_dien_thoai)"
         }
       },
-      "dut_coithi": {
-        "title": "Lịch coi thi - Bước 1: Đăng nhập",
+      "dut_coithi_account": {
+        "title": "Lịch coi thi - Chọn tài khoản",
+        "description": "Đã có tài khoản cb.dut.udn.vn cấu hình sẵn từ nguồn khác. Dùng lại để khỏi gõ mật khẩu lần nữa, hoặc thêm tài khoản khác.",
+        "data": {
+          "existing_account": "Tài khoản"
+        }
+      },
+      "dut_coithi_login": {
+        "title": "Lịch coi thi - Đăng nhập",
         "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần, tự đăng nhập lại khi phiên hết hạn). KHÔNG lấy dữ liệu lương. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
         "data": {
           "username": "Tài khoản (vd: 103LMTIEN)",
@@ -30,8 +37,15 @@
           "notify_service": "Notify service tùy chọn"
         }
       },
-      "dut_deadline_diem": {
-        "title": "Hạn nộp điểm - Bước 1: Đăng nhập",
+      "dut_deadline_diem_account": {
+        "title": "Hạn nộp điểm - Chọn tài khoản",
+        "description": "Đã có tài khoản cb.dut.udn.vn cấu hình sẵn từ nguồn khác. Dùng lại để khỏi gõ mật khẩu lần nữa, hoặc thêm tài khoản khác.",
+        "data": {
+          "existing_account": "Tài khoản"
+        }
+      },
+      "dut_deadline_diem_login": {
+        "title": "Hạn nộp điểm - Đăng nhập",
         "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần). KHÔNG lấy điểm số/tên/mã số sinh viên. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
         "data": {
           "username": "Tài khoản (vd: 103LMTIEN)",
@@ -43,7 +57,7 @@
       },
       "hocky": {
         "title": "Chọn học kỳ cần theo dõi",
-        "description": "Có thể chọn nhiều học kỳ cùng lúc (vd cả kỳ hiện tại lẫn kỳ tới, để không bỏ sót khi lịch được công bố sớm).",
+        "description": "Có thể tick chọn nhiều học kỳ cùng lúc (vd cả kỳ hiện tại lẫn kỳ tới, hoặc các kỳ giao thoa lịch, để không bỏ sót).",
         "data": {
           "hoc_ky": "Học kỳ"
         }
@@ -77,7 +91,7 @@
       },
       "hocky": {
         "title": "Chọn học kỳ cần theo dõi",
-        "description": "Có thể chọn nhiều học kỳ cùng lúc.",
+        "description": "Có thể tick chọn nhiều học kỳ cùng lúc.",
         "data": {
           "hoc_ky": "Học kỳ"
         }

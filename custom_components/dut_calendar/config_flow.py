@@ -55,6 +55,37 @@ KEYWORDS_EXAMPLE = (
     "Bộ môn Kỹ thuật Ô tô: Kỹ thuật Ô tô, KTOT"
 )
 
+ACCOUNT_NEW_SENTINEL = "__new_account__"
+
+
+def _existing_accounts(hass: Any) -> dict[str, str]:
+    """Trả về {tài khoản: mật khẩu} từ các entry dut_coithi/dut_deadline_diem
+    đã cấu hình — để entry mới cùng loại dùng chung tài khoản, không phải
+    gõ lại mật khẩu.
+    """
+    accounts: dict[str, str] = {}
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get(CONF_TYPE) in (TYPE_COITHI, TYPE_DEADLINE_DIEM):
+            username = entry.data.get(CONF_USERNAME)
+            if not username or username in accounts:
+                continue
+            password = entry.options.get(CONF_PASSWORD, entry.data.get(CONF_PASSWORD, ""))
+            accounts[username] = password
+    return accounts
+
+
+def _schema_account_choice(accounts: dict[str, str]) -> vol.Schema:
+    options = [SelectOptionDict(value=u, label=u) for u in accounts] + [
+        SelectOptionDict(value=ACCOUNT_NEW_SENTINEL, label="+ Tài khoản khác (nhập mới)")
+    ]
+    return vol.Schema(
+        {
+            vol.Required("existing_account", default=next(iter(accounts))): SelectSelector(
+                SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
+            ),
+        }
+    )
+
 
 # =====================================================================
 # Schema builders
@@ -180,7 +211,6 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         self._pending_data: dict[str, Any] = {}
         self._hocky_options: list[dict[str, Any]] = []
         self._pending_type: str | None = None
-        self._pending_step_id: str | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> Any:
         return self.async_show_menu(
@@ -207,16 +237,65 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"example": KEYWORDS_EXAMPLE},
         )
 
-    # ---- dut_coithi: bước 1 (đăng nhập) ----
+    # ---- dut_coithi: bước 0 (chọn tài khoản có sẵn, nếu có) -> bước 1 (đăng nhập) ----
     async def async_step_dut_coithi(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._step_account_gate(user_input, "dut_coithi", TYPE_COITHI)
+
+    async def async_step_dut_coithi_account(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._step_account_choice(user_input, "dut_coithi", TYPE_COITHI)
+
+    async def async_step_dut_coithi_login(self, user_input: dict[str, Any] | None = None) -> Any:
         return await self._step_credentials(user_input, "dut_coithi", TYPE_COITHI)
 
-    # ---- dut_deadline_diem: bước 1 (đăng nhập) ----
+    # ---- dut_deadline_diem: bước 0 (chọn tài khoản có sẵn, nếu có) -> bước 1 (đăng nhập) ----
     async def async_step_dut_deadline_diem(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._step_account_gate(user_input, "dut_deadline_diem", TYPE_DEADLINE_DIEM)
+
+    async def async_step_dut_deadline_diem_account(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
+        return await self._step_account_choice(user_input, "dut_deadline_diem", TYPE_DEADLINE_DIEM)
+
+    async def async_step_dut_deadline_diem_login(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
         return await self._step_credentials(user_input, "dut_deadline_diem", TYPE_DEADLINE_DIEM)
 
+    async def _step_account_gate(
+        self, user_input: dict[str, Any] | None, base_step: str, type_value: str
+    ) -> Any:
+        """Vào từ menu: nếu đã có tài khoản cấu hình sẵn (từ entry loại
+        dut_coithi/dut_deadline_diem khác), cho chọn dùng lại thay vì bắt
+        gõ mật khẩu lần nữa. Nếu chưa có tài khoản nào, vào thẳng bước
+        đăng nhập như bình thường.
+        """
+        if _existing_accounts(self.hass):
+            return await self._step_account_choice(None, base_step, type_value)
+        return await self._step_credentials(None, base_step, type_value)
+
+    async def _step_account_choice(
+        self, user_input: dict[str, Any] | None, base_step: str, type_value: str
+    ) -> Any:
+        accounts = _existing_accounts(self.hass)
+
+        if user_input is not None:
+            choice = user_input["existing_account"]
+            if choice == ACCOUNT_NEW_SENTINEL:
+                return await self._step_credentials(None, base_step, type_value)
+            prefill = {CONF_USERNAME: choice, CONF_PASSWORD: accounts.get(choice, "")}
+            return await self._step_credentials(None, base_step, type_value, prefill=prefill)
+
+        return self.async_show_form(
+            step_id=f"{base_step}_account",
+            data_schema=_schema_account_choice(accounts),
+        )
+
     async def _step_credentials(
-        self, user_input: dict[str, Any] | None, step_id: str, type_value: str
+        self,
+        user_input: dict[str, Any] | None,
+        base_step: str,
+        type_value: str,
+        prefill: dict[str, Any] | None = None,
     ) -> Any:
         errors: dict[str, str] = {}
 
@@ -234,13 +313,14 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 self._pending_data = user_input
                 self._pending_type = type_value
-                self._pending_step_id = step_id
                 self._hocky_options = options
                 return await self.async_step_hocky()
 
         return self.async_show_form(
-            step_id=step_id,
-            data_schema=_schema_login_credentials(user_input or {}, require_password=True),
+            step_id=f"{base_step}_login",
+            data_schema=_schema_login_credentials(
+                user_input or prefill or {}, require_password=True
+            ),
             errors=errors,
         )
 

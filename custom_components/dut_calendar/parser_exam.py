@@ -228,6 +228,51 @@ def parse_hoc_ky_options(html: str) -> list[dict[str, Any]]:
     ]
 
 
+def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any]]:
+    """Gộp phẳng mọi mốc hạn nộp điểm (thi chung + từng lớp) thành 1
+    danh sách sự kiện có ngày cụ thể — dùng chung cho Calendar 'Nhập
+    điểm' và các sensor đếm số sự kiện (hôm nay/ngày mai/tháng này).
+    """
+    events: list[dict[str, Any]] = []
+
+    label_ca_thi_chung = {
+        "ngay_bat_dau": "Bắt đầu nhập điểm thi chung",
+        "ngay_ket_thuc": "Kết thúc nhập điểm thi chung",
+        "ngay_nop_ban_diem": "Nộp bản điểm thi chung",
+        "han_dinh_chinh": "Hạn đính chính điểm thi chung",
+    }
+    label_theo_lop = {
+        "ngay_giua_ky": "Hạn điểm giữa kỳ",
+        "ngay_thanh_phan": "Hạn điểm thành phần",
+        "ngay_cuoi_ky": "Hạn điểm cuối kỳ",
+        "han_dinh_chinh_giua_ky": "Đính chính điểm giữa kỳ",
+        "han_dinh_chinh_thanh_phan": "Đính chính điểm thành phần",
+    }
+
+    for hoc_ky, hk_info in (grade_deadlines or {}).items():
+        ca_thi_chung = hk_info.get("ca_thi_chung") or {}
+        for key, label in label_ca_thi_chung.items():
+            d = parse_vn_date(ca_thi_chung.get(key))
+            if d:
+                events.append({"date": d, "summary": label, "hoc_ky": hoc_ky})
+
+        for ma_lop, info in hk_info.get("theo_lop", {}).items():
+            ten_lop = info.get("ten_lop") or ma_lop
+            for key, label in label_theo_lop.items():
+                d = parse_vn_date(info.get(key))
+                if d:
+                    events.append(
+                        {
+                            "date": d,
+                            "summary": f"{ten_lop}: {label}",
+                            "hoc_ky": hoc_ky,
+                            "ma_lop": ma_lop,
+                        }
+                    )
+
+    return events
+
+
 def exam_hash(entry: dict[str, Any]) -> str:
     """Mã băm ổn định cho 1 ca thi, dùng để chống báo trùng."""
     raw = "|".join(

@@ -12,9 +12,10 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_TYPE, DOMAIN, TYPE_COITHI
+from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
+from .parser_exam import build_deadline_events
 from .parser_public import parse_event_datetime
 
 
@@ -26,10 +27,11 @@ async def async_setup_entry(
     if isinstance(coordinator, LichTuanDutCoordinator):
         async_add_entities([PublicScheduleCalendar(coordinator, entry)])
     elif isinstance(coordinator, CBDutCoordinator):
-        if entry.data.get(CONF_TYPE) == TYPE_COITHI:
+        entry_type = entry.data.get(CONF_TYPE)
+        if entry_type == TYPE_COITHI:
             async_add_entities([ExamDutyCalendar(coordinator, entry)])
-        # Loại "dut_deadline_diem" không có Calendar — hạn nộp điểm là
-        # các mốc ngày, không phải sự kiện có giờ bắt đầu/kết thúc rõ ràng.
+        elif entry_type == TYPE_DEADLINE_DIEM:
+            async_add_entities([DeadlineCalendar(coordinator, entry)])
 
 
 def _end_as_datetime(value: Any) -> datetime:
@@ -185,3 +187,60 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         return [e for e in self._build_events() if e.end >= start_date and e.start <= end_date]
+
+
+# =====================================================================
+# Nguồn: Hạn nộp điểm — mỗi mốc hạn là 1 sự kiện CẢ NGÀY
+# =====================================================================
+class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
+    """Lịch gồm mọi mốc hạn nộp điểm (thi chung + từng lớp) đang theo dõi."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Nhập điểm"
+    _attr_icon = "mdi:calendar-alert"
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_calendar"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="DUT Calendar - Hạn nộp điểm",
+            manufacturer="cb.dut.udn.vn (không chính thức)",
+            model="Cảnh báo hạn nộp điểm",
+        )
+
+    def _build_events(self) -> list[CalendarEvent]:
+        data = self.coordinator.data or {}
+        grade_deadlines = data.get("grade_deadlines", {})
+        raw_events = build_deadline_events(grade_deadlines)
+
+        events = [
+            CalendarEvent(
+                start=e["date"],
+                end=e["date"] + timedelta(days=1),
+                summary=e["summary"],
+                description=f"Học kỳ: {e['hoc_ky']}",
+                uid=f"{self._entry.entry_id}_{e['hoc_ky']}_{e.get('ma_lop', 'chung')}_{e['summary']}",
+            )
+            for e in raw_events
+        ]
+        events.sort(key=lambda ev: _start_as_datetime(ev.start))
+        return events
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        now = dt_util.now()
+        upcoming = [e for e in self._build_events() if _end_as_datetime(e.end) >= now]
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        result = []
+        for e in self._build_events():
+            e_start = _start_as_datetime(e.start)
+            e_end = _end_as_datetime(e.end)
+            if e_end >= start_date and e_start <= end_date:
+                result.append(e)
+        return result

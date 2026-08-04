@@ -39,21 +39,58 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
 - Tạo 1 sensor tổng + 1 sensor riêng mỗi nhóm từ khóa, và Calendar `calendar.lich_tuan`.
 - Chỉ cảnh báo mục **mới**, không lặp lại.
 
-## `dut_coithi` / `dut_deadline_diem` — quy trình cài đặt 2 bước
+## Sensor đếm số sự kiện (cả 3 loại)
 
-1. **Bước 1 — Đăng nhập:** nhập tài khoản/mật khẩu cổng `cb.dut.udn.vn`.
+Mỗi loại (`dut_lichtuan`, `dut_coithi`, `dut_deadline_diem`) đều có
+thêm 3 sensor đếm, tính theo giờ hệ thống của Home Assistant:
+
+- **Hôm nay** — số sự kiện rơi đúng ngày hôm nay.
+- **Ngày mai** — số sự kiện rơi đúng ngày mai.
+- **Tháng này** — số sự kiện trong tháng hiện tại.
+
+Với `dut_lichtuan`: đếm theo mục lịch tuần khớp từ khóa. Với
+`dut_coithi`: đếm theo ca coi thi. Với `dut_deadline_diem`: đếm theo
+mốc hạn nộp điểm (thi chung + từng lớp gộp lại).
+
+## Calendar — tên rút gọn
+
+- `dut_lichtuan` → Calendar **`Lịch tuần`**
+- `dut_coithi` → Calendar **`Coi thi`**
+- `dut_deadline_diem` → Calendar **`Nhập điểm`** *(mới)* — mỗi mốc hạn
+  (giữa kỳ, thành phần, thi chung, đính chính...) hiển thị thành 1 sự
+  kiện **cả ngày** trên đúng ngày hết hạn, xem trực quan trên Lovelace
+  Calendar card thay vì chỉ đọc attributes của sensor.
+
+## Đổi Options có tự cập nhật sensor không?
+
+Có — mọi thay đổi qua Options (từ khóa, học kỳ, tài khoản...) đều làm
+Home Assistant **tự reload toàn bộ entry** ngay sau khi lưu, sensor và
+calendar cập nhật theo dữ liệu mới ngay trong lần tải đầu tiên sau đó,
+không cần khởi động lại HA hay thao tác gì thêm.
+
+## `dut_coithi` / `dut_deadline_diem` — quy trình cài đặt
+
+1. **Bước 0 — Chọn tài khoản** *(chỉ hiện nếu đã có ≥1 tài khoản cấu
+   hình từ trước, ở nguồn `dut_coithi` hoặc `dut_deadline_diem`
+   khác)*: chọn dùng lại tài khoản đã có (khỏi gõ mật khẩu lần nữa),
+   hoặc chọn "+ Tài khoản khác" để nhập tài khoản mới. Ví dụ: đã thêm
+   `dut_coithi` với tài khoản A, giờ thêm `dut_deadline_diem` — có
+   thể chọn lại tài khoản A ngay, không cần đăng nhập lại từ đầu.
+2. **Bước 1 — Đăng nhập:** nhập (hoặc xác nhận) tài khoản/mật khẩu.
    Tích hợp thử đăng nhập thật ngay lúc này — sai tài khoản/mật khẩu
    báo lỗi tại đây, chưa lưu gì cả.
-2. **Bước 2 — Chọn học kỳ:** sau khi đăng nhập thành công, tích hợp tự
+3. **Bước 2 — Chọn học kỳ:** sau khi đăng nhập thành công, tích hợp tự
    tải danh sách học kỳ **thật** từ cổng (vd "Học kỳ 2 năm học
-   2025-2026") để bạn **chọn bằng tên**, không cần tự gõ mã số. Có
-   thể chọn nhiều học kỳ cùng lúc (vd cả kỳ hiện tại lẫn kỳ tới, để
-   không bỏ sót khi lịch được công bố sớm). Học kỳ đang là "hiện tại"
-   trên cổng sẽ được chọn sẵn.
+   2025-2026") để bạn **chọn bằng tên**, không cần tự gõ mã số. Hiển
+   thị dạng **danh sách tick chọn** (không phải dropdown chỉ chọn được
+   1) — tick được nhiều học kỳ cùng lúc, kể cả các học kỳ giao thoa
+   lịch nhau. Học kỳ đang là "hiện tại" trên cổng sẽ được chọn sẵn.
 
 Muốn đổi lại danh sách học kỳ theo dõi sau này: vào Options của entry
-đó — cũng đi qua đúng 2 bước như trên (xác thực lại rồi chọn học kỳ
-mới), không cần nhớ mã số.
+đó — cũng đi qua đúng bước xác thực + chọn học kỳ như trên (không cần
+nhớ mã số). Lưu ý: Options không có bước "chọn tài khoản có sẵn" (vì
+đang sửa 1 entry cụ thể, không phải thêm mới) — để trống ô Mật khẩu
+nếu không muốn đổi.
 
 ## `dut_coithi` — Lịch coi thi
 
