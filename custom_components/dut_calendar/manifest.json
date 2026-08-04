@@ -1,0 +1,12 @@
+{
+  "domain": "dut_calendar",
+  "name": "DUT Calendar",
+  "codeowners": ["@minhtien"],
+  "config_flow": true,
+  "documentation": "https://github.com/YOUR_GITHUB_USERNAME/dut_calendar",
+  "issue_tracker": "https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/issues",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": ["beautifulsoup4>=4.12.0"],
+  "version": "1.3.0"
+}

@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DUT Calendar - Chọn nguồn dữ liệu",
+        "menu_options": {
+          "dut_lichtuan": "Lịch tuần (công khai, theo từ khóa, không cần đăng nhập)",
+          "dut_coithi": "Lịch coi thi (cần đăng nhập cb.dut.udn.vn)",
+          "dut_deadline_diem": "Hạn nộp điểm (cần đăng nhập cb.dut.udn.vn)"
+        }
+      },
+      "dut_lichtuan": {
+        "title": "Lịch tuần công khai",
+        "description": "Mỗi DÒNG là một nhóm từ khóa (sẽ tạo 1 sensor riêng). Cú pháp: 'Nhãn: biến thể 1, biến thể 2, ...'. Ví dụ:\n{example}",
+        "data": {
+          "keywords": "Danh sách nhóm từ khóa (mỗi dòng 1 nhóm)",
+          "scan_interval": "Tần suất kiểm tra (phút)",
+          "weeks_ahead": "Số tuần kiểm tra thêm (0 = chỉ tuần hiện tại)",
+          "notify_service": "Notify service tùy chọn (vd: notify.mobile_app_dien_thoai)"
+        }
+      },
+      "dut_coithi": {
+        "title": "Lịch coi thi - Bước 1: Đăng nhập",
+        "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần, tự đăng nhập lại khi phiên hết hạn). KHÔNG lấy dữ liệu lương. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
+        "data": {
+          "username": "Tài khoản (vd: 103LMTIEN)",
+          "password": "Mật khẩu",
+          "scan_interval": "Tần suất kiểm tra (phút)",
+          "exam_duration": "Thời lượng ca thi mặc định (phút)",
+          "notify_service": "Notify service tùy chọn"
+        }
+      },
+      "dut_deadline_diem": {
+        "title": "Hạn nộp điểm - Bước 1: Đăng nhập",
+        "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần). KHÔNG lấy điểm số/tên/mã số sinh viên. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
+        "data": {
+          "username": "Tài khoản (vd: 103LMTIEN)",
+          "password": "Mật khẩu",
+          "scan_interval": "Tần suất kiểm tra (phút)",
+          "exam_duration": "(Không dùng cho loại này)",
+          "notify_service": "Notify service tùy chọn"
+        }
+      },
+      "hocky": {
+        "title": "Chọn học kỳ cần theo dõi",
+        "description": "Có thể chọn nhiều học kỳ cùng lúc (vd cả kỳ hiện tại lẫn kỳ tới, để không bỏ sót khi lịch được công bố sớm).",
+        "data": {
+          "hoc_ky": "Học kỳ"
+        }
+      }
+    },
+    "error": {
+      "no_keywords": "Vui lòng nhập ít nhất một nhóm từ khóa hợp lệ (mỗi dòng 1 nhóm).",
+      "no_hoc_ky": "Vui lòng chọn ít nhất một học kỳ.",
+      "no_hocky_options": "Đăng nhập thành công nhưng không lấy được danh sách học kỳ, thử lại sau.",
+      "invalid_auth": "Sai tài khoản hoặc mật khẩu.",
+      "cannot_connect": "Không kết nối được tới cb.dut.udn.vn, thử lại sau."
+    },
+    "abort": {
+      "already_configured": "Nguồn này đã được cấu hình rồi."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cập nhật cấu hình",
+        "description": "Với nguồn 'Lịch tuần': sửa từ khóa trực tiếp. Với nguồn cần đăng nhập: để trống ô Mật khẩu nếu không muốn đổi — sau khi lưu sẽ chuyển sang bước chọn lại học kỳ.",
+        "data": {
+          "keywords": "Danh sách nhóm từ khóa (mỗi dòng 1 nhóm)",
+          "scan_interval": "Tần suất kiểm tra (phút)",
+          "weeks_ahead": "Số tuần kiểm tra thêm",
+          "notify_service": "Notify service tùy chọn",
+          "username": "Tài khoản",
+          "password": "Mật khẩu mới (để trống = giữ nguyên)",
+          "exam_duration": "Thời lượng ca thi mặc định (phút)"
+        }
+      },
+      "hocky": {
+        "title": "Chọn học kỳ cần theo dõi",
+        "description": "Có thể chọn nhiều học kỳ cùng lúc.",
+        "data": {
+          "hoc_ky": "Học kỳ"
+        }
+      }
+    },
+    "error": {
+      "no_keywords": "Vui lòng nhập ít nhất một nhóm từ khóa hợp lệ.",
+      "no_hoc_ky": "Vui lòng chọn ít nhất một học kỳ.",
+      "no_hocky_options": "Đăng nhập thành công nhưng không lấy được danh sách học kỳ, thử lại sau.",
+      "invalid_auth": "Sai tài khoản hoặc mật khẩu.",
+      "cannot_connect": "Không kết nối được tới cb.dut.udn.vn, thử lại sau."
+    }
+  }
+}

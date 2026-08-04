@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DUT Calendar - Choose data source",
+        "menu_options": {
+          "dut_lichtuan": "Weekly schedule (public, keyword alerts, no login)",
+          "dut_coithi": "Exam invigilation schedule (requires cb.dut.udn.vn login)",
+          "dut_deadline_diem": "Grade entry deadlines (requires cb.dut.udn.vn login)"
+        }
+      },
+      "dut_lichtuan": {
+        "title": "Public weekly schedule",
+        "description": "Each LINE is one keyword group. Syntax: 'Label: variant 1, variant 2, ...'. Example:\n{example}",
+        "data": {
+          "keywords": "Keyword groups (one per line)",
+          "scan_interval": "Check interval (minutes)",
+          "weeks_ahead": "Extra weeks to check (0 = current week only)",
+          "notify_service": "Optional notify service"
+        }
+      },
+      "dut_coithi": {
+        "title": "Exam invigilation - Step 1: Log in",
+        "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch salary data. After a successful login, the next step lets you pick semesters from a real list.",
+        "data": {
+          "username": "Username (e.g. 103LMTIEN)",
+          "password": "Password",
+          "scan_interval": "Check interval (minutes)",
+          "exam_duration": "Default exam duration (minutes)",
+          "notify_service": "Optional notify service"
+        }
+      },
+      "dut_deadline_diem": {
+        "title": "Grade deadlines - Step 1: Log in",
+        "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch student grades/names/IDs. After a successful login, the next step lets you pick semesters from a real list.",
+        "data": {
+          "username": "Username (e.g. 103LMTIEN)",
+          "password": "Password",
+          "scan_interval": "Check interval (minutes)",
+          "exam_duration": "(Not used for this source)",
+          "notify_service": "Optional notify service"
+        }
+      },
+      "hocky": {
+        "title": "Choose semesters to track",
+        "description": "You can select multiple semesters (e.g. both the current and next one, so nothing is missed if published early).",
+        "data": {
+          "hoc_ky": "Semester"
+        }
+      }
+    },
+    "error": {
+      "no_keywords": "Please enter at least one valid keyword group (one per line).",
+      "no_hoc_ky": "Please select at least one semester.",
+      "no_hocky_options": "Login succeeded but the semester list could not be fetched, try again later.",
+      "invalid_auth": "Invalid username or password.",
+      "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later."
+    },
+    "abort": {
+      "already_configured": "This source is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update configuration",
+        "description": "For 'Weekly schedule' source: edit keywords directly. For login-based sources: leave Password empty to keep the saved one — saving moves to the semester selection step.",
+        "data": {
+          "keywords": "Keyword groups (one per line)",
+          "scan_interval": "Check interval (minutes)",
+          "weeks_ahead": "Extra weeks to check",
+          "notify_service": "Optional notify service",
+          "username": "Username",
+          "password": "New password (empty = keep current)",
+          "exam_duration": "Default exam duration (minutes)"
+        }
+      },
+      "hocky": {
+        "title": "Choose semesters to track",
+        "description": "You can select multiple semesters.",
+        "data": {
+          "hoc_ky": "Semester"
+        }
+      }
+    },
+    "error": {
+      "no_keywords": "Please enter at least one valid keyword group.",
+      "no_hoc_ky": "Please select at least one semester.",
+      "no_hocky_options": "Login succeeded but the semester list could not be fetched, try again later.",
+      "invalid_auth": "Invalid username or password.",
+      "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later."
+    }
+  }
+}

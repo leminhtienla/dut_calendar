@@ -1,0 +1,187 @@
+"""Calendar cho DUT Calendar — nhánh theo loại coordinator (public/exam)."""
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from typing import Any
+
+import homeassistant.util.dt as dt_util
+from homeassistant.components.calendar import CalendarEntity, CalendarEvent
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import CONF_TYPE, DOMAIN, TYPE_COITHI
+from .coordinator_exam import CBDutCoordinator
+from .coordinator_public import LichTuanDutCoordinator
+from .parser_public import parse_event_datetime
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    if isinstance(coordinator, LichTuanDutCoordinator):
+        async_add_entities([PublicScheduleCalendar(coordinator, entry)])
+    elif isinstance(coordinator, CBDutCoordinator):
+        if entry.data.get(CONF_TYPE) == TYPE_COITHI:
+            async_add_entities([ExamDutyCalendar(coordinator, entry)])
+        # Loại "dut_deadline_diem" không có Calendar — hạn nộp điểm là
+        # các mốc ngày, không phải sự kiện có giờ bắt đầu/kết thúc rõ ràng.
+
+
+def _end_as_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return dt_util.start_of_local_day(value) + timedelta(days=1)
+
+
+def _start_as_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return dt_util.start_of_local_day(value)
+
+
+# =====================================================================
+# Nguồn 1: Lịch tuần công khai
+# =====================================================================
+class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], CalendarEntity):
+    """Lịch gồm mọi mục đang khớp bất kỳ nhóm từ khóa nào đã cấu hình."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Lịch tuần"
+    _attr_icon = "mdi:calendar-text"
+
+    def __init__(self, coordinator: LichTuanDutCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_calendar"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="DUT Calendar - Lịch tuần",
+            manufacturer="lichtuan.dut.udn.vn (không chính thức)",
+            model="Cảnh báo từ khóa",
+        )
+
+    def _build_events(self) -> list[CalendarEvent]:
+        data = self.coordinator.data or {}
+        tzinfo = dt_util.DEFAULT_TIME_ZONE
+        events: list[CalendarEvent] = []
+
+        for m in data.get("matches", []):
+            start, end, all_day = parse_event_datetime(m.get("date", ""), m.get("time", ""))
+            if start is None:
+                continue
+            if not all_day:
+                start = start.replace(tzinfo=tzinfo)
+                end = end.replace(tzinfo=tzinfo)
+
+            kw = ", ".join(m.get("matched_keywords", []))
+            variants = ", ".join(m.get("matched_variants", []))
+            desc_lines = [f"Từ khóa khớp: {kw} ({variants})"]
+            if m.get("participants"):
+                desc_lines.append(f"Thành phần: {m['participants']}")
+            if m.get("host"):
+                desc_lines.append(f"Chủ trì: {m['host']}")
+            if m.get("week_label"):
+                desc_lines.append(f"Tuần: {m['week_label']}")
+
+            events.append(
+                CalendarEvent(
+                    start=start,
+                    end=end,
+                    summary=m.get("content") or "(không có nội dung)",
+                    description="\n".join(desc_lines),
+                    location=m.get("location") or "",
+                    uid=m.get("id"),
+                )
+            )
+
+        events.sort(key=lambda e: _start_as_datetime(e.start))
+        return events
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        now = dt_util.now()
+        upcoming = [e for e in self._build_events() if _end_as_datetime(e.end) >= now]
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        result = []
+        for e in self._build_events():
+            e_start = _start_as_datetime(e.start)
+            e_end = _end_as_datetime(e.end)
+            if e_end >= start_date and e_start <= end_date:
+                result.append(e)
+        return result
+
+
+# =====================================================================
+# Nguồn 2: Lịch coi thi & hạn nộp điểm
+# =====================================================================
+class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
+    """Lịch gồm mọi ca coi thi đã đăng ký trong các học kỳ đang theo dõi."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Coi thi"
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_calendar"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="DUT Calendar - Coi thi",
+            manufacturer="cb.dut.udn.vn (không chính thức)",
+            model="Cảnh báo lịch coi thi",
+        )
+
+    def _build_events(self) -> list[CalendarEvent]:
+        data = self.coordinator.data or {}
+        tzinfo = dt_util.DEFAULT_TIME_ZONE
+        events: list[CalendarEvent] = []
+
+        for d in data.get("duties", []):
+            start, end = d.get("start"), d.get("end")
+            if start is None or end is None:
+                continue
+            start = start.replace(tzinfo=tzinfo)
+            end = end.replace(tzinfo=tzinfo)
+
+            desc_lines = [f"Mã ca thi: {d.get('ma_ca_thi')}"]
+            if d.get("can_bo_2"):
+                desc_lines.append(f"Cùng coi thi: {d['can_bo_2']}")
+            if d.get("xuat"):
+                desc_lines.append(f"Xuất: {d['xuat']}")
+            if d.get("hoc_ky_label"):
+                desc_lines.append(f"Học kỳ: {d['hoc_ky_label']}")
+
+            events.append(
+                CalendarEvent(
+                    start=start,
+                    end=end,
+                    summary=f"Coi thi: {d.get('mon_thi') or '(không rõ môn)'}",
+                    description="\n".join(desc_lines),
+                    location=d.get("phong") or "",
+                    uid=d.get("id"),
+                )
+            )
+
+        events.sort(key=lambda e: e.start)
+        return events
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        now = dt_util.now()
+        upcoming = [e for e in self._build_events() if e.end >= now]
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        return [e for e in self._build_events() if e.end >= start_date and e.start <= end_date]
