@@ -5,6 +5,20 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.25.3] - 2026-08-05
+
+### Sửa lỗi (tìm ra nguyên nhân gốc nhờ HAR năm học 2026-2027)
+- **HTML biểu đồ năm học của trường bị lệch**: tổng `colspan` hàng THÁNG = **51** trong khi có **52 ô ngày**. Parser trước đòi khớp tuyệt đối nên trả về rỗng (lịch dạy trống hẳn); bản 1.25.2 cắt bớt cho khớp thì tháng **trôi lệch dần** về sau — vẫn sai.
+- Đã bỏ hoàn toàn việc dựa vào `colspan`: chỉ lấy **tháng đầu tiên** làm mốc rồi duyệt dãy NGÀY — hễ số ngày nhỏ hơn ngày trước là sang tháng mới. Cách này tự sửa được mọi sai lệch colspan của trường.
+- **Năm được theo dõi trực tiếp** (tăng khi tháng vòng 12→1) thay vì suy từ tháng: năm học kéo dài quay lại tháng 8 nên tuần cuối (02/08) thuộc năm SAU — suy theo tháng cho ra sai năm.
+- Kiểm chứng cả 2 năm học: mỗi năm 52 tuần, **mọi tuần cách nhau đúng 7 ngày**, HK 2520 tuần 1 = 04/08/2025, HK 2610 tuần 1 = 10/08/2026, tuần cuối = 02/08/2027. Lịch dạy HK1 26-27 dựng được **48 buổi**, trong đó **3 buổi ngày 18/08/2026** — đúng như trên trang trường.
+
+## [1.25.2] - 2026-08-05
+
+### Sửa lỗi (log người dùng chỉ đúng nguyên nhân)
+- **Không parse được biểu đồ năm học của học kỳ mới** (`HK 2610: đọc biểu đồ năm học nhưng KHÔNG parse được tuần nào`). Parser cũ đọc hàng tháng/ngày **theo vị trí ô** và bắt buộc số ô tháng phải bằng số ô ngày; bảng của học kỳ khác có thêm/bớt ô nhãn nên lệch, và khi lệch thì **trả về rỗng toàn bộ**. Nay lọc theo **nội dung ô** (ô tháng chứa chữ "Tháng", ô ngày chỉ gồm chữ số) và nếu vẫn lệch thì ghép theo số nhỏ hơn thay vì bỏ trắng. Có log rõ số ô đọc được khi thất bại.
+- **Nguồn dự phòng bị dùng sai năm học** — hậu quả nặng hơn: `lichtuan` chỉ có tuần của **năm học hiện tại**, nhưng vẫn bị áp cho HK1 2026-2027 → sinh **48 buổi dạy lệch nguyên 1 năm** (05/08/**2025**). Nay chỉ dùng dự phòng khi **đúng năm học**; khác năm thì bỏ qua và ghi lỗi rõ ràng — thà trống còn hơn hiện dữ liệu sai.
+
 ## [1.25.1] - 2026-08-05
 
 ### Chẩn đoán
@@ -391,7 +405,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.25.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.25.3...HEAD
+[1.25.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.3
+[1.25.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.2
 [1.25.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.1
 [1.25.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.0
 [1.24.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.24.0

@@ -390,13 +390,31 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     wm_public = await self.hass.async_add_executor_job(
                         parse_all_weeks, html_week
                     )
+                    # CHỈ dùng dự phòng khi ĐÚNG năm học, vì lichtuan chỉ
+                    # có tuần của năm học HIỆN TẠI. Áp nhầm sang năm học
+                    # khác sẽ sinh ra buổi dạy lệch nguyên 1 năm — sai
+                    # dữ liệu còn tệ hơn là để trống.
+                    nam_dau_public = None
+                    if wm_public and wm_public.get(1):
+                        d1 = wm_public[1]
+                        nam_dau_public = d1.year if d1.month >= 8 else d1.year - 1
+
                     for hk in missing:
-                        if wm_public:
+                        if not wm_public or nam_dau_public is None:
+                            continue
+                        nam_dau_hk = 2000 + int(hk[:2]) if hk[:2].isdigit() else None
+                        if nam_dau_hk == nam_dau_public:
                             week_maps[hk] = wm_public
                             _LOGGER.warning(
-                                "HK %s dùng bảng tuần dự phòng từ lichtuan (có thể lệch "
-                                "nếu khác năm học hiện tại)",
-                                hk,
+                                "HK %s dùng bảng tuần dự phòng từ lichtuan", hk
+                            )
+                        else:
+                            _LOGGER.error(
+                                "HK %s (năm học %s-%s): không đọc được biểu đồ năm học "
+                                "và KHÔNG dùng được bảng dự phòng (lichtuan đang ở năm "
+                                "học %s-%s). Bỏ qua để tránh tạo lịch sai năm.",
+                                hk, nam_dau_hk, (nam_dau_hk or 0) + 1,
+                                nam_dau_public, nam_dau_public + 1,
                             )
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.warning("Không lấy được bảng quy đổi tuần học: %s", err)

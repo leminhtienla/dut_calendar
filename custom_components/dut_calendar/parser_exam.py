@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import logging
 import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -10,6 +11,8 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from .const import TIET_DURATION_MINUTES, TIET_START
+
+_LOGGER_PARSER = logging.getLogger(__name__)
 
 
 def parse_hidden_field(html: str, field_id: str) -> str | None:
@@ -834,28 +837,47 @@ def parse_bieu_do_nam_hoc(html: str, hoc_ky: str) -> dict[int, date]:
     if len(rows) < 3:
         return {}
 
-    months: list[int] = []
+    # KHÔNG dựa vào colspan của hàng THÁNG: HTML của trường có thể sai
+    # (vd biểu đồ 2026-2027 có tổng colspan = 51 nhưng có 52 ô ngày),
+    # dùng colspan sẽ khiến tháng trôi lệch dần về sau.
+    # Cách chắc chắn: lấy tháng ĐẦU TIÊN làm mốc, rồi duyệt dãy NGÀY —
+    # hễ số ngày nhỏ hơn ngày trước đó nghĩa là đã sang tháng mới.
+    thang_dau = None
     for cell in rows[1].find_all(["th", "td"]):
-        m = re.search(r"(\d{1,2})", cell.get_text(" ", strip=True))
-        if not m:
-            continue
-        try:
-            span = int(cell.get("colspan") or 1)
-        except ValueError:
-            span = 1
-        months.extend([int(m.group(1))] * span)
+        m = re.search(r"Th[áa]ng\s*(\d{1,2})", cell.get_text(" ", strip=True), re.IGNORECASE)
+        if m:
+            thang_dau = int(m.group(1))
+            break
+    if thang_dau is None:
+        thang_dau = 8  # năm học của trường bắt đầu tháng 8
 
-    days = [c.get_text(strip=True) for c in rows[2].find_all(["th", "td"])]
-    if len(months) != len(days):
+    days = [
+        int(c.get_text(strip=True))
+        for c in rows[2].find_all(["th", "td"])
+        if c.get_text(strip=True).isdigit()
+    ]
+    if not days:
+        _LOGGER_PARSER.warning(
+            "Biểu đồ năm học HK %s: không đọc được hàng ngày", hoc_ky
+        )
         return {}
 
     week_map: dict[int, date] = {}
-    for idx, (month, day_txt) in enumerate(zip(months, days), start=1):
-        if not day_txt.isdigit():
-            continue
-        year = start_year if month >= 8 else start_year + 1
+    thang = thang_dau
+    # Năm được theo dõi TRỰC TIẾP (tăng khi tháng vòng từ 12 sang 1),
+    # không suy từ tháng — vì năm học có thể kéo dài quay lại tháng 8
+    # (tuần cuối 02/08 thuộc năm SAU, suy theo tháng sẽ ra sai năm).
+    nam = start_year
+    ngay_truoc: int | None = None
+    for idx, ngay in enumerate(days, start=1):
+        if ngay_truoc is not None and ngay < ngay_truoc:
+            thang_moi = thang % 12 + 1
+            if thang_moi == 1:  # vòng qua năm mới
+                nam += 1
+            thang = thang_moi
+        ngay_truoc = ngay
         try:
-            week_map[idx] = date(year, month, int(day_txt))
+            week_map[idx] = date(nam, thang, ngay)
         except ValueError:
             continue
     return week_map
