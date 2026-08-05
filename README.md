@@ -219,6 +219,82 @@ nếu không muốn đổi.
 
 ## `dut_deadline_diem` — Hạn nộp điểm
 
+**Sensor `Hạn nộp điểm` hiện `Unknown` nghĩa là gì?** Sensor này có
+`device_class: date` nên state chỉ có thể là 1 ngày cụ thể hoặc rỗng
+(không dùng được số 0 như các sensor đếm). State = mốc hạn **gần nhất
+còn sắp tới**; nếu không còn mốc nào, state rỗng → HA hiện `Unknown`.
+Xem attribute **`trang_thai`** để biết chính xác lý do:
+
+| `trang_thai` | Ý nghĩa |
+|---|---|
+| `con_han_sap_toi` | Còn hạn sắp tới, state là ngày gần nhất |
+| `da_qua_het_han` | Có dữ liệu nhưng mọi mốc đều đã qua (xem `han_gan_nhat_da_qua`) |
+| `chua_co_du_lieu` | Chưa lấy được dữ liệu, hoặc trường chưa công bố hạn |
+
+Kèm theo: `so_moc_sap_toi`, `so_moc_da_qua`, `han_gan_nhat_da_qua`.
+
+### Mã học kỳ
+
+Trường dùng mã 4 chữ số `YYSK`, integration tự chuyển sang tên đọc
+được (attribute `hoc_ky_ten`, và trong mô tả sự kiện Calendar):
+
+| Thành phần | Ý nghĩa |
+|---|---|
+| `YY` | Năm bắt đầu năm học (`25` → 2025-2026) |
+| `S` | `1` = Học kỳ 1, `2` = Học kỳ 2 |
+| `K` | `0` = kỳ chính, `1` = kỳ **Hè** (chỉ đi kèm `S=2`) |
+
+Ví dụ: `2510` → HK1 2025-2026, `2520` → HK2 2025-2026, `2521` → **Hè**
+2025-2026. Quy tắc này được đối chiếu khớp 14/14 mã có thật trên hệ
+thống trường. Mã không khớp định dạng sẽ được giữ nguyên thay vì đoán
+sai (phòng khi trường đổi quy ước).
+
+### Sensor `Cần nhập điểm` — trả lời "hôm nay cần nhập môn gì, hạn khi nào"
+
+
+
+Dữ liệu gốc của trường lồng nhau theo học kỳ → lớp → từng loại điểm,
+khó dùng trực tiếp. Sensor này **phẳng hóa thành danh sách việc cần
+làm**, gộp cả 3 học kỳ (HK1, HK2, hè) đang theo dõi, bỏ các mốc đã
+quá hạn, sắp xếp gần → xa:
+
+- **State** = tổng số mốc chưa quá hạn.
+- `gan_nhat` — mốc sắp tới gần nhất.
+- `hom_nay` — các mốc hết hạn **đúng hôm nay**.
+- `trong_7_ngay` — các mốc còn ≤ 7 ngày (để nhắc sớm).
+- `danh_sach` — toàn bộ, mỗi mục gồm: `mon`, `loai` (giữa kỳ / thành
+  phần / cuối kỳ / đính chính...), `ngay`, `con_lai_ngay`, `hoc_ky`,
+  `ma_lop`.
+
+Ví dụ automation nhắc mỗi sáng 7h khi có mốc trong 7 ngày tới:
+
+```yaml
+automation:
+  - alias: Nhắc hạn nhập điểm
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    condition:
+      - condition: template
+        value_template: >
+          {{ state_attr('sensor.dut_calendar_han_nop_diem_can_nhap_diem',
+                        'trong_7_ngay') | count > 0 }}
+    action:
+      - service: notify.mobile_app_cua_ban
+        data:
+          title: Sắp hết hạn nhập điểm
+          message: >
+            {% for x in state_attr('sensor.dut_calendar_han_nop_diem_can_nhap_diem',
+                                   'trong_7_ngay') %}
+            • {{ x.mon }} — {{ x.loai }}: còn {{ x.con_lai_ngay }} ngày
+              (hạn {{ x.ngay }})
+            {% endfor %}
+```
+
+*Thay `sensor.dut_calendar_han_nop_diem_can_nhap_diem` bằng entity_id
+thật (xem trong Developer Tools → States) và `notify.mobile_app_cua_ban`
+bằng notify service của bạn.*
+
 - Đăng nhập riêng (độc lập với `dut_coithi`, dù cùng tài khoản — mỗi
   entry giữ phiên đăng nhập của chính nó).
 - Lấy **2 loại hạn khác nhau** (khác trang, khác cơ chế):

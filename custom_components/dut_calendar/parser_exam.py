@@ -229,6 +229,36 @@ def parse_hoc_ky_options(html: str) -> list[dict[str, Any]]:
     ]
 
 
+def format_hoc_ky(code: str) -> str:
+    """Chuyển mã học kỳ (vd '2521') sang tên đọc được (vd 'Học kỳ Hè
+    năm học 2025-2026').
+
+    Quy tắc suy ra từ dropdown thật của trường (đối chiếu đủ 14 mã):
+      YY S K  →  YY = năm bắt đầu (25 = 2025-2026)
+                 S  = 1 (Học kỳ 1) | 2 (Học kỳ 2)
+                 K  = 0 (kỳ chính) | 1 (kỳ Hè, chỉ đi kèm S=2)
+      2510 → HK1 2025-2026 | 2520 → HK2 2025-2026 | 2521 → Hè 2025-2026
+
+    Trả về nguyên mã nếu không khớp định dạng (phòng khi trường đổi
+    quy ước mà chưa kịp cập nhật).
+    """
+    code = (code or "").strip()
+    if not re.fullmatch(r"\d{4}", code):
+        return code
+
+    yy, s, k = int(code[:2]), code[2], code[3]
+    nam_hoc = f"{2000 + yy}-{2000 + yy + 1}"
+
+    if s == "2" and k == "1":
+        ky = "Hè"
+    elif s in ("1", "2"):
+        ky = s
+    else:
+        return code
+
+    return f"Học kỳ {ky} năm học {nam_hoc}"
+
+
 def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any]]:
     """Gộp phẳng mọi mốc hạn nộp điểm (thi chung + từng lớp) thành 1
     danh sách sự kiện có ngày cụ thể — dùng chung cho Calendar 'Nhập
@@ -255,7 +285,16 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
         for key, label in label_ca_thi_chung.items():
             d = parse_vn_date(ca_thi_chung.get(key))
             if d:
-                events.append({"date": d, "summary": label, "hoc_ky": hoc_ky})
+                events.append(
+                    {
+                        "date": d,
+                        "summary": label,
+                        "hoc_ky": hoc_ky,
+                        "ten_lop": None,
+                        "ma_lop": None,
+                        "loai": label,
+                    }
+                )
 
         for ma_lop, info in hk_info.get("theo_lop", {}).items():
             ten_lop = info.get("ten_lop") or ma_lop
@@ -267,7 +306,9 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
                             "date": d,
                             "summary": f"{ten_lop}: {label}",
                             "hoc_ky": hoc_ky,
+                            "ten_lop": ten_lop,
                             "ma_lop": ma_lop,
+                            "loai": label,
                         }
                     )
 

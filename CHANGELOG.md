@@ -5,6 +5,24 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-08-05
+
+### Thêm mới
+- **Hiển thị tên học kỳ thay vì mã số.** Thêm `parser_exam.format_hoc_ky()`: mã `YYSK` → tên đọc được (`2521` → "Học kỳ Hè năm học 2025-2026"). Quy tắc suy ra từ dropdown thật của trường và **đối chiếu khớp 14/14 mã có thật** (`YY`=năm bắt đầu, `S`=1/2 học kỳ, `K`=0 kỳ chính / 1 kỳ Hè). Mã không khớp định dạng được giữ nguyên thay vì đoán sai.
+- Áp dụng cho: attribute `hoc_ky_ten` của sensor `Cần nhập điểm`, attribute `hoc_ky` của sensor `Lịch coi thi`, và mô tả sự kiện của cả 2 Calendar `Coi thi`/`Nhập điểm`.
+
+## [1.14.0] - 2026-08-05
+
+### Thêm mới
+- **Sensor `Cần nhập điểm`** cho `dut_deadline_diem` — phẳng hóa dữ liệu gốc (vốn lồng nhau theo học kỳ → lớp → từng loại điểm) thành **danh sách việc cần làm** dùng được ngay trong automation/template: state = số mốc chưa quá hạn (gộp cả 3 học kỳ đang theo dõi), kèm attributes `gan_nhat`, `hom_nay`, `trong_7_ngay`, `danh_sach` — mỗi mục có `mon`, `loai`, `ngay`, `con_lai_ngay`, `hoc_ky`, `ma_lop`.
+- `build_deadline_events()` bổ sung `ten_lop`, `loai`, `ma_lop` vào mỗi mốc hạn (trước đây chỉ có chuỗi `summary` gộp sẵn, không tách được môn/loại điểm khi dùng trong template).
+- README thêm ví dụ automation nhắc mỗi sáng khi có mốc hết hạn trong 7 ngày tới.
+
+## [1.13.2] - 2026-08-05
+
+### Thêm mới
+- **Sensor `Hạn nộp điểm` có attributes giải thích khi state hiện `Unknown`.** Vì sensor này là `device_class: date` (state chỉ có thể là 1 ngày hoặc rỗng, không dùng được số 0), nên khi không còn mốc hạn nào sắp tới thì HA hiện `Unknown` — trước đây không phân biệt được với lỗi chưa lấy được dữ liệu. Giờ có attribute `trang_thai` với 3 giá trị rõ ràng: `con_han_sap_toi`, `da_qua_het_han` (mọi mốc đã qua), `chua_co_du_lieu`. Kèm `so_moc_sap_toi`, `so_moc_da_qua`, `han_gan_nhat_da_qua`.
+
 ## [1.13.1] - 2026-08-04
 
 ### Thêm mới
@@ -186,7 +204,10 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.13.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.14.1...HEAD
+[1.14.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.14.1
+[1.14.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.14.0
+[1.13.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.2
 [1.13.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.1
 [1.13.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.0
 [1.12.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.12.1

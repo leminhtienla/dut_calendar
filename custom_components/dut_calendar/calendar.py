@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
-from .parser_exam import build_deadline_events
+from .parser_exam import build_deadline_events, format_hoc_ky
 from .parser_public import parse_event_datetime
 
 
@@ -165,7 +165,7 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             if d.get("xuat"):
                 desc_lines.append(f"Xuất: {d['xuat']}")
             if d.get("hoc_ky_label"):
-                desc_lines.append(f"Học kỳ: {d['hoc_ky_label']}")
+                desc_lines.append(f"Học kỳ: {format_hoc_ky(d['hoc_ky_label'])}")
 
             # Tiêu đề: [Tên · GT<vai trò>] Coi thi: <môn> — Phòng <phòng>
             # Áp dụng cho CẢ ca của chính mình lẫn ca của giảng viên
@@ -239,7 +239,7 @@ class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
                 start=e["date"],
                 end=e["date"] + timedelta(days=1),
                 summary=e["summary"],
-                description=f"Học kỳ: {e['hoc_ky']}",
+                description=f"Học kỳ: {format_hoc_ky(e['hoc_ky'])}",
                 uid=f"{self._entry.entry_id}_{e['hoc_ky']}_{e.get('ma_lop', 'chung')}_{e['summary']}",
             )
             for e in raw_events

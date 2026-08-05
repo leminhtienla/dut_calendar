@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
-from .parser_exam import build_deadline_events, parse_vn_date
+from .parser_exam import build_deadline_events, format_hoc_ky, parse_vn_date
 from .parser_public import parse_event_datetime
 
 MAX_ATTR_ENTRIES = 25
@@ -80,9 +80,10 @@ async def async_setup_entry(
             _purge_stale_sensors(hass, entry, {e.unique_id for e in exam_entities})
             async_add_entities(exam_entities)
         elif entry_type == TYPE_DEADLINE_DIEM:
-            dl_entities: list[SensorEntity] = [GradeDeadlineSensor(coordinator, entry)] + [
-                DeadlineCountSensor(coordinator, entry, period) for period in PERIODS
-            ]
+            dl_entities: list[SensorEntity] = [
+                GradeDeadlineSensor(coordinator, entry),
+                DeadlineTodoSensor(coordinator, entry),
+            ] + [DeadlineCountSensor(coordinator, entry, period) for period in PERIODS]
             _purge_stale_sensors(hass, entry, {e.unique_id for e in dl_entities})
             async_add_entities(dl_entities)
 
@@ -255,7 +256,7 @@ class ExamDutySensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
                 "phong": d.get("phong"),
                 "can_bo_1": d.get("can_bo_1"),
                 "can_bo_2": d.get("can_bo_2"),
-                "hoc_ky": d.get("hoc_ky_label"),
+                "hoc_ky": format_hoc_ky(d.get("hoc_ky_label") or ""),
                 "giang_vien_khac": d.get("extra_lecturer_match", False),
                 "ten": d.get("target_name"),
                 "giam_thi_so": d.get("role"),
@@ -294,17 +295,15 @@ class GradeDeadlineSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
         data = self.coordinator.data or {}
         return data.get("grade_deadlines", {})
 
-    @property
-    def native_value(self) -> date | None:
-        today = dt_util.now().date()
-        candidates: list[date] = []
-
+    def _all_deadline_dates(self) -> list[date]:
+        """Gom MỌI mốc hạn (cả đã qua lẫn sắp tới) của các học kỳ đang theo dõi."""
+        dates: list[date] = []
         for hk_info in self._deadlines.values():
             ca_thi_chung = hk_info.get("ca_thi_chung") or {}
             for key in ("ngay_ket_thuc", "ngay_nop_ban_diem", "han_dinh_chinh"):
                 d = parse_vn_date(ca_thi_chung.get(key))
-                if d and d >= today:
-                    candidates.append(d)
+                if d:
+                    dates.append(d)
 
             for lop_info in hk_info.get("theo_lop", {}).values():
                 for key in (
@@ -315,9 +314,14 @@ class GradeDeadlineSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
                     "han_dinh_chinh_thanh_phan",
                 ):
                     d = parse_vn_date(lop_info.get(key))
-                    if d and d >= today:
-                        candidates.append(d)
+                    if d:
+                        dates.append(d)
+        return dates
 
+    @property
+    def native_value(self) -> date | None:
+        today = dt_util.now().date()
+        candidates = [d for d in self._all_deadline_dates() if d >= today]
         return min(candidates) if candidates else None
 
     @property
@@ -339,8 +343,26 @@ class GradeDeadlineSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
                 "thi_chung": hk_info.get("ca_thi_chung"),
                 "theo_lop": theo_lop,
             }
+        today = dt_util.now().date()
+        all_dates = self._all_deadline_dates()
+        upcoming = [d for d in all_dates if d >= today]
+        past = [d for d in all_dates if d < today]
+
+        # Phân biệt rõ 3 tình huống đều khiến state hiện "Unknown"
+        # (device_class=date nên không thể dùng 0 như các sensor đếm):
+        if upcoming:
+            trang_thai = "con_han_sap_toi"
+        elif all_dates:
+            trang_thai = "da_qua_het_han"  # có dữ liệu, nhưng mọi mốc đều đã qua
+        else:
+            trang_thai = "chua_co_du_lieu"  # chưa lấy được / trường chưa công bố
+
         return {
             "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
+            "trang_thai": trang_thai,
+            "so_moc_sap_toi": len(upcoming),
+            "so_moc_da_qua": len(past),
+            "han_gan_nhat_da_qua": max(past).strftime("%d/%m/%Y") if past else None,
             "chi_tiet_theo_hoc_ky": result,
             "last_checked": datetime.now().isoformat(timespec="seconds"),
         }
@@ -475,3 +497,72 @@ class DeadlineCountSensor(_CountSensorBase):
         data = self.coordinator.data or {}
         events = build_deadline_events(data.get("grade_deadlines", {}))
         return [e["date"] for e in events]
+
+
+# =====================================================================
+# Sensor "Cần nhập điểm" — danh sách việc cần làm, sắp theo hạn gần nhất
+# =====================================================================
+class DeadlineTodoSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
+    """Trả lời trực tiếp: còn bao nhiêu mốc nhập điểm chưa quá hạn, môn
+    nào, loại điểm gì, còn mấy ngày.
+
+    Khác với sensor `Hạn nộp điểm` (chỉ cho biết NGÀY gần nhất) và các
+    sensor đếm theo khoảng (chỉ cho con SỐ), sensor này đưa nguyên
+    danh sách việc cần làm đã sắp xếp — dùng thẳng trong automation/
+    template mà không phải tự đào vào cấu trúc lồng theo học kỳ/lớp.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Cần nhập điểm"
+    _attr_icon = "mdi:clipboard-edit-outline"
+    _attr_native_unit_of_measurement = "mốc"
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_deadline_todo"
+        self._attr_device_info = _device_info_deadline(entry)
+
+    def _pending(self) -> list[dict[str, Any]]:
+        """Các mốc CHƯA quá hạn, kèm số ngày còn lại, sắp xếp gần → xa."""
+        data = self.coordinator.data or {}
+        today = dt_util.now().date()
+        events = build_deadline_events(data.get("grade_deadlines", {}))
+
+        pending = []
+        for e in events:
+            d = e["date"]
+            if d < today:
+                continue
+            pending.append(
+                {
+                    "ngay": d.strftime("%d/%m/%Y"),
+                    "con_lai_ngay": (d - today).days,
+                    "mon": e.get("ten_lop") or "(thi chung)",
+                    "loai": e.get("loai"),
+                    "hoc_ky": e.get("hoc_ky"),
+                    "hoc_ky_ten": format_hoc_ky(e.get("hoc_ky") or ""),
+                    "ma_lop": e.get("ma_lop"),
+                    "_sort": d,
+                }
+            )
+        pending.sort(key=lambda x: (x["_sort"], x["mon"] or ""))
+        for x in pending:
+            x.pop("_sort")
+        return pending
+
+    @property
+    def native_value(self) -> int:
+        return len(self._pending())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        pending = self._pending()
+        return {
+            "hom_nay": [x for x in pending if x["con_lai_ngay"] == 0],
+            "trong_7_ngay": [x for x in pending if x["con_lai_ngay"] <= 7],
+            "gan_nhat": pending[0] if pending else None,
+            "danh_sach": pending[:MAX_ATTR_ENTRIES],
+            "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
+            "last_checked": datetime.now().isoformat(timespec="seconds"),
+        }
