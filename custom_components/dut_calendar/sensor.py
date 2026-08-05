@@ -9,6 +9,7 @@ import homeassistant.util.dt as dt_util
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -21,6 +22,28 @@ from .parser_public import parse_event_datetime
 
 MAX_ATTR_ENTRIES = 25
 PERIODS = ("today", "tomorrow", "week", "next_week", "month")
+
+
+def _purge_stale_sensors(
+    hass: HomeAssistant, entry: ConfigEntry, valid_unique_ids: set[str]
+) -> None:
+    """Xóa khỏi entity registry các sensor CŨ của entry này mà lần cấu
+    hình hiện tại không còn tạo nữa.
+
+    Cần thiết vì `dut_lichtuan` tạo sensor theo TỪNG nhóm từ khóa —
+    khi người dùng đổi/xóa/đổi tên nhóm trong Options, sensor của nhóm
+    cũ không tự biến mất mà nằm lại vĩnh viễn ở trạng thái "không khả
+    dụng", gây rác trong danh sách entity.
+
+    Chỉ đụng tới entity thuộc domain "sensor" của ĐÚNG entry này, nên
+    không ảnh hưởng Calendar hay các entry khác.
+    """
+    registry = er.async_get(hass)
+    for entity in list(er.async_entries_for_config_entry(registry, entry.entry_id)):
+        if entity.domain != "sensor":
+            continue
+        if entity.unique_id not in valid_unique_ids:
+            registry.async_remove(entity.entity_id)
 
 
 async def async_setup_entry(
@@ -43,19 +66,25 @@ async def async_setup_entry(
                 PublicCountSensor(coordinator, entry, period, keyword_label=label)
                 for period in PERIODS
             ]
+        # Dọn sensor của nhóm từ khóa đã bị xóa/đổi tên TRƯỚC khi thêm
+        # mới, để entity_id cũ được giải phóng (tránh HA tự thêm hậu tố
+        # _2 nếu nhóm mới trùng tên với nhóm cũ vừa bị xóa).
+        _purge_stale_sensors(hass, entry, {e.unique_id for e in entities})
         async_add_entities(entities)
     elif isinstance(coordinator, CBDutCoordinator):
         entry_type = entry.data.get(CONF_TYPE)
         if entry_type == TYPE_COITHI:
-            async_add_entities(
-                [ExamDutySensor(coordinator, entry)]
-                + [CoithiCountSensor(coordinator, entry, period) for period in PERIODS]
-            )
+            exam_entities: list[SensorEntity] = [ExamDutySensor(coordinator, entry)] + [
+                CoithiCountSensor(coordinator, entry, period) for period in PERIODS
+            ]
+            _purge_stale_sensors(hass, entry, {e.unique_id for e in exam_entities})
+            async_add_entities(exam_entities)
         elif entry_type == TYPE_DEADLINE_DIEM:
-            async_add_entities(
-                [GradeDeadlineSensor(coordinator, entry)]
-                + [DeadlineCountSensor(coordinator, entry, period) for period in PERIODS]
-            )
+            dl_entities: list[SensorEntity] = [GradeDeadlineSensor(coordinator, entry)] + [
+                DeadlineCountSensor(coordinator, entry, period) for period in PERIODS
+            ]
+            _purge_stale_sensors(hass, entry, {e.unique_id for e in dl_entities})
+            async_add_entities(dl_entities)
 
 
 # =====================================================================

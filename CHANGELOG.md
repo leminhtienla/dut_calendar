@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-08-04
+
+### Thêm mới
+- **Tự động xóa sensor cũ không còn dùng khi đổi Options.** Trước đây `dut_lichtuan` tạo sensor theo từng nhóm từ khóa, nên khi xóa/đổi tên nhóm trong Options thì sensor của nhóm cũ nằm lại vĩnh viễn ở trạng thái "không khả dụng" (restored), gây rác trong danh sách entity. Giờ mỗi lần nạp lại entry sẽ tự gỡ khỏi entity registry các sensor không còn được tạo nữa. Áp dụng cho cả 3 loại; chỉ đụng tới entity domain `sensor` của đúng entry đó nên không ảnh hưởng Calendar hay entry khác.
+- Việc dọn chạy TRƯỚC khi thêm sensor mới, để `entity_id` cũ được giải phóng — tránh trường hợp đổi tên nhóm rồi HA tự thêm hậu tố `_2` vào entity_id mới.
+
 ## [1.13.0] - 2026-08-04
 
 ### Thay đổi
@@ -180,7 +186,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.1
 [1.13.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.0
 [1.12.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.12.1
 [1.12.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.12.0
