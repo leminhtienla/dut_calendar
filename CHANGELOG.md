@@ -5,6 +5,46 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-08-05
+
+### Thêm mới
+- **Theo dõi lịch dạy của giảng viên khác** cho `dut_lichgiangday` — trước đây không làm được vì `ctrLichGiangDay` chỉ trả lớp của chính tài khoản. Nay dùng **danh sách lớp học phần của cả khoa** (`E=LopHPKH&HK=<hk>&KHOA=<mã khoa>`), có đủ giảng viên + thời khóa biểu. Kiểm chứng: lọc chính tài khoản từ nguồn khoa ra **đúng 10 lớp**, khớp hoàn toàn endpoint cá nhân.
+- UI giống lịch coi thi: tick bật ở bước đăng nhập → chọn **Khoa** (dropdown thật, 40 khoa) → chọn **tên** (nhiều người, gõ tìm). Có lựa chọn "Giữ nguyên"/"Xóa hết" tách bạch như bên coi thi.
+- Sự kiện của người khác hiện tiền tố `[Tên giảng viên]` trong tiêu đề và dòng "Giảng viên" trong mô tả.
+
+### Hạn chế đã biết (do nguồn dữ liệu)
+- Lịch của người khác **không có báo nghỉ/dạy bù** và **không loại được tuần thi** (nguồn khoa không có 2 thông tin này) — chỉ là thời khóa biểu gốc. Lịch của chính bạn vẫn đầy đủ cả 2.
+
+## [1.18.2] - 2026-08-05
+
+### Thay đổi
+- Đổi tên Calendar `Giảng dạy` -> **`Lịch dạy`** cho gọn.
+- Tiêu đề sự kiện hỗ trợ tiền tố `[Tên giảng viên]` để phân biệt khi theo dõi thêm người khác (hiện chưa hiện vì tính năng theo dõi giảng viên khác cho lịch dạy còn chờ endpoint — xem ghi chú bên dưới); mô tả sự kiện cũng hiện dòng "Giảng viên" tương ứng.
+
+### Chưa làm được (cần thêm dữ liệu)
+- **Theo dõi lịch dạy của giảng viên khác**: endpoint `ctrLichGiangDay` chỉ trả về lớp của chính tài khoản đăng nhập, không có tham số lấy người khác (khác với lịch coi thi vốn có endpoint trả toàn bộ ca thi mọi cán bộ). Theo tài liệu, chức năng này nằm ở *[Đào tạo] → [Kế hoạch, thời khóa biểu] → [In thời khóa biểu]* (mục 2.2.7) hoặc *[Biểu đồ TKB Giảng viên]* (mục 2.2.8) và **cần phân quyền cán bộ quản lý**. Cần HAR của trang đó để triển khai.
+
+## [1.18.1] - 2026-08-05
+
+### Thay đổi
+- **Rút gọn tiêu đề sự kiện Calendar `Giảng dạy`**: `Tên lớp · Phòng` (trước: `🚫 [Đã báo nghỉ] Tên lớp — P.Phòng`). Trạng thái nghỉ/bù chỉ còn icon `🚫`/`🔁` ở đầu; chữ mô tả đầy đủ chuyển hết vào phần mô tả sự kiện.
+
+## [1.18.0] - 2026-08-05
+
+### Thay đổi lớn
+- **Tách lịch giảng dạy thành loại nguồn THỨ 4 riêng biệt: `dut_lichgiangday`** (trước đây nằm chung thiết bị với `dut_deadline_diem`). Có thiết bị riêng, Calendar `Giảng dạy` riêng, và 5 sensor đếm buổi lên lớp riêng. Hai loại giờ độc lập hoàn toàn: chọn loại nào thì chỉ tải dữ liệu của loại đó (loại lịch giảng dạy không tải danh sách ca coi thi, không tính hạn nộp điểm).
+
+### Thêm mới
+- **Áp dụng báo nghỉ / dạy bù vào lịch giảng dạy** (`E=ctrBaoNghi_GVList&HK=<mã HK>`). Tài liệu chính thức của trường có cảnh báo thời khóa biểu "không tuyệt đối chính xác" khi có thay đổi ngắn hạn — đây chính là dữ liệu bù đắp: buổi đã báo nghỉ hiện `🚫 [Đã báo nghỉ]` (giữ lại thay vì im lặng biến mất), buổi dạy bù được thêm đúng ngày/giờ/phòng với `🔁 [Dạy bù]`; bản ghi đã hủy báo nghỉ thì bỏ qua.
+- `parse_bao_nghi()` + `apply_bao_nghi()` (parser_exam), test với dữ liệu thật: 7 bản ghi (3 nghỉ + 4 bù) của HK2 2024-2025.
+- Sensor đếm buổi lên lớp không tính buổi đã báo nghỉ, có tính buổi dạy bù.
+
+## [1.17.1] - 2026-08-05
+
+### Sửa lỗi (phát hiện qua kiểm chứng chéo với biểu đồ thời gian giảng)
+- **Calendar `Giảng dạy` sinh buổi dạy "ma" vào tuần thi giữa kỳ.** Chuỗi tuần trong thời khóa biểu BAO GỒM CẢ tuần thi (vd `22-27;31-40` — tuần 33 là tuần thi), nhưng tuần đó không lên lớp. Đối chiếu với tab *"Biểu đồ thời gian giảng ở năm học"*: tuần thi được đánh dấu `K` và không có số tiết. Lỗi ảnh hưởng **8/8 lớp** có thời khóa biểu (mỗi lớp 1 buổi ma).
+- Đã sửa: loại tuần thi khỏi lịch dạy, lấy từ cột "Tuần thi" của bảng hạn nhập điểm (khớp đúng ô `K` trên biểu đồ). Kết quả: 123 → **115 buổi dạy**, khớp biểu đồ thực tế **8/8 lớp**.
+
 ## [1.17.0] - 2026-08-05
 
 ### Thay đổi (dựa trên tài liệu chính thức của Phòng Đào tạo)
@@ -236,7 +276,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.0
+[1.18.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.18.2
+[1.18.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.18.1
+[1.18.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.18.0
+[1.17.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.17.1
 [1.17.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.17.0
 [1.16.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.16.0
 [1.15.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.15.0

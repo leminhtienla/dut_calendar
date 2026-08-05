@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM
+from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 from .parser_exam import build_deadline_events, format_hoc_ky
@@ -31,10 +31,9 @@ async def async_setup_entry(
         if entry_type == TYPE_COITHI:
             async_add_entities([ExamDutyCalendar(coordinator, entry)])
         elif entry_type == TYPE_DEADLINE_DIEM:
-            async_add_entities([
-                DeadlineCalendar(coordinator, entry),
-                TeachingCalendar(coordinator, entry),
-            ])
+            async_add_entities([DeadlineCalendar(coordinator, entry)])
+        elif entry_type == TYPE_LICHGIANGDAY:
+            async_add_entities([TeachingCalendar(coordinator, entry)])
 
 
 def _end_as_datetime(value: Any) -> datetime:
@@ -275,7 +274,7 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     """Lịch các buổi lên lớp, dựng từ thời khóa biểu của học kỳ."""
 
     _attr_has_entity_name = False  # tránh trùng với tên thiết bị
-    _attr_name = "Giảng dạy"
+    _attr_name = "Lịch dạy"
     _attr_icon = "mdi:teach"
 
     def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
@@ -284,9 +283,9 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
         self._attr_unique_id = f"{entry.entry_id}_calendar_giangday"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="DUT Calendar - Hạn nộp điểm",
+            name="DUT Calendar - Lịch giảng dạy",
             manufacturer="cb.dut.udn.vn (không chính thức)",
-            model="Cảnh báo hạn nộp điểm",
+            model="Lịch giảng dạy",
         )
 
     def _build_events(self) -> list[CalendarEvent]:
@@ -302,11 +301,23 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
                 CalendarEvent(
                     start=start.replace(tzinfo=tzinfo),
                     end=end.replace(tzinfo=tzinfo),
-                    summary=f"{b.get('ten_lop') or '(lớp)'} — P.{b.get('phong')}",
+                    # Tiêu đề gọn: chỉ icon + tên lớp + phòng.
+                    # Chi tiết (nghỉ/bù, tiết, tuần, mã lớp) nằm ở mô tả.
+                    # Tiêu đề gọn: icon trạng thái + [tên người] (chỉ khi
+                    # theo dõi thêm người khác, để phân biệt) + lớp · phòng.
+                    summary=(
+                        ("🚫 " if b.get("da_nghi") else "")
+                        + ("🔁 " if b.get("la_day_bu") else "")
+                        + (f"[{b['nguoi']}] " if b.get("nguoi") else "")
+                        + f"{b.get('ten_lop') or '(lớp)'} · {b.get('phong')}"
+                    ),
                     description=(
-                        f"Mã lớp: {b.get('ma_lop')}\n"
+                        (f"Giảng viên: {b['nguoi']}\n" if b.get("nguoi") else "")
+                        + f"Mã lớp: {b.get('ma_lop')}\n"
                         f"Tiết: {b.get('tiet')}\n"
                         f"Tuần học: {b.get('tuan')}"
+                        + ("\nBuổi này ĐÃ BÁO NGHỈ" if b.get("da_nghi") else "")
+                        + ("\nĐây là buổi DẠY BÙ" if b.get("la_day_bu") else "")
                     ),
                     location=b.get("phong") or "",
                     uid=f"{self._entry.entry_id}_{b.get('ma_lop')}_{start.isoformat()}",

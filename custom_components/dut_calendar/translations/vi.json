@@ -6,7 +6,8 @@
         "menu_options": {
           "dut_lichtuan": "Lịch tuần (công khai, theo từ khóa, không cần đăng nhập)",
           "dut_coithi": "Lịch coi thi (cần đăng nhập cb.dut.udn.vn)",
-          "dut_deadline_diem": "Hạn nộp điểm (cần đăng nhập cb.dut.udn.vn)"
+          "dut_deadline_diem": "Hạn nộp điểm (cần đăng nhập cb.dut.udn.vn)",
+          "dut_lichgiangday": "Lịch giảng dạy (cần đăng nhập)"
         }
       },
       "dut_lichtuan": {
@@ -78,6 +79,38 @@
         "data": {
           "extra_lecturers": "Giảng viên"
         }
+      },
+      "dut_lichgiangday_account": {
+        "title": "Lịch giảng dạy - Chọn tài khoản",
+        "description": "Đã có tài khoản cb.dut.udn.vn cấu hình sẵn từ nguồn khác. Dùng lại để khỏi gõ mật khẩu lần nữa, hoặc thêm tài khoản khác.",
+        "data": {
+          "existing_account": "Tài khoản"
+        }
+      },
+      "dut_lichgiangday_login": {
+        "title": "Lịch giảng dạy - Đăng nhập",
+        "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần). KHÔNG lấy điểm số/tên/mã số sinh viên. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
+        "data": {
+          "username": "Tài khoản (vd: 103LMTIEN)",
+          "password": "Mật khẩu",
+          "scan_interval": "Tần suất kiểm tra (phút)",
+          "exam_duration": "(Không dùng cho loại này)",
+          "notify_service": "Notify service tùy chọn"
+        }
+      },
+      "gd_khoa": {
+        "title": "Theo dõi thêm giảng viên khác (lịch dạy)",
+        "description": "Chọn khoa để rút gọn danh sách tên ở bước sau. Lưu ý: lịch dạy của người khác KHÔNG có thông tin báo nghỉ/dạy bù.",
+        "data": {
+          "khoa": "Khoa"
+        }
+      },
+      "gd_giang_vien": {
+        "title": "Chọn giảng viên cần theo dõi lịch dạy",
+        "description": "Có thể chọn nhiều người. Gõ để tìm kiếm nếu danh sách dài.",
+        "data": {
+          "extra_lecturers": "Giảng viên"
+        }
       }
     },
     "error": {
@@ -126,6 +159,20 @@
       },
       "chon_giang_vien": {
         "title": "Chọn giảng viên cần theo dõi thêm",
+        "description": "Có thể chọn nhiều người. Gõ để tìm kiếm nếu danh sách dài.",
+        "data": {
+          "extra_lecturers": "Giảng viên"
+        }
+      },
+      "gd_khoa": {
+        "title": "Theo dõi thêm giảng viên khác (lịch dạy)",
+        "description": "Chọn khoa để rút gọn danh sách tên ở bước sau. Lưu ý: lịch dạy của người khác KHÔNG có thông tin báo nghỉ/dạy bù.",
+        "data": {
+          "khoa": "Khoa"
+        }
+      },
+      "gd_giang_vien": {
+        "title": "Chọn giảng viên cần theo dõi lịch dạy",
         "description": "Có thể chọn nhiều người. Gõ để tìm kiếm nếu danh sách dài.",
         "data": {
           "extra_lecturers": "Giảng viên"

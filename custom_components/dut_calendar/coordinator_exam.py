@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -35,6 +36,7 @@ from .const import (
     STORAGE_VERSION,
     TYPE_COITHI,
     TYPE_DEADLINE_DIEM,
+    TYPE_LICHGIANGDAY,
 )
 from .parser_exam import (
     duty_role,
@@ -42,6 +44,7 @@ from .parser_exam import (
     filter_exam_duty_by_lecturer,
     filter_exam_duty_by_lecturers,
     infer_self_name,
+    apply_bao_nghi,
     build_teaching_events,
     lgd_to_grade_deadlines,
     parse_class_deadline,
@@ -49,8 +52,11 @@ from .parser_exam import (
     parse_exam_datetime,
     parse_exam_duty,
     parse_grade_deadline,
+    filter_lop_hp_by_lecturer,
+    parse_bao_nghi,
     parse_bieu_do_nam_hoc,
     parse_lich_giang_day,
+    parse_lop_hp_khoa,
 )
 from .parser_public import parse_all_weeks
 
@@ -122,6 +128,10 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self.entry.data.get(CONF_TYPE) == TYPE_DEADLINE_DIEM
 
     @property
+    def is_lichgiangday(self) -> bool:
+        return self.entry.data.get(CONF_TYPE) == TYPE_LICHGIANGDAY
+
+    @property
     def extra_lecturers(self) -> list[str]:
         """Danh sách tên giảng viên khác cần theo dõi thêm (đã chọn qua
         UI khoa/tên). Vẫn đọc tương thích ngược cấu hình CŨ (1 tên dạng
@@ -164,7 +174,9 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return {"duties": [], "new_duties": []}
 
         all_duties: list[dict[str, Any]] = []
-        for hoc_ky in hoc_ky_list:
+        # Loại "lịch giảng dạy" không cần danh sách ca coi thi -> bỏ qua
+        # để khỏi tải thừa.
+        for hoc_ky in ([] if self.is_lichgiangday else hoc_ky_list):
             try:
                 html = await self._client.fetch_exam_duty_html(hoc_ky)
             except CBDutAuthError as err:
@@ -281,7 +293,7 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         changed_deadlines: list[dict[str, Any]] = []
         lich_giang_day: dict[str, Any] = {}
 
-        if self.is_deadline_diem:
+        if self.is_deadline_diem or self.is_lichgiangday:
             for hoc_ky in hoc_ky_list:
                 hk_result: dict[str, Any] | None = None
 
@@ -304,6 +316,11 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         err,
                     )
 
+                if not self.is_deadline_diem:
+                    # Loại "lịch giảng dạy" chỉ cần bảng lớp/TKB,
+                    # không tính hạn nộp điểm, không thông báo.
+                    continue
+
                 if hk_result is None:
                     hk_result = await self._async_fetch_deadlines_legacy(hoc_ky, all_duties)
 
@@ -322,10 +339,11 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # --- Buổi dạy cụ thể (Calendar "Giảng dạy") ---
         # Thời khóa biểu chỉ cho SỐ TUẦN học (vd "22-27;31-40"), phải
         # quy đổi sang ngày thật. Bảng quy đổi lấy từ dropdown CÔNG KHAI
-        # của lichtuan.dut.udn.vn (không cần đăng nhập) — chính xác hơn
-        # tự cộng 7 ngày từ tuần 1, vì năm học có tuần ngắt quãng (nghỉ Tết).
+        # của chính cb.dut.udn.vn, dự phòng bằng lichtuan.dut.udn.vn —
+        # chính xác hơn tự cộng 7 ngày từ tuần 1, vì năm học có tuần
+        # ngắt quãng (nghỉ Tết). Chỉ áp dụng cho loại "lịch giảng dạy".
         buoi_day: list[dict[str, Any]] = []
-        if lich_giang_day:
+        if lich_giang_day and self.is_lichgiangday:
             week_map: dict[int, Any] = {}
             # Nguồn ƯU TIÊN: chính cb.dut.udn.vn (tab "Biểu đồ thời
             # gian giảng ở năm học") — cùng nguồn với thời khóa biểu
@@ -356,11 +374,84 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if week_map:
                 for parsed_lgd in lich_giang_day.values():
+                    # Tuần thi giữa kỳ nằm TRONG chuỗi tuần của thời
+                    # khóa biểu nhưng KHÔNG lên lớp -> phải loại ra,
+                    # nếu không sẽ sinh buổi dạy "ma". Lấy từ cột
+                    # "Tuần thi" của bảng hạn nhập điểm (đã đối chiếu
+                    # khớp với ô "K" trên biểu đồ thời gian giảng).
+                    exclude: dict[str, set[int]] = {}
+                    for row in parsed_lgd.get("nhap_diem_theo_lop", []):
+                        tuan_thi = str(row.get("tuan_thi") or "").strip()
+                        if tuan_thi.isdigit():
+                            ma_digits = re.sub(r"\D", "", str(row.get("ma_lop") or ""))
+                            exclude.setdefault(ma_digits, set()).add(int(tuan_thi))
+
                     buoi_day.extend(
                         await self.hass.async_add_executor_job(
-                            build_teaching_events, parsed_lgd.get("lop_hoc", []), week_map
+                            apply_bao_nghi,
+    build_teaching_events,
+                            parsed_lgd.get("lop_hoc", []),
+                            week_map,
+                            exclude,
                         )
                     )
+                # Áp dụng báo nghỉ / dạy bù: buổi đã báo nghỉ được
+                # đánh dấu (không im lặng biến mất), buổi dạy bù được
+                # thêm vào đúng ngày/giờ/phòng đã đăng ký.
+                bao_nghi_all: list[dict[str, Any]] = []
+                for hk in lich_giang_day:
+                    try:
+                        raw_bn = await self._client.fetch_bao_nghi_html(hk)
+                        bao_nghi_all.extend(
+                            await self.hass.async_add_executor_job(parse_bao_nghi, raw_bn)
+                        )
+                    except Exception as err:  # noqa: BLE001
+                        _LOGGER.warning("Không lấy được báo nghỉ/dạy bù HK %s: %s", hk, err)
+
+                if bao_nghi_all:
+                    buoi_day = await self.hass.async_add_executor_job(
+                        apply_bao_nghi, buoi_day, bao_nghi_all
+                    )
+
+                # --- Lịch dạy của giảng viên khác (nếu có chọn) ---
+                # Lấy từ danh sách lớp học phần CỦA CẢ KHOA. Lưu ý:
+                # nguồn này KHÔNG có thông tin báo nghỉ/dạy bù, nên
+                # lịch của người khác chỉ là thời khóa biểu gốc.
+                # Tên lưu dạng "<mã khoa>|<họ tên>".
+                theo_khoa: dict[str, list[str]] = {}
+                for muc in self.extra_lecturers:
+                    if "|" not in muc:
+                        continue
+                    khoa, ten = muc.split("|", 1)
+                    theo_khoa.setdefault(khoa.strip(), []).append(ten.strip())
+
+                for hk in lich_giang_day:
+                    for khoa, ten_list in theo_khoa.items():
+                        try:
+                            raw_kh = await self._client.fetch_lop_hp_khoa_html(hk, khoa)
+                            rows_kh = await self.hass.async_add_executor_job(
+                                parse_lop_hp_khoa, raw_kh
+                            )
+                        except Exception as err:  # noqa: BLE001
+                            _LOGGER.warning(
+                                "Không lấy được lớp học phần khoa %s (HK %s): %s",
+                                khoa,
+                                hk,
+                                err,
+                            )
+                            continue
+
+                        for ten in ten_list:
+                            lop_cua_ho = await self.hass.async_add_executor_job(
+                                filter_lop_hp_by_lecturer, rows_kh, ten
+                            )
+                            ev_ho = await self.hass.async_add_executor_job(
+                                build_teaching_events, lop_cua_ho, week_map, None
+                            )
+                            for ev in ev_ho:
+                                ev["nguoi"] = ten
+                            buoi_day.extend(ev_ho)
+
                 buoi_day.sort(key=lambda e: e["start"])
 
         return {

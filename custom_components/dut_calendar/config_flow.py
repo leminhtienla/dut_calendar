@@ -52,11 +52,19 @@ from .const import (
     MIN_SCAN_INTERVAL_PUBLIC,
     TYPE_COITHI,
     TYPE_DEADLINE_DIEM,
+    TYPE_LICHGIANGDAY,
     TYPE_LICHTUAN,
     UPDATE_MODE_FULL,
     UPDATE_MODE_SMART,
 )
-from .parser_exam import build_lecturer_directory, parse_exam_duty, parse_hoc_ky_options
+from .parser_exam import (
+    build_lecturer_directory,
+    lecturers_from_lop_hp_khoa,
+    parse_exam_duty,
+    parse_hoc_ky_options,
+    parse_khoa_options,
+    parse_lop_hp_khoa,
+)
 from .parser_public import parse_keyword_groups
 
 _LOGGER = logging.getLogger(__name__)
@@ -319,6 +327,37 @@ async def _try_login_and_fetch_hocky(
         await session.close()
 
 
+async def _fetch_khoa_options(username: str, password: str) -> list[dict[str, str]]:
+    """Danh sách Khoa (từ dropdown thật của trang Lớp học phần khoa)."""
+    session = aiohttp.ClientSession()
+    try:
+        client = CBDutClient(session, username, password)
+        await client.ensure_logged_in()
+        return parse_khoa_options(await client.fetch_lop_hp_khoa_page_html())
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.error("Không lấy được danh sách khoa: %s", err)
+        return []
+    finally:
+        await session.close()
+
+
+async def _fetch_lecturers_of_khoa(
+    username: str, password: str, hoc_ky: str, khoa: str
+) -> list[str]:
+    """Danh sách giảng viên của 1 khoa trong 1 học kỳ."""
+    session = aiohttp.ClientSession()
+    try:
+        client = CBDutClient(session, username, password)
+        await client.ensure_logged_in()
+        rows = parse_lop_hp_khoa(await client.fetch_lop_hp_khoa_html(hoc_ky, khoa))
+        return lecturers_from_lop_hp_khoa(rows)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.error("Không lấy được giảng viên khoa %s: %s", khoa, err)
+        return []
+    finally:
+        await session.close()
+
+
 async def _fetch_lecturer_directory(
     username: str, password: str, hoc_ky_list: list[str]
 ) -> dict[str, list[str]] | None:
@@ -385,10 +424,103 @@ async def _fetch_lecturer_directory(
     return {code: sorted(names) for code, names in merged.items()}
 
 
+class _GiangDayLecturerMixin:
+    """Bước chọn khoa -> chọn giảng viên cho loại dut_lichgiangday.
+
+    Dùng chung cho cả ConfigFlow (thêm mới) và OptionsFlow (sửa).
+    Lớp con phải có: _pending_data, _pending_hoc_ky_list, _chosen_khoa,
+    _khoa_options, và _current_extra_lecturers().
+    """
+
+    # ---- Bước riêng cho dut_lichgiangday: chọn khoa -> chọn giảng viên ----
+    async def _gd_step_khoa(self, user_input, on_done):
+        """on_done(danh_sach_ten) -> kết thúc flow (tạo/lưu entry)."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            khoa = user_input["khoa"]
+            if khoa == KHOA_NONE_SENTINEL:
+                return await on_done([])
+            if khoa == KHOA_KEEP_SENTINEL:
+                return await on_done(None)
+            self._chosen_khoa = khoa
+            return await self.async_step_gd_giang_vien()
+
+        if not self._khoa_options:
+            self._khoa_options = await _fetch_khoa_options(
+                self._pending_data[CONF_USERNAME], self._pending_data[CONF_PASSWORD]
+            )
+            if not self._khoa_options:
+                errors["base"] = "cannot_fetch_directory"
+
+        cur = self._current_extra_lecturers()
+        options = []
+        if cur:
+            options.append(
+                SelectOptionDict(
+                    value=KHOA_KEEP_SENTINEL,
+                    label=f"↩️ Giữ nguyên {len(cur)} người đang theo dõi, không đổi gì",
+                )
+            )
+        options.append(
+            SelectOptionDict(value=KHOA_NONE_SENTINEL, label="🗑️ Xóa hết, không theo dõi ai")
+        )
+        options += [
+            SelectOptionDict(value=k["value"], label=f"{k['value']} - {k['label']}")
+            for k in self._khoa_options
+        ]
+        return self.async_show_form(
+            step_id="gd_khoa",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "khoa",
+                        default=KHOA_KEEP_SENTINEL if cur else KHOA_NONE_SENTINEL,
+                    ): SelectSelector(
+                        SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def _gd_step_giang_vien(self, user_input, on_done):
+        if user_input is not None:
+            chosen = user_input.get(CONF_EXTRA_LECTURERS) or []
+            return await on_done([f"{self._chosen_khoa}|{n}" for n in chosen])
+
+        hk = (self._pending_hoc_ky_list or [""])[0]
+        names = await _fetch_lecturers_of_khoa(
+            self._pending_data[CONF_USERNAME],
+            self._pending_data[CONF_PASSWORD],
+            hk,
+            self._chosen_khoa or "",
+        )
+        cur_names = [
+            x.split("|", 1)[1]
+            for x in self._current_extra_lecturers()
+            if x.startswith(f"{self._chosen_khoa}|")
+        ]
+        return self.async_show_form(
+            step_id="gd_giang_vien",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_EXTRA_LECTURERS, default=cur_names): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[SelectOptionDict(value=n, label=n) for n in names],
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+        )
+
+
+
 # =====================================================================
 # Config Flow chính — menu 3 lựa chọn
 # =====================================================================
-class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
+class DutCalendarConfigFlow(_GiangDayLecturerMixin, ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
@@ -399,11 +531,17 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         self._chosen_khoa: str | None = None
         self._pending_hoc_ky_list: list[str] = []
         self._directory_failed: bool = False
+        self._khoa_options: list[dict[str, str]] = []
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> Any:
         return self.async_show_menu(
             step_id="user",
-            menu_options=["dut_lichtuan", "dut_coithi", "dut_deadline_diem"],
+            menu_options=[
+                "dut_lichtuan",
+                "dut_coithi",
+                "dut_deadline_diem",
+                "dut_lichgiangday",
+            ],
         )
 
     # ---- dut_lichtuan: Lịch tuần công khai (1 bước, không cần đăng nhập) ----
@@ -448,6 +586,42 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> Any:
         return await self._step_credentials(user_input, "dut_deadline_diem", TYPE_DEADLINE_DIEM)
+
+    async def async_step_dut_lichgiangday(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
+        return await self._step_account_gate(user_input, "dut_lichgiangday", TYPE_LICHGIANGDAY)
+
+    async def async_step_dut_lichgiangday_account(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
+        return await self._step_account_choice(
+            user_input, "dut_lichgiangday", TYPE_LICHGIANGDAY
+        )
+
+    async def async_step_dut_lichgiangday_login(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
+        return await self._step_credentials(
+            user_input, "dut_lichgiangday", TYPE_LICHGIANGDAY
+        )
+
+
+    def _current_extra_lecturers(self) -> list[str]:
+        return list(self._pending_data.get(CONF_EXTRA_LECTURERS) or [])
+
+    async def async_step_gd_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._gd_step_khoa(user_input, self._gd_finish)
+
+    async def async_step_gd_giang_vien(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._gd_step_giang_vien(user_input, self._gd_finish)
+
+    async def _gd_finish(self, names: list[str] | None) -> Any:
+        self._pending_data[CONF_EXTRA_LECTURERS] = names or []
+        return self.async_create_entry(
+            title=f"DUT Calendar - Lịch giảng dạy ({self._pending_data[CONF_USERNAME]})",
+            data=self._pending_data,
+        )
 
     async def _step_account_gate(
         self, user_input: dict[str, Any] | None, base_step: str, type_value: str
@@ -509,7 +683,7 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=_schema_login_credentials(
                 user_input or prefill or {},
                 require_password=True,
-                show_lecturer_toggle=(type_value == TYPE_COITHI),
+                show_lecturer_toggle=type_value in (TYPE_COITHI, TYPE_LICHGIANGDAY),
             ),
             errors=errors,
         )
@@ -538,6 +712,18 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
                         title=f"DUT Calendar - Coi thi ({self._pending_data[CONF_USERNAME]})",
                         data=self._pending_data,
                     )
+                if self._pending_type == TYPE_LICHGIANGDAY:
+                    if self._pending_data.get(CONF_CONFIGURE_EXTRA_LECTURER):
+                        self._pending_hoc_ky_list = selected
+                        return await self.async_step_gd_khoa()
+                    self._pending_data[CONF_EXTRA_LECTURERS] = []
+                    return self.async_create_entry(
+                        title=(
+                            "DUT Calendar - Lịch giảng dạy "
+                            f"({self._pending_data[CONF_USERNAME]})"
+                        ),
+                        data=self._pending_data,
+                    )
                 return self.async_create_entry(
                     title=f"DUT Calendar - Hạn nộp điểm ({self._pending_data[CONF_USERNAME]})",
                     data=self._pending_data,
@@ -549,6 +735,27 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=_schema_hocky(self._hocky_options, default_selected),
             errors=errors,
         )
+
+    def _current_extra_lecturers(self) -> list[str]:
+        return list(
+            self._config_entry.options.get(
+                CONF_EXTRA_LECTURERS, self._config_entry.data.get(CONF_EXTRA_LECTURERS, [])
+            )
+            or []
+        )
+
+    async def async_step_gd_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._gd_step_khoa(user_input, self._gd_finish)
+
+    async def async_step_gd_giang_vien(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._gd_step_giang_vien(user_input, self._gd_finish)
+
+    async def _gd_finish(self, names: list[str] | None) -> Any:
+        # names is None -> giữ nguyên lựa chọn cũ
+        self._pending_data[CONF_EXTRA_LECTURERS] = (
+            self._current_extra_lecturers() if names is None else names
+        )
+        return self.async_create_entry(title="", data=self._pending_data)
 
     # ---- Bước 3 (chỉ dut_coithi): chọn khoa -> chọn giảng viên khác cần theo dõi ----
     async def async_step_chon_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
@@ -623,7 +830,7 @@ class DutCalendarConfigFlow(ConfigFlow, domain=DOMAIN):
 # =====================================================================
 # Options Flow (nhánh theo loại entry đã tạo)
 # =====================================================================
-class DutCalendarOptionsFlow(OptionsFlow):
+class DutCalendarOptionsFlow(_GiangDayLecturerMixin, OptionsFlow):
     def __init__(self, config_entry: ConfigEntry) -> None:
         self._config_entry = config_entry
         self._pending_data: dict[str, Any] = {}
@@ -632,6 +839,7 @@ class DutCalendarOptionsFlow(OptionsFlow):
         self._chosen_khoa: str | None = None
         self._pending_hoc_ky_list: list[str] = []
         self._directory_failed: bool = False
+        self._khoa_options: list[dict[str, str]] = []
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> Any:
         entry_type = self._config_entry.data.get(CONF_TYPE)
@@ -685,7 +893,8 @@ class DutCalendarOptionsFlow(OptionsFlow):
             data_schema=_schema_login_credentials(
                 user_input or current,
                 require_password=False,
-                show_lecturer_toggle=(self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI),
+                show_lecturer_toggle=self._config_entry.data.get(CONF_TYPE)
+                in (TYPE_COITHI, TYPE_LICHGIANGDAY),
             ),
             errors=errors,
         )
@@ -709,6 +918,12 @@ class DutCalendarOptionsFlow(OptionsFlow):
             else:
                 self._pending_data = {**self._pending_data, CONF_HOC_KY: ", ".join(selected)}
                 want_lecturer = self._pending_data.get(CONF_CONFIGURE_EXTRA_LECTURER, False)
+                if (
+                    self._config_entry.data.get(CONF_TYPE) == TYPE_LICHGIANGDAY
+                    and want_lecturer
+                ):
+                    self._pending_hoc_ky_list = selected
+                    return await self.async_step_gd_khoa()
                 if self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI and want_lecturer:
                     self._pending_hoc_ky_list = selected
                     return await self.async_step_chon_khoa()

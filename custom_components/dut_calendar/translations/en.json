@@ -6,7 +6,8 @@
         "menu_options": {
           "dut_lichtuan": "Weekly schedule (public, keyword alerts, no login)",
           "dut_coithi": "Exam invigilation schedule (requires cb.dut.udn.vn login)",
-          "dut_deadline_diem": "Grade entry deadlines (requires cb.dut.udn.vn login)"
+          "dut_deadline_diem": "Grade entry deadlines (requires cb.dut.udn.vn login)",
+          "dut_lichgiangday": "Teaching schedule (login required)"
         }
       },
       "dut_lichtuan": {
@@ -78,6 +79,38 @@
         "data": {
           "extra_lecturers": "Lecturer(s)"
         }
+      },
+      "dut_lichgiangday_account": {
+        "title": "Teaching schedule - Choose account",
+        "description": "A cb.dut.udn.vn account is already configured from another source. Reuse it to skip retyping the password, or add a different account.",
+        "data": {
+          "existing_account": "Account"
+        }
+      },
+      "dut_lichgiangday_login": {
+        "title": "Teaching schedule - Sign in",
+        "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch student grades/names/IDs. After a successful login, the next step lets you pick semesters from a real list.",
+        "data": {
+          "username": "Username (e.g. 103LMTIEN)",
+          "password": "Password",
+          "scan_interval": "Check interval (minutes)",
+          "exam_duration": "(Not used for this source)",
+          "notify_service": "Optional notify service"
+        }
+      },
+      "gd_khoa": {
+        "title": "Track another lecturer (teaching schedule)",
+        "description": "Pick a department to shorten the name list. Note: other lecturers' schedules have NO cancellation/make-up info.",
+        "data": {
+          "khoa": "Department"
+        }
+      },
+      "gd_giang_vien": {
+        "title": "Select lecturer(s) to track",
+        "description": "Multiple selection supported. Type to search if the list is long.",
+        "data": {
+          "extra_lecturers": "Lecturer(s)"
+        }
       }
     },
     "error": {
@@ -125,6 +158,20 @@
         }
       },
       "chon_giang_vien": {
+        "title": "Select lecturer(s) to track",
+        "description": "Multiple selection supported. Type to search if the list is long.",
+        "data": {
+          "extra_lecturers": "Lecturer(s)"
+        }
+      },
+      "gd_khoa": {
+        "title": "Track another lecturer (teaching schedule)",
+        "description": "Pick a department to shorten the name list. Note: other lecturers' schedules have NO cancellation/make-up info.",
+        "data": {
+          "khoa": "Department"
+        }
+      },
+      "gd_giang_vien": {
         "title": "Select lecturer(s) to track",
         "description": "Multiple selection supported. Type to search if the list is long.",
         "data": {

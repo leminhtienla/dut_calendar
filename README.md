@@ -254,7 +254,12 @@ mất dữ liệu.
 nằm ở class CSS (`GridCellCenterCheck` = có tick, `GridCellDisable` =
 không áp dụng) — đọc theo text sẽ sai toàn bộ.*
 
-### Calendar `Giảng dạy` — các buổi lên lớp
+## `dut_lichgiangday` — Lịch giảng dạy
+
+Loại nguồn RIÊNG (tách khỏi `dut_deadline_diem` từ v1.18.0), có thiết
+bị và Calendar riêng.
+
+### Calendar `Lịch dạy` — các buổi lên lớp
 
 Dựng từ thời khóa biểu của học kỳ (vd tuần `22-27;31-40`, buổi
 `T3,6-7,F109`) thành **buổi dạy cụ thể có ngày + giờ + phòng**.
@@ -266,6 +271,29 @@ Dựng từ thời khóa biểu của học kỳ (vd tuần `22-27;31-40`, buổ
   được đối chiếu: **khớp 52/52 tuần**. Cách này chính xác hơn tự cộng
   7 ngày từ tuần 1 — vì năm học có tuần ngắt quãng (nghỉ Tết). Tuần
   nào không tra được sẽ **bỏ qua** thay vì đoán ngày.
+- **Tuần thi giữa kỳ được loại khỏi lịch dạy.** Chuỗi tuần trong thời
+  khóa biểu *bao gồm cả tuần thi* (vd `22-27;31-40` có tuần 33 là tuần
+  thi) nhưng tuần đó không lên lớp. Tuần thi lấy từ cột "Tuần thi" của
+  bảng hạn nhập điểm — đã đối chiếu khớp với ô `K` trên biểu đồ thời
+  gian giảng của trường (8/8 lớp).
+- **Tiêu đề gọn**: `Tên lớp · Phòng`, thêm icon `🚫` nếu đã báo nghỉ
+  hoặc `🔁` nếu là buổi dạy bù, và `[Tên giảng viên]` khi có theo dõi
+  thêm người khác (để phân biệt với lịch của chính bạn). Chi tiết (tiết, tuần học, mã lớp,
+  ghi chú nghỉ/bù) nằm trong phần mô tả sự kiện.
+- **Báo nghỉ / dạy bù được áp dụng**: buổi đã báo nghỉ vẫn giữ lại
+  (đánh dấu `🚫`) để biết buổi đó bị hủy thay vì im lặng biến mất;
+  buổi dạy bù thêm đúng ngày/giờ/phòng đã đăng ký (`🔁`). Bản ghi đã
+  hủy báo nghỉ thì bỏ qua.
+- **Theo dõi thêm lịch dạy của giảng viên khác** (tùy chọn, bật bằng
+  tick ở bước đăng nhập): chọn **Khoa** → chọn **tên** (nhiều người,
+  gõ để tìm). Lịch của họ hiện với tiền tố `[Tên]` để phân biệt.
+  Nguồn: danh sách lớp học phần của cả khoa (`E=LopHPKH`) — endpoint
+  cá nhân chỉ trả về lớp của chính mình.
+  ⚠️ Nguồn này **không có thông tin báo nghỉ/dạy bù**, nên lịch của
+  người khác chỉ là thời khóa biểu gốc; tuần thi cũng không loại được
+  (không có cột "Tuần thi" cho người khác).
+- 5 sensor đếm buổi lên lớp (Hôm nay / Ngày mai / Tuần này / Tuần sau /
+  Tháng này) — **không tính** buổi đã báo nghỉ, **có tính** buổi dạy bù.
 - **Tiết → giờ** dùng bảng `TIET_START` trong `const.py`:
 
   | Tiết | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |

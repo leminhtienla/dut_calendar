@@ -14,7 +14,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM
+from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 from .parser_exam import build_deadline_events, format_hoc_ky, parse_vn_date
@@ -86,6 +86,12 @@ async def async_setup_entry(
             ] + [DeadlineCountSensor(coordinator, entry, period) for period in PERIODS]
             _purge_stale_sensors(hass, entry, {e.unique_id for e in dl_entities})
             async_add_entities(dl_entities)
+        elif entry_type == TYPE_LICHGIANGDAY:
+            lgd_entities: list[SensorEntity] = [
+                TeachingCountSensor(coordinator, entry, period) for period in PERIODS
+            ]
+            _purge_stale_sensors(hass, entry, {e.unique_id for e in lgd_entities})
+            async_add_entities(lgd_entities)
 
 
 # =====================================================================
@@ -572,3 +578,32 @@ class DeadlineTodoSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
             "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
             "last_checked": datetime.now().isoformat(timespec="seconds"),
         }
+
+
+def _device_info_lichgiangday(entry: ConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="DUT Calendar - Lịch giảng dạy",
+        manufacturer="cb.dut.udn.vn (không chính thức)",
+        model="Lịch giảng dạy",
+    )
+
+
+class TeachingCountSensor(_CountSensorBase):
+    """Đếm số buổi lên lớp theo hôm nay/ngày mai/tuần này/tuần sau/tháng này.
+
+    Buổi đã báo nghỉ KHÔNG được tính (vì thực tế không lên lớp); buổi
+    dạy bù thì có tính.
+    """
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry, period: str) -> None:
+        super().__init__(coordinator, entry, period)
+        self._attr_device_info = _device_info_lichgiangday(entry)
+
+    def _event_dates(self) -> list[date]:
+        data = self.coordinator.data or {}
+        return [
+            b["start"].date()
+            for b in data.get("buoi_day", [])
+            if b.get("start") and not b.get("da_nghi")
+        ]

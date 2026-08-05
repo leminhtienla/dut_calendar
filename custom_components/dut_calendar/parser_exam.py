@@ -712,12 +712,20 @@ def parse_tkb_slots(raw: str) -> list[dict[str, Any]]:
 
 
 def build_teaching_events(
-    lop_hoc: list[dict[str, Any]], week_map: dict[int, date]
+    lop_hoc: list[dict[str, Any]],
+    week_map: dict[int, date],
+    exclude_weeks: dict[str, set[int]] | None = None,
 ) -> list[dict[str, Any]]:
     """Dựng danh sách buổi dạy cụ thể (có ngày + giờ) từ thời khóa biểu.
 
-    `week_map` = {số tuần học -> ngày Thứ Hai}, lấy từ dropdown công
-    khai của lichtuan.dut.udn.vn (parser_public.parse_all_weeks).
+    `week_map` = {số tuần học -> ngày Thứ Hai}.
+
+    `exclude_weeks` = {mã lớp (chỉ chữ số) -> các tuần KHÔNG dạy}. Cần
+    thiết vì chuỗi tuần trong thời khóa biểu BAO GỒM CẢ TUẦN THI giữa
+    kỳ (vd "22-27;31-40" có tuần 33 là tuần thi) — tuần đó không lên
+    lớp, nếu không loại ra sẽ sinh buổi dạy "ma". Đối chiếu với biểu
+    đồ thời gian giảng của trường: tuần thi được đánh dấu "K" và
+    KHÔNG có số tiết.
 
     Giờ bắt đầu/kết thúc suy từ bảng TIET_START trong const.py.
     Tuần nào không có trong week_map (vd lịch trỏ sang năm học khác)
@@ -725,8 +733,12 @@ def build_teaching_events(
     """
     events: list[dict[str, Any]] = []
 
+    exclude_weeks = exclude_weeks or {}
+
     for lop in lop_hoc:
-        weeks = parse_tuan_hoc(lop.get("tkb_tuan") or "")
+        ma_digits = re.sub(r"\D", "", str(lop.get("ma_lop") or ""))
+        bo_qua = exclude_weeks.get(ma_digits, set())
+        weeks = [w for w in parse_tuan_hoc(lop.get("tkb_tuan") or "") if w not in bo_qua]
         slots = parse_tkb_slots(lop.get("tkb_thu_tiet_phong") or "")
         if not weeks or not slots:
             continue
@@ -820,3 +832,209 @@ def parse_bieu_do_nam_hoc(html: str, hoc_ky: str) -> dict[int, date]:
         except ValueError:
             continue
     return week_map
+
+
+def parse_bao_nghi(html: str) -> list[dict[str, Any]]:
+    """Đọc E=ctrBaoNghi_GVList&HK=<mã HK> -> danh sách buổi NGHỈ / DẠY BÙ.
+
+    Bảng gồm dòng tiêu đề nhóm (3 ô: "[22Nh19] Tên lớp", "Tổng nghỉ: N",
+    "Tổng bù: N") rồi các dòng dữ liệu 7 ô:
+      STT | Ngày báo | Ngày nghỉ/bù | Số tiết nghỉ | Số tiết bù | Phòng | Đã hủy
+    Cột Phòng có dạng "E112 (7-9)" = phòng + khoảng tiết.
+
+    Mỗi bản ghi có `loai`: "nghi" (buổi bị hủy) hoặc "bu" (buổi dạy bù).
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="BaoNghi_GridList")
+    if table is None:
+        return []
+
+    records: list[dict[str, Any]] = []
+    cur_nhom: str | None = None
+    cur_ten: str | None = None
+
+    for tr in table.find_all("tr"):
+        cells = tr.find_all(["th", "td"])
+        vals = [unicodedata.normalize("NFC", c.get_text(" ", strip=True)) for c in cells]
+
+        if len(vals) == 3 and vals[0].startswith("["):
+            m = re.match(r"^\[([^\]]+)\]\s*(.*)$", vals[0])
+            if m:
+                cur_nhom, cur_ten = m.group(1), m.group(2).strip()
+            continue
+
+        if len(vals) != 7 or not vals[0].isdigit():
+            continue
+
+        ngay = parse_vn_date(vals[2])
+        if ngay is None:
+            continue
+
+        phong, tiet_dau, tiet_cuoi = vals[5], None, None
+        m = re.match(r"^(.*?)\s*\((\d+)(?:\s*-\s*(\d+))?\)\s*$", vals[5])
+        if m:
+            phong = m.group(1).strip()
+            tiet_dau = int(m.group(2))
+            tiet_cuoi = int(m.group(3)) if m.group(3) else tiet_dau
+
+        so_tiet_nghi = vals[3].strip()
+        so_tiet_bu = vals[4].strip()
+
+        records.append(
+            {
+                "nhom": cur_nhom,
+                "ten_lop": cur_ten,
+                "ngay_bao": vals[1] or None,
+                "ngay": ngay,
+                "loai": "nghi" if so_tiet_nghi else "bu",
+                "so_tiet": int(so_tiet_nghi or so_tiet_bu or 0)
+                if (so_tiet_nghi or so_tiet_bu).isdigit()
+                else None,
+                "phong": phong or None,
+                "tiet_dau": tiet_dau,
+                "tiet_cuoi": tiet_cuoi,
+                "da_huy": bool(vals[6].strip()),
+            }
+        )
+
+    return records
+
+
+def apply_bao_nghi(
+    events: list[dict[str, Any]], bao_nghi: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Áp dụng báo nghỉ / dạy bù lên danh sách buổi dạy.
+
+    - Buổi trùng ngày + đúng lớp với 1 bản ghi "nghi" (chưa hủy báo)
+      -> đánh dấu `da_nghi=True` (giữ lại để biết buổi đó đã bị hủy,
+      thay vì im lặng biến mất).
+    - Mỗi bản ghi "bu" -> thêm 1 buổi dạy mới vào đúng ngày/giờ/phòng
+      đã đăng ký, đánh dấu `la_day_bu=True`.
+
+    Khớp lớp theo mã "Khóa.Nhóm" (vd "22Nh19") vì bảng báo nghỉ chỉ
+    hiển thị mã này chứ không có mã lớp học phần đầy đủ.
+    """
+
+    def _nhom_of(ev: dict[str, Any]) -> str | None:
+        ma = re.sub(r"\D", "", str(ev.get("ma_lop") or ""))
+        if len(ma) < 15:
+            return None
+        return f"{ma[11:13]}Nh{ma[13:15]}"
+
+    result = [dict(e) for e in events]
+
+    for rec in bao_nghi:
+        if rec.get("da_huy"):
+            continue
+
+        if rec["loai"] == "nghi":
+            for ev in result:
+                if ev["start"].date() == rec["ngay"] and _nhom_of(ev) == rec["nhom"]:
+                    ev["da_nghi"] = True
+        else:  # "bu"
+            start_hm = TIET_START.get(rec.get("tiet_dau") or 0)
+            end_hm = TIET_START.get(rec.get("tiet_cuoi") or 0)
+            if not start_hm or not end_hm:
+                continue
+            d = rec["ngay"]
+            result.append(
+                {
+                    "start": datetime(d.year, d.month, d.day, *start_hm),
+                    "end": datetime(d.year, d.month, d.day, *end_hm)
+                    + timedelta(minutes=TIET_DURATION_MINUTES),
+                    "ten_lop": rec.get("ten_lop"),
+                    "ma_lop": rec.get("nhom"),
+                    "phong": rec.get("phong"),
+                    "tuan": None,
+                    "tiet": f"{rec['tiet_dau']}-{rec['tiet_cuoi']}"
+                    if rec.get("tiet_dau") != rec.get("tiet_cuoi")
+                    else str(rec.get("tiet_dau")),
+                    "la_day_bu": True,
+                }
+            )
+
+    result.sort(key=lambda e: e["start"])
+    return result
+
+
+def parse_khoa_options(html: str) -> list[dict[str, str]]:
+    """Đọc dropdown Khoa của trang PageLopHPKH -> [{value, label}]."""
+    soup = BeautifulSoup(html, "html.parser")
+    sel = soup.find("select", id="LHKH_cboKhoa")
+    if sel is None:
+        return []
+    out = []
+    for o in sel.find_all("option"):
+        val = (o.get("value") or "").strip()
+        if not val or val.upper() == "ALL":
+            continue
+        out.append(
+            {"value": val, "label": unicodedata.normalize("NFC", o.get_text(" ", strip=True))}
+        )
+    return out
+
+
+def parse_lop_hp_khoa(html: str) -> list[dict[str, Any]]:
+    """Đọc E=LopHPKH&HK=<hk>&KHOA=<mã khoa>... -> danh sách lớp học phần
+    CỦA CẢ KHOA, kèm giảng viên và thời khóa biểu.
+
+    Đây là nguồn duy nhất lấy được lịch dạy của GIẢNG VIÊN KHÁC —
+    endpoint ctrLichGiangDay chỉ trả về lớp của chính tài khoản đăng
+    nhập. Bảng không có thông tin báo nghỉ/dạy bù nên lịch của người
+    khác chỉ là thời khóa biểu gốc.
+
+    Cột: TT | Mã lớp | Tên lớp | Số TC | GV chính | GV cộng tác |
+         Thứ,tiết,phòng | Tuần | SLSV | ... (14 ô)
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="_ctl0_ctrLopHPKH_Grid")
+    if table is None:
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for tr in table.find_all("tr"):
+        cells = tr.find_all("td")
+        if len(cells) != 14:
+            continue
+        v = [unicodedata.normalize("NFC", c.get_text(" ", strip=True)) for c in cells]
+        if not v[0].isdigit():
+            continue
+        rows.append(
+            {
+                "ma_lop": v[1],
+                "ten_lop": v[2],
+                "so_tin_chi": v[3],
+                "gv_chinh": v[4] or None,
+                "gv_cong_tac": v[5] or None,
+                "tkb_thu_tiet_phong": v[6] or None,
+                "tkb_tuan": v[7] or None,
+            }
+        )
+    return rows
+
+
+def lecturers_from_lop_hp_khoa(rows: list[dict[str, Any]]) -> list[str]:
+    """Danh sách tên giảng viên duy nhất (cả phụ trách chính lẫn cộng tác)."""
+    names: set[str] = set()
+    for r in rows:
+        for key in ("gv_chinh", "gv_cong_tac"):
+            n = (r.get(key) or "").strip()
+            if n:
+                names.add(n)
+    return sorted(names)
+
+
+def filter_lop_hp_by_lecturer(
+    rows: list[dict[str, Any]], name: str
+) -> list[dict[str, Any]]:
+    """Lọc lớp theo tên giảng viên (khớp chính xác, không phân biệt hoa/thường)."""
+    target = unicodedata.normalize("NFC", name.strip().lower())
+    if not target:
+        return []
+    out = []
+    for r in rows:
+        for key in ("gv_chinh", "gv_cong_tac"):
+            if unicodedata.normalize("NFC", (r.get(key) or "").strip().lower()) == target:
+                out.append(r)
+                break
+    return out

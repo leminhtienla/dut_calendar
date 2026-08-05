@@ -8,6 +8,7 @@ CONF_TYPE = "type"
 TYPE_LICHTUAN = "dut_lichtuan"  # lichtuan.dut.udn.vn - công khai, theo từ khóa
 TYPE_COITHI = "dut_coithi"  # cb.dut.udn.vn - cần đăng nhập, lịch coi thi
 TYPE_DEADLINE_DIEM = "dut_deadline_diem"  # cb.dut.udn.vn - cần đăng nhập, hạn nộp điểm
+TYPE_LICHGIANGDAY = "dut_lichgiangday"  # cb.dut.udn.vn - cần đăng nhập, lịch giảng dạy (buổi lên lớp)
 
 # =====================================================================
 # Nguồn 1: Lịch tuần công khai (lichtuan.dut.udn.vn)
@@ -65,6 +66,8 @@ CB_GRADE_DEADLINE_AJAX_URL = f"{CB_BASE_URL}/WebAjax/evLopHP_Load.aspx"
 CB_PAGE_LTDIEM_URL = f"{CB_BASE_URL}/PageLTDiem.aspx"
 CB_PAGE_DIEMHP_URL = f"{CB_BASE_URL}/PageDiemHP.aspx"
 CB_PAGE_LICHGIANGDAY_URL = f"{CB_BASE_URL}/PageLichGiangDay.aspx"
+CB_PAGE_BAONGHI_URL = f"{CB_BASE_URL}/PageBaoNghi.aspx"
+CB_PAGE_LOPHPKH_URL = f"{CB_BASE_URL}/PageLopHPKH.aspx"
 
 LOGIN_FIELD_BUTTON = "_ctl0:Main_panLogin:Login_btnLogin"
 LOGIN_BUTTON_VALUE = " Đăng nhập "

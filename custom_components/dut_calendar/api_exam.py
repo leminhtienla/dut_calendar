@@ -8,6 +8,8 @@ import aiohttp
 from .const import (
     CB_EXAM_AJAX_URL as EXAM_AJAX_URL,
     CB_GRADE_DEADLINE_AJAX_URL as GRADE_DEADLINE_AJAX_URL,
+    CB_PAGE_BAONGHI_URL as PAGE_BAONGHI_URL,
+    CB_PAGE_LOPHPKH_URL as PAGE_LOPHPKH_URL,
     CB_PAGE_LICHGIANGDAY_URL as PAGE_LICHGIANGDAY_URL,
     CB_LOGIN_URL as LOGIN_URL,
     CB_PAGE_COITHI_URL as PAGE_COITHI_URL,
@@ -304,5 +306,65 @@ class CBDutClient:
         }
         async with self._session.post(
             GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
+        ) as resp:
+            return await resp.text()
+
+
+    async def fetch_bao_nghi_html(self, hoc_ky: str) -> str:
+        """Danh sách buổi đã báo nghỉ / đăng ký dạy bù của học kỳ."""
+        await self.ensure_logged_in()
+        text = await self._call_bao_nghi(hoc_ky)
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_bao_nghi(hoc_ky)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+        return text
+
+    async def _call_bao_nghi(self, hoc_ky: str) -> str:
+        params = {"E": "ctrBaoNghi_GVList", "HK": hoc_ky}
+        headers = {"X-Requested-With": "XMLHttpRequest", "Referer": PAGE_BAONGHI_URL}
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
+        ) as resp:
+            return await resp.text()
+
+
+    async def fetch_lop_hp_khoa_page_html(self) -> str:
+        """Trang PageLopHPKH — chứa dropdown danh sách Khoa."""
+        await self.ensure_logged_in()
+        async with self._session.get(PAGE_LOPHPKH_URL, timeout=60) as resp:
+            return await resp.text()
+
+    async def fetch_lop_hp_khoa_html(self, hoc_ky: str, khoa: str) -> str:
+        """Danh sách lớp học phần của CẢ KHOA (kèm giảng viên + TKB) —
+        nguồn duy nhất lấy được lịch dạy của giảng viên khác.
+        """
+        await self.ensure_logged_in()
+        text = await self._call_lop_hp_khoa(hoc_ky, khoa)
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_lop_hp_khoa(hoc_ky, khoa)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+        return text
+
+    async def _call_lop_hp_khoa(self, hoc_ky: str, khoa: str) -> str:
+        params = {
+            "E": "LopHPKH",
+            "HK": hoc_ky,
+            "KHOA": khoa,
+            "KHOAH": "22",
+            "ORDER": "Ten",
+            "KH": "KH",
+            "CK": "false",
+            "Clc": "false",
+            "plb": "false",
+        }
+        headers = {"X-Requested-With": "XMLHttpRequest", "Referer": PAGE_LOPHPKH_URL}
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=90
         ) as resp:
             return await resp.text()
