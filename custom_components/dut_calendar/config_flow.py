@@ -162,7 +162,11 @@ def _schema_lichtuan(defaults: dict[str, Any]) -> vol.Schema:
 
 
 def _schema_login_credentials(
-    defaults: dict[str, Any], require_password: bool, show_lecturer_toggle: bool = False
+    defaults: dict[str, Any],
+    require_password: bool,
+    show_lecturer_toggle: bool = False,
+    show_exam_duration: bool = False,
+    show_notify: bool = True,
 ) -> vol.Schema:
     """Bước 1: tài khoản/mật khẩu + các tuỳ chọn khác (KHÔNG có học kỳ).
 
@@ -194,17 +198,28 @@ def _schema_login_credentials(
                 unit_of_measurement="phút",
             )
         ),
-        vol.Optional(
-            CONF_EXAM_DURATION, default=defaults.get(CONF_EXAM_DURATION, DEFAULT_EXAM_DURATION)
-        ): NumberSelector(
+    }
+
+    # Chỉ dùng cho dut_coithi: trang trường không cho giờ KẾT THÚC ca
+    # thi, nên end = start + số phút này. Các loại khác không dùng tới.
+    if show_exam_duration:
+        schema_dict[
+            vol.Optional(
+                CONF_EXAM_DURATION,
+                default=defaults.get(CONF_EXAM_DURATION, DEFAULT_EXAM_DURATION),
+            )
+        ] = NumberSelector(
             NumberSelectorConfig(
                 min=15, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="phút"
             )
-        ),
-        vol.Optional(
-            CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
-        ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
-    }
+        )
+
+    # Chỉ dut_coithi (ca thi mới) và dut_deadline_diem (hạn thay đổi)
+    # mới gửi thông báo; dut_lichgiangday không dùng.
+    if show_notify:
+        schema_dict[
+            vol.Optional(CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, ""))
+        ] = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
 
     if show_lecturer_toggle:
         schema_dict[
@@ -684,6 +699,8 @@ class DutCalendarConfigFlow(_GiangDayLecturerMixin, ConfigFlow, domain=DOMAIN):
                 user_input or prefill or {},
                 require_password=True,
                 show_lecturer_toggle=type_value in (TYPE_COITHI, TYPE_LICHGIANGDAY),
+                show_exam_duration=(type_value == TYPE_COITHI),
+                show_notify=(type_value != TYPE_LICHGIANGDAY),
             ),
             errors=errors,
         )
@@ -875,6 +892,8 @@ class DutCalendarOptionsFlow(_GiangDayLecturerMixin, OptionsFlow):
                 require_password=False,
                 show_lecturer_toggle=self._config_entry.data.get(CONF_TYPE)
                 in (TYPE_COITHI, TYPE_LICHGIANGDAY),
+                show_exam_duration=self._config_entry.data.get(CONF_TYPE) == TYPE_COITHI,
+                show_notify=self._config_entry.data.get(CONF_TYPE) != TYPE_LICHGIANGDAY,
             ),
             errors=errors,
         )

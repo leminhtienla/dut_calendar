@@ -143,6 +143,15 @@ nhớ mã số). Lưu ý: Options không có bước "chọn tài khoản có s�
 đang sửa 1 entry cụ thể, không phải thêm mới) — để trống ô Mật khẩu
 nếu không muốn đổi.
 
+### Form đăng nhập — chỉ hiện ô thực sự dùng
+
+| Ô | Coi thi | Hạn nộp điểm | Lịch giảng dạy |
+|---|---|---|---|
+| Tài khoản / Mật khẩu / Tần suất kiểm tra | ✅ | ✅ | ✅ |
+| **Thời lượng ca thi** (trang trường không cho giờ kết thúc, `end = start + số phút này`) | ✅ | — | — |
+| **Notify service** (chỉ báo ca thi mới / hạn thay đổi) | ✅ | ✅ | — |
+| **Tick theo dõi giảng viên khác** | ✅ | — | ✅ |
+
 ## `dut_coithi` — Lịch coi thi
 
 - Đăng nhập 1 lần bằng tài khoản cổng `cb.dut.udn.vn`, tự đăng nhập

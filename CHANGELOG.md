@@ -5,6 +5,13 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.19.3] - 2026-08-05
+
+### Thay đổi
+- **Ẩn các ô cấu hình không dùng tới ở từng loại nguồn** (trước đây cả 3 loại dùng chung 1 form nên hiện thừa):
+  - **Thời lượng ca thi**: chỉ còn ở `dut_coithi` — dùng để tính giờ kết thúc ca thi vì trang trường chỉ cho giờ bắt đầu. Hai loại kia không dùng.
+  - **Notify service**: chỉ còn ở `dut_coithi` (báo ca thi mới) và `dut_deadline_diem` (báo hạn thay đổi); `dut_lichgiangday` không gửi thông báo nên đã bỏ.
+
 ## [1.19.2] - 2026-08-05
 
 ### Sửa lỗi
@@ -288,7 +295,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.2...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.3...HEAD
+[1.19.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.3
 [1.19.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.2
 [1.19.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.1
 [1.19.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.0
