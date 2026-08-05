@@ -12,8 +12,16 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY
+from .const import (
+    CONF_TYPE,
+    DEFAULT_MEETING_DURATION,
+    DOMAIN,
+    TYPE_COITHI,
+    TYPE_DEADLINE_DIEM,
+    TYPE_LICHGIANGDAY,
+)
 from .coordinator_exam import CBDutCoordinator
+from .coordinator_mail import DutMailCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 from .parser_exam import build_deadline_events, format_hoc_ky
 from .parser_public import parse_event_datetime
@@ -24,7 +32,9 @@ async def async_setup_entry(
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
-    if isinstance(coordinator, LichTuanDutCoordinator):
+    if isinstance(coordinator, DutMailCoordinator):
+        async_add_entities([MailMeetingCalendar(coordinator, entry)])
+    elif isinstance(coordinator, LichTuanDutCoordinator):
         async_add_entities([PublicScheduleCalendar(coordinator, entry)])
     elif isinstance(coordinator, CBDutCoordinator):
         entry_type = entry.data.get(CONF_TYPE)
@@ -356,3 +366,81 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             if _end_as_datetime(e.end) >= start_date and _start_as_datetime(e.start) <= end_date:
                 result.append(e)
         return result
+
+
+
+# =====================================================================
+# Nguồn: Email — cuộc họp tách được từ mail (chỉ mail có đủ ngày+giờ)
+# =====================================================================
+class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity):
+    """Lịch các cuộc họp lấy từ email khớp từ khóa.
+
+    Chỉ tạo sự kiện cho mail tách được ĐẦY ĐỦ ngày + giờ bằng quy tắc;
+    mail không tách được vẫn báo bình thường nhưng không lên lịch —
+    thà thiếu còn hơn đặt sai giờ.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = None
+
+    def __init__(self, coordinator: DutMailCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_calendar_mail"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="DUT Calendar - Email",
+            manufacturer="IMAP (không chính thức)",
+            model="Cảnh báo email theo từ khóa",
+        )
+
+    def _build_events(self) -> list[CalendarEvent]:
+        data = self.coordinator.data or {}
+        tzinfo = dt_util.DEFAULT_TIME_ZONE
+        events: list[CalendarEvent] = []
+
+        for m in data.get("matches", []):
+            raw = m.get("meeting_start")
+            if not raw:
+                continue
+            try:
+                start = datetime.fromisoformat(raw)
+            except (TypeError, ValueError):
+                continue
+            end = start + timedelta(minutes=DEFAULT_MEETING_DURATION)
+
+            desc = [f"Người gửi: {m.get('sender')}"]
+            if m.get("thoi_gian_raw"):
+                desc.append(f"Thời gian (nguyên văn): {m['thoi_gian_raw']}")
+            if m.get("thanh_phan_raw"):
+                desc.append(f"Thành phần: {m['thanh_phan_raw']}")
+            if m.get("matched_keywords"):
+                desc.append(f"Từ khóa khớp: {', '.join(m['matched_keywords'])}")
+
+            events.append(
+                CalendarEvent(
+                    start=start.replace(tzinfo=tzinfo),
+                    end=end.replace(tzinfo=tzinfo),
+                    summary=m.get("subject") or "(không có tiêu đề)",
+                    description="\n".join(desc),
+                    location=m.get("meeting_location") or "",
+                    uid=f"{self._entry.entry_id}_{m.get('id')}",
+                )
+            )
+        events.sort(key=lambda ev: _start_as_datetime(ev.start))
+        return events
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        now = dt_util.now()
+        upcoming = [e for e in self._build_events() if _end_as_datetime(e.end) >= now]
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        return [
+            e
+            for e in self._build_events()
+            if _end_as_datetime(e.end) >= start_date and _start_as_datetime(e.start) <= end_date
+        ]

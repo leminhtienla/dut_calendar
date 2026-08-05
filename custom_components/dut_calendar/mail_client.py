@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import email
 import imaplib
+import re
 import unicodedata
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
@@ -185,3 +186,78 @@ def mail_stable_id(m: dict[str, Any]) -> str:
     received = m.get("received")
     stamp = received.isoformat() if isinstance(received, datetime) else ""
     return f"{m.get('sender','')}|{m.get('subject','')}|{stamp}"
+
+
+# =====================================================================
+# Tách thông tin cuộc họp từ nội dung mail (không dùng AI)
+# =====================================================================
+# Mail mời họp của trường theo khuôn rất ổn định:
+#     Thời gian: 14h30 ngày 4/8/2026 (Thứ 3)
+#     Địa điểm: Văn phòng Khoa (A123)
+#     Thành phần: ...
+#
+# BẪY QUAN TRỌNG: mail trả lời/đính chính có TRÍCH LẠI mail cũ bên
+# dưới, trong đó ghi giờ CŨ đã bị thay. Vì vậy luôn lấy lần xuất hiện
+# ĐẦU TIÊN (phần trên cùng = nội dung mới nhất), không quét cả bài rồi
+# lấy kết quả cuối.
+_RE_THOI_GIAN = re.compile(r"^\s*Th[ờo]i\s*gian\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_RE_DIA_DIEM = re.compile(r"^\s*[ĐD][ịi]a\s*[đd]i[ểe]m\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_RE_THANH_PHAN = re.compile(r"^\s*Th[àa]nh\s*ph[ầa]n\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+
+# 14h30 | 14h | 14:30 | 14 giờ 30
+_RE_GIO = re.compile(r"(\d{1,2})\s*(?:h|:|gi[ờo])\s*(\d{2})?", re.IGNORECASE)
+# ngày 4/8/2026 | 04/08/2026 | 4-8-2026
+_RE_NGAY = re.compile(r"(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})")
+
+
+def parse_meeting_info(
+    body: str, fallback_year: int | None = None
+) -> dict[str, Any]:
+    """Tách thời gian/địa điểm/thành phần cuộc họp từ thân mail.
+
+    Trả về dict có `start` (datetime, giờ địa phương, không tzinfo),
+    `location`, `participants`, kèm chuỗi gốc để đối chiếu. Trường nào
+    không tách được thì để None — KHÔNG đoán bừa.
+    """
+    result: dict[str, Any] = {
+        "thoi_gian_raw": None,
+        "dia_diem_raw": None,
+        "thanh_phan_raw": None,
+        "start": None,
+        "location": None,
+    }
+    if not body:
+        return result
+
+    m_tg = _RE_THOI_GIAN.search(body)  # lần đầu tiên = nội dung mới nhất
+    m_dd = _RE_DIA_DIEM.search(body)
+    m_tp = _RE_THANH_PHAN.search(body)
+
+    if m_dd:
+        result["dia_diem_raw"] = m_dd.group(1).strip()
+        result["location"] = result["dia_diem_raw"]
+    if m_tp:
+        result["thanh_phan_raw"] = m_tp.group(1).strip()
+
+    if not m_tg:
+        return result
+
+    raw = m_tg.group(1).strip()
+    result["thoi_gian_raw"] = raw
+
+    m_ngay = _RE_NGAY.search(raw)
+    m_gio = _RE_GIO.search(raw)
+    if not m_ngay or not m_gio:
+        return result
+
+    try:
+        day, month, year = int(m_ngay.group(1)), int(m_ngay.group(2)), int(m_ngay.group(3))
+        hour = int(m_gio.group(1))
+        minute = int(m_gio.group(2) or 0)
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            return result
+        result["start"] = datetime(year, month, day, hour, minute)
+    except ValueError:
+        return result
+
+    return result

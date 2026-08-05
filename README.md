@@ -280,7 +280,17 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
 - Sensor: `Email khớp từ khóa` (tổng) + 1 sensor mỗi nhóm từ khóa +
   đếm **Hôm nay / Tuần này / Tháng này** (mail chỉ có ngày nhận trong
   quá khứ nên không có "Ngày mai"/"Tuần sau").
-- Không có Calendar — email không phải sự kiện có giờ diễn ra.
+- **Calendar `Email`** — tự tách cuộc họp từ mail bằng **quy tắc, không
+  dùng AI**, không gửi nội dung mail ra ngoài. Nhận các khuôn phổ biến:
+  `Thời gian: 14h30 ngày 4/8/2026`, `8h ngày 10/8/2026`, `14:00 ...`,
+  `9 giờ 30 ...`; kèm `Địa điểm:` và `Thành phần:`.
+  - **Chỉ lấy lần xuất hiện ĐẦU TIÊN** trong thân mail. Mail đính chính
+    thường trích lại mail cũ bên dưới với giờ CŨ — quét cả bài rồi lấy
+    kết quả cuối sẽ ra giờ đã bị hủy.
+  - Mail nào không tách được đủ **ngày + giờ** thì **không** lên lịch
+    (vẫn báo bình thường) — thà thiếu còn hơn đặt sai giờ.
+  - Mail không ghi giờ kết thúc nên sự kiện mặc định dài **60 phút**.
+  - Chỉ lưu phần đã tách vào `.storage`, **không lưu toàn văn** mail.
 
 ## `dut_deadline_diem` — Hạn nộp điểm
 

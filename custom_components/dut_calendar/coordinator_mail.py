@@ -34,7 +34,12 @@ from .const import (
     STORAGE_KEY_TEMPLATE,
     STORAGE_VERSION,
 )
-from .mail_client import fetch_recent_mails, filter_mails_by_keywords, mail_stable_id
+from .mail_client import (
+    fetch_recent_mails,
+    filter_mails_by_keywords,
+    mail_stable_id,
+    parse_meeting_info,
+)
 from .parser_public import parse_keyword_groups
 
 _LOGGER = logging.getLogger(__name__)
@@ -170,6 +175,10 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         new_matches: list[dict[str, Any]] = []
         for m in matches:
             key = mail_stable_id(m)
+            # Tách thời gian/địa điểm cuộc họp bằng QUY TẮC (không dùng
+            # AI, không gửi nội dung mail ra ngoài). Chỉ lưu phần đã
+            # tách — KHÔNG lưu toàn văn nội dung mail vào .storage.
+            info = parse_meeting_info(m.get("body", ""))
             item = {
                 "id": key,
                 "sender": m.get("sender"),
@@ -177,6 +186,10 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "received": m["received"].isoformat() if m.get("received") else None,
                 "matched_keywords": m.get("matched_keywords"),
                 "matched_variants": m.get("matched_variants"),
+                "meeting_start": info["start"].isoformat() if info.get("start") else None,
+                "meeting_location": info.get("location"),
+                "thoi_gian_raw": info.get("thoi_gian_raw"),
+                "thanh_phan_raw": info.get("thanh_phan_raw"),
             }
             if key not in self._history:
                 new_matches.append(item)

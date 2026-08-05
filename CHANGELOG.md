@@ -5,6 +5,16 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-08-05
+
+### Thêm mới
+- **Calendar `Email`: tự tạo sự kiện cuộc họp từ mail** — tách `Thời gian` / `Địa điểm` / `Thành phần` bằng **quy tắc (regex), không dùng AI**, nên không gửi nội dung mail ra dịch vụ ngoài và không tốn quota.
+  - Nhận nhiều khuôn giờ: `14h30`, `8h`, `14:00`, `9 giờ 30`; ngày `4/8/2026`, `05/09/2026`.
+  - **Xử lý đúng mail đính chính**: mail trả lời trích lại mail cũ bên dưới với giờ CŨ (vd bản mới 14h30 nhưng bản trích ghi 15h00) — parser chỉ lấy lần xuất hiện ĐẦU TIÊN (phần trên cùng = nội dung mới nhất). Test bằng mail thật của người dùng: ra đúng 14:30.
+  - Mail không tách được đủ ngày+giờ thì không lên lịch, vẫn báo bình thường — tránh đặt sai giờ.
+  - Sự kiện mặc định dài 60 phút (mail mời họp hầu như không ghi giờ kết thúc).
+  - Chỉ lưu phần đã tách vào `.storage`, không lưu toàn văn nội dung mail.
+
 ## [1.23.1] - 2026-08-05
 
 ### Tài liệu
@@ -365,7 +375,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.23.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.24.0...HEAD
+[1.24.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.24.0
 [1.23.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.23.1
 [1.23.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.23.0
 [1.22.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.22.2
