@@ -736,26 +736,6 @@ class DutCalendarConfigFlow(_GiangDayLecturerMixin, ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    def _current_extra_lecturers(self) -> list[str]:
-        return list(
-            self._config_entry.options.get(
-                CONF_EXTRA_LECTURERS, self._config_entry.data.get(CONF_EXTRA_LECTURERS, [])
-            )
-            or []
-        )
-
-    async def async_step_gd_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
-        return await self._gd_step_khoa(user_input, self._gd_finish)
-
-    async def async_step_gd_giang_vien(self, user_input: dict[str, Any] | None = None) -> Any:
-        return await self._gd_step_giang_vien(user_input, self._gd_finish)
-
-    async def _gd_finish(self, names: list[str] | None) -> Any:
-        # names is None -> giữ nguyên lựa chọn cũ
-        self._pending_data[CONF_EXTRA_LECTURERS] = (
-            self._current_extra_lecturers() if names is None else names
-        )
-        return self.async_create_entry(title="", data=self._pending_data)
 
     # ---- Bước 3 (chỉ dut_coithi): chọn khoa -> chọn giảng viên khác cần theo dõi ----
     async def async_step_chon_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
@@ -941,6 +921,27 @@ class DutCalendarOptionsFlow(_GiangDayLecturerMixin, OptionsFlow):
             data_schema=_schema_hocky(self._hocky_options, current_hoc_ky),
             errors=errors,
         )
+
+    def _current_extra_lecturers(self) -> list[str]:
+        return list(
+            self._config_entry.options.get(
+                CONF_EXTRA_LECTURERS, self._config_entry.data.get(CONF_EXTRA_LECTURERS, [])
+            )
+            or []
+        )
+
+    async def async_step_gd_khoa(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._gd_step_khoa(user_input, self._gd_finish)
+
+    async def async_step_gd_giang_vien(self, user_input: dict[str, Any] | None = None) -> Any:
+        return await self._gd_step_giang_vien(user_input, self._gd_finish)
+
+    async def _gd_finish(self, names: list[str] | None) -> Any:
+        # names is None -> giữ nguyên lựa chọn cũ
+        self._pending_data[CONF_EXTRA_LECTURERS] = (
+            self._current_extra_lecturers() if names is None else names
+        )
+        return self.async_create_entry(title="", data=self._pending_data)
 
     # ---- Bước 3 (chỉ dut_coithi): chọn khoa -> chọn giảng viên khác cần theo dõi ----
     async def async_step_chon_khoa(self, user_input: dict[str, Any] | None = None) -> Any:

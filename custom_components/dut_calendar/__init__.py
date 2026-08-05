@@ -4,7 +4,14 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHTUAN
+from .const import (
+    CONF_TYPE,
+    DOMAIN,
+    TYPE_COITHI,
+    TYPE_DEADLINE_DIEM,
+    TYPE_LICHGIANGDAY,
+    TYPE_LICHTUAN,
+)
 from .coordinator_exam import CBDutCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 
@@ -17,7 +24,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry_type == TYPE_LICHTUAN:
         coordinator = LichTuanDutCoordinator(hass, entry)
         await coordinator.async_config_entry_first_refresh()
-    elif entry_type in (TYPE_COITHI, TYPE_DEADLINE_DIEM):
+    elif entry_type in (TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY):
         coordinator = CBDutCoordinator(hass, entry)
         await coordinator.async_config_entry_first_refresh()
     else:

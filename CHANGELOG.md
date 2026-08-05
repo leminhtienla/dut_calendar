@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.19.1] - 2026-08-05
+
+### Sửa lỗi (bản 1.19.0 KHÔNG dùng được, hãy cập nhật ngay)
+- **Entry `dut_lichgiangday` không khởi tạo được** — `__init__.py` chưa nhận loại thứ 4 nên báo `Loại config entry không hợp lệ` và entry lỗi ngay khi thêm.
+- **Config flow lỗi ở bước chọn khoa** — khối phương thức dành cho OptionsFlow bị chèn nhầm vào ConfigFlow (dòng neo trùng ở cả 2 class), khiến ConfigFlow gọi `self._config_entry` vốn không tồn tại. Đã tách đúng: ConfigFlow dùng `_pending_data`, OptionsFlow dùng `_config_entry`; kiểm tra bằng AST xác nhận không còn phương thức trùng tên trong cùng class.
+
 ## [1.19.0] - 2026-08-05
 
 ### Thêm mới
@@ -276,7 +282,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.1...HEAD
+[1.19.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.1
 [1.19.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.0
 [1.18.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.18.2
 [1.18.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.18.1
