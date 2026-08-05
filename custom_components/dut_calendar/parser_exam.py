@@ -272,21 +272,45 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
 
     label_ca_thi_chung = {
         "ngay_bat_dau": "Bắt đầu nhập điểm thi chung",
-        "ngay_ket_thuc": "Kết thúc nhập điểm thi chung",
-        "ngay_nop_ban_diem": "Nộp bản điểm thi chung",
+        "ngay_ket_thuc": "Hạn nhập điểm thi chung",
+        "ngay_nop_ban_diem": "Hạn nộp bản in bảng điểm thi chung",
         "han_dinh_chinh": "Hạn đính chính điểm thi chung",
     }
+    loai_han_chung = {
+        "ngay_bat_dau": "nhap_diem",
+        "ngay_ket_thuc": "nhap_diem",
+        "ngay_nop_ban_diem": "nop_ban_in",
+        "han_dinh_chinh": "dinh_chinh",
+    }
+    # Có 2 NHÓM HẠN KHÁC NHAU, dễ nhầm nếu gọi tên chung chung:
+    #  - NHẬP điểm  : nhập/đính chính điểm trên website
+    #  - NỘP bảng IN: in bảng điểm ra giấy rồi nộp về Phòng Đào tạo
+    # Nhãn dưới đây ghi rõ "nhập" / "nộp bản in" để phân biệt, và mỗi
+    # mốc còn kèm trường `loai_han` để dùng trong automation.
     label_theo_lop = {
-        "ngay_giua_ky": "Hạn điểm giữa kỳ",
-        "ngay_thanh_phan": "Hạn điểm thành phần",
-        "ngay_cuoi_ky": "Hạn điểm cuối kỳ",
-        "han_dinh_chinh_giua_ky": "Đính chính điểm giữa kỳ",
-        "han_dinh_chinh_thanh_phan": "Đính chính điểm thành phần",
-        "han_dinh_chinh_cuoi_ky": "Đính chính điểm cuối kỳ",
-        "nop_bang_giua_ky": "Nộp bảng điểm giữa kỳ",
-        "nop_bang_thanh_phan": "Nộp bảng điểm thành phần",
-        "nop_bang_cuoi_ky": "Nộp bảng điểm cuối kỳ",
-        "nop_bang_tong_hop": "Nộp bảng điểm tổng hợp",
+        "ngay_giua_ky": "Hạn nhập điểm giữa kỳ",
+        "ngay_thanh_phan": "Hạn nhập điểm thành phần",
+        "ngay_cuoi_ky": "Hạn nhập điểm cuối kỳ",
+        "han_dinh_chinh_giua_ky": "Hạn đính chính điểm giữa kỳ",
+        "han_dinh_chinh_thanh_phan": "Hạn đính chính điểm thành phần",
+        "han_dinh_chinh_cuoi_ky": "Hạn đính chính điểm cuối kỳ",
+        "nop_bang_giua_ky": "Hạn nộp bản in bảng điểm giữa kỳ",
+        "nop_bang_thanh_phan": "Hạn nộp bản in bảng điểm thành phần",
+        "nop_bang_cuoi_ky": "Hạn nộp bản in bảng điểm cuối kỳ",
+        "nop_bang_tong_hop": "Hạn nộp bản in bảng điểm tổng hợp",
+    }
+    # Phân loại để lọc trong automation/template
+    loai_han_map = {
+        "ngay_giua_ky": "nhap_diem",
+        "ngay_thanh_phan": "nhap_diem",
+        "ngay_cuoi_ky": "nhap_diem",
+        "han_dinh_chinh_giua_ky": "dinh_chinh",
+        "han_dinh_chinh_thanh_phan": "dinh_chinh",
+        "han_dinh_chinh_cuoi_ky": "dinh_chinh",
+        "nop_bang_giua_ky": "nop_ban_in",
+        "nop_bang_thanh_phan": "nop_ban_in",
+        "nop_bang_cuoi_ky": "nop_ban_in",
+        "nop_bang_tong_hop": "nop_ban_in",
     }
     # Mốc nào đã hoàn thành thì lấy cờ từ đâu (nếu có dữ liệu xác nhận)
     done_flag = {
@@ -316,6 +340,7 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
                         "nhom": None,
                         "ma_lop": None,
                         "loai": label,
+                        "loai_han": loai_han_chung.get(key),
                         "da_xong": bool(ca_thi_chung.get("da_xac_nhan")),
                     }
                 )
@@ -342,6 +367,7 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
                             "nhom": m.group(1) + "." + m.group(2) if m else None,
                             "ma_lop": ma_lop,
                             "loai": label,
+                            "loai_han": loai_han_map.get(key),
                             "da_xong": bool(info.get(flag)) if flag else False,
                         }
                     )

@@ -5,6 +5,15 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-08-05
+
+### Thay đổi (làm rõ 2 loại hạn dễ nhầm)
+- **Phân biệt rõ "hạn NHẬP điểm" và "hạn NỘP BẢN IN bảng điểm"** — hai việc khác hẳn nhau (nhập trên web vs in giấy nộp về Phòng Đào tạo) nhưng nhãn cũ gọi chung chung ("Hạn điểm giữa kỳ", "Nộp bảng điểm giữa kỳ") gây hiểu nhầm.
+  - Nhãn mới ghi rõ: `Hạn nhập điểm ...`, `Hạn đính chính điểm ...`, `Hạn nộp bản in bảng điểm ...`.
+  - Mỗi mốc hạn có thêm trường **`loai_han`**: `nhap_diem` | `dinh_chinh` | `nop_ban_in`.
+  - Sensor `Cần nhập điểm` có thêm 3 danh sách tách riêng: `can_nhap_diem`, `can_dinh_chinh`, `can_nop_ban_in`.
+- Kiểm chứng dữ liệu thật HK2 2025-2026: 18 mốc nhập điểm, 17 mốc đính chính, 1 mốc nộp bản in (các ô "Chưa đặt hạn" được bỏ qua đúng vì không phải ngày).
+
 ## [1.19.3] - 2026-08-05
 
 ### Thay đổi
@@ -295,7 +304,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.3...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.0
 [1.19.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.3
 [1.19.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.2
 [1.19.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.1

@@ -552,6 +552,7 @@ class DeadlineTodoSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
                     "nhom": e.get("nhom"),
                     "da_xong": False,
                     "loai": e.get("loai"),
+                    "loai_han": e.get("loai_han"),
                     "hoc_ky": e.get("hoc_ky"),
                     "hoc_ky_ten": format_hoc_ky(e.get("hoc_ky") or ""),
                     "ma_lop": e.get("ma_lop"),
@@ -574,6 +575,10 @@ class DeadlineTodoSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
             "hom_nay": [x for x in pending if x["con_lai_ngay"] == 0],
             "trong_7_ngay": [x for x in pending if x["con_lai_ngay"] <= 7],
             "gan_nhat": pending[0] if pending else None,
+            # Tách riêng 2 nhóm hạn khác bản chất, để automation dùng thẳng
+            "can_nhap_diem": [x for x in pending if x.get("loai_han") == "nhap_diem"],
+            "can_nop_ban_in": [x for x in pending if x.get("loai_han") == "nop_ban_in"],
+            "can_dinh_chinh": [x for x in pending if x.get("loai_han") == "dinh_chinh"],
             "danh_sach": pending[:MAX_ATTR_ENTRIES],
             "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
             "last_checked": datetime.now().isoformat(timespec="seconds"),

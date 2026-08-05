@@ -333,6 +333,28 @@ Ví dụ: `2510` → HK1 2025-2026, `2520` → HK2 2025-2026, `2521` → **Hè**
 thống trường. Mã không khớp định dạng sẽ được giữ nguyên thay vì đoán
 sai (phòng khi trường đổi quy ước).
 
+### Hai loại hạn KHÁC NHAU — đừng nhầm
+
+Trang trường có **2 bảng riêng biệt**, dễ tưởng là một:
+
+| | Hạn **nhập** điểm | Hạn **nộp bản in** bảng điểm |
+|---|---|---|
+| Việc phải làm | Nhập/đính chính điểm **trên website** | **In ra giấy** rồi nộp về Phòng Đào tạo |
+| Nguồn | Bảng *"Kiểm tra thi và nhập điểm..."* | Bảng *"NỘP BẢNG IN ĐIỂM THI RIÊNG"* |
+| Xong khi | Có "Xác nhận lúc" | Có "Ngày nộp" |
+
+Mỗi mốc hạn đều có trường **`loai_han`** để lọc:
+
+- `nhap_diem` — hạn nhập điểm (giữa kỳ / thành phần / cuối kỳ / thi chung)
+- `dinh_chinh` — hạn đính chính điểm đã nhập sai
+- `nop_ban_in` — hạn nộp bản in bảng điểm
+
+Sensor `Cần nhập điểm` có sẵn 3 danh sách tách riêng: **`can_nhap_diem`**,
+**`can_dinh_chinh`**, **`can_nop_ban_in`** (ngoài `danh_sach` gộp chung).
+
+*Lưu ý:* nhiều lớp có ô hạn nộp bản in ghi **"Chưa đặt hạn"** — không
+phải ngày nên được bỏ qua, chỉ hiện khi trường đã đặt hạn thật.
+
 ### Sensor `Cần nhập điểm` — trả lời "hôm nay cần nhập môn gì, hạn khi nào"
 
 
