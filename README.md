@@ -368,8 +368,10 @@ Dựng từ thời khóa biểu của học kỳ (vd tuần `22-27;31-40`, buổ
   thi) nhưng tuần đó không lên lớp. Tuần thi lấy từ cột "Tuần thi" của
   bảng hạn nhập điểm — đã đối chiếu khớp với ô `K` trên biểu đồ thời
   gian giảng của trường (8/8 lớp).
-- **Tiêu đề**: `Tên lớp · Phòng · tiết 6-7 (2 tiết)` — có cả **thứ tự
-  tiết** và **số lượng tiết**; thêm icon `🚫` nếu đã báo nghỉ
+- **Tiêu đề**: `[Tên] dạy môn: <môn>, phòng: <phòng>, tiết 6-7 (2 tiết)`.
+  Tên giảng viên **luôn hiện** (kể cả khi không theo dõi ai khác) — được
+  suy luận tự động 1 lần rồi nhớ lại, không tải lại mỗi chu kỳ quét.
+  Thêm icon `🚫` nếu đã báo nghỉ
   hoặc `🔁` nếu là buổi dạy bù, và `[Tên giảng viên]` khi có theo dõi
   thêm người khác (để phân biệt với lịch của chính bạn). Chi tiết (tiết, tuần học, mã lớp,
   ghi chú nghỉ/bù) nằm trong phần mô tả sự kiện.

@@ -93,6 +93,9 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._seen_hashes: set[str] = set()
         self._known_deadlines: dict[str, dict[str, str | None]] = {}
         self._loaded_storage = False
+        # Tên hiển thị của chính mình — suy luận 1 lần rồi nhớ lại, tránh
+        # tải lại danh sách lớp cả khoa (~170KB) ở mỗi chu kỳ quét.
+        self._ten_toi: str | None = None
 
     async def async_close(self) -> None:
         await self._session.close()
@@ -495,29 +498,33 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 cache_khoa[key] = rows
                 return rows
 
-            # Nếu có theo dõi người khác thì gắn luôn TÊN CỦA CHÍNH
-            # MÌNH lên buổi dạy của mình, để nhìn lịch biết ngay
-            # buổi nào của ai (trước đây chỉ người khác mới có tên).
-            # Khoa của mình suy từ 3 số đầu của tài khoản (theo quy
-            # ước mã tài khoản của trường: 3 số mã đơn vị + tên).
-            if theo_khoa:
-                own_khoa = (self.username or "")[:3]
-                if own_khoa.isdigit():
-                    for hk, parsed_lgd in lich_giang_day.items():
-                        own_ma = {
-                            re.sub(r"\D", "", str(l.get("ma_lop") or ""))
-                            for l in parsed_lgd.get("lop_hoc", [])
-                        }
-                        try:
-                            rows_own = await _rows_of(hk, own_khoa)
-                        except Exception:  # noqa: BLE001
-                            continue
-                        ten_toi = await self.hass.async_add_executor_job(
-                            infer_self_name_from_khoa, rows_own, own_ma
-                        )
-                        if ten_toi:
-                            for ev in buoi_day:
-                                ev.setdefault("nguoi", ten_toi)
+            # LUÔN gắn tên của chính mình lên buổi dạy (không chỉ khi
+            # theo dõi người khác) để tiêu đề sự kiện đầy đủ. Khoa suy
+            # từ 3 số đầu tài khoản (quy ước mã của trường). Tên được
+            # suy luận 1 lần rồi nhớ lại trong bộ nhớ coordinator.
+            own_khoa = (self.username or "")[:3]
+            if self._ten_toi is None and own_khoa.isdigit():
+                for hk, parsed_lgd in lich_giang_day.items():
+                    own_ma = {
+                        re.sub(r"\D", "", str(l.get("ma_lop") or ""))
+                        for l in parsed_lgd.get("lop_hoc", [])
+                    }
+                    if not own_ma:
+                        continue
+                    try:
+                        rows_own = await _rows_of(hk, own_khoa)
+                    except Exception:  # noqa: BLE001
+                        continue
+                    ten = await self.hass.async_add_executor_job(
+                        infer_self_name_from_khoa, rows_own, own_ma
+                    )
+                    if ten:
+                        self._ten_toi = ten
+                        break
+
+            if self._ten_toi:
+                for ev in buoi_day:
+                    ev.setdefault("nguoi", self._ten_toi)
 
             for hk in lich_giang_day:
                 wm_hk = week_maps.get(hk)

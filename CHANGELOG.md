@@ -5,6 +5,13 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-08-05
+
+### Thay đổi
+- **Đổi định dạng tiêu đề sự kiện `Lịch dạy`**: `[Tên] dạy môn: <môn>, phòng: <phòng>, tiết <n> (x tiết)` — rõ nghĩa hơn kiểu ngăn cách bằng dấu `·` trước đây.
+- **Tên giảng viên luôn hiện**, kể cả khi không theo dõi ai khác (trước đây chỉ hiện khi có bật theo dõi giảng viên khác nên lịch của chính mình bị trống tên).
+- Tên được **suy luận 1 lần rồi nhớ lại** trong bộ nhớ coordinator — tránh tải lại danh sách lớp cả khoa (~170KB) ở mỗi chu kỳ quét.
+
 ## [1.25.3] - 2026-08-05
 
 ### Sửa lỗi (tìm ra nguyên nhân gốc nhờ HAR năm học 2026-2027)
@@ -405,7 +412,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.25.3...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.26.0...HEAD
+[1.26.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.26.0
 [1.25.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.3
 [1.25.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.2
 [1.25.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.1
