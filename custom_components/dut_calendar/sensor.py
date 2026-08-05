@@ -632,6 +632,24 @@ class TeachingCountSensor(_CountSensorBase):
             if b.get("start") and not b.get("da_nghi")
         ]
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Thông tin chẩn đoán — giúp biết ngay vì sao lịch trống."""
+        data = self.coordinator.data or {}
+        buoi = data.get("buoi_day", [])
+        lgd = data.get("lich_giang_day", {}) or {}
+        return {
+            "hoc_ky_theo_doi": self.coordinator.hoc_ky_list,
+            "hoc_ky_lay_duoc_du_lieu": list(lgd.keys()),
+            "so_lop_co_tkb": {
+                hk: sum(1 for l in p.get("lop_hoc", []) if l.get("tkb_tuan"))
+                for hk, p in lgd.items()
+            },
+            "tong_so_buoi_day": len(buoi),
+            "buoi_dau_tien": buoi[0]["start"].isoformat() if buoi else None,
+            "buoi_cuoi_cung": buoi[-1]["start"].isoformat() if buoi else None,
+        }
+
 
 # =====================================================================
 # Nguồn: Email (IMAP) — lọc theo nhóm từ khóa

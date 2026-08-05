@@ -261,3 +261,37 @@ def parse_meeting_info(
         return result
 
     return result
+
+
+_RE_TIEN_TO_TIEU_DE = re.compile(r"^\s*(?:fw|fwd|re|tr|v/v)\s*:\s*", re.IGNORECASE)
+_RE_NGUOI_GUI_GOC = re.compile(
+    r"^\s*(?:T[ừu]|From)\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE
+)
+
+
+def normalize_subject(subject: str) -> str:
+    """Bỏ các tiền tố Fw:/Fwd:/Re:/... (kể cả lồng nhau) để nhận ra
+    các mail cùng nói về MỘT cuộc họp.
+    """
+    s = unicodedata.normalize("NFC", subject or "").strip()
+    while True:
+        new = _RE_TIEN_TO_TIEU_DE.sub("", s, count=1).strip()
+        if new == s:
+            return s
+        s = new
+
+
+def extract_original_sender(body: str) -> str | None:
+    """Lấy NGƯỜI GỬI GỐC từ phần trích dẫn của mail chuyển tiếp.
+
+    Khi mail được forward (vd bạn tự forward từ Outlook trường sang
+    Gmail), header From là người CHUYỂN TIẾP chứ không phải người gửi
+    thật. Người gửi gốc nằm ở dòng "Từ:"/"From:" đầu tiên trong thân.
+    """
+    if not body:
+        return None
+    m = _RE_NGUOI_GUI_GOC.search(body)
+    if not m:
+        return None
+    val = " ".join(m.group(1).split()).strip()
+    return unicodedata.normalize("NFC", val) or None

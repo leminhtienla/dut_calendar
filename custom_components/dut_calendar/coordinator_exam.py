@@ -366,6 +366,14 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                     if wm:
                         week_maps[hk] = wm
+                        _LOGGER.debug(
+                            "HK %s: đọc được %d tuần, tuần 1 = %s",
+                            hk, len(wm), wm.get(1)
+                        )
+                    else:
+                        _LOGGER.warning(
+                            "HK %s: đọc biểu đồ năm học nhưng KHÔNG parse được tuần nào", hk
+                        )
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.debug("Không đọc được biểu đồ năm học HK %s: %s", hk, err)
 
@@ -409,14 +417,22 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         ma_digits = re.sub(r"\D", "", str(row.get("ma_lop") or ""))
                         exclude.setdefault(ma_digits, set()).add(int(tuan_thi))
 
-                buoi_day.extend(
-                    await self.hass.async_add_executor_job(
-                        build_teaching_events,
-                        parsed_lgd.get("lop_hoc", []),
-                        wm,
-                        exclude,
-                    )
+                lop_hoc = parsed_lgd.get("lop_hoc", [])
+                co_tkb = sum(1 for l in lop_hoc if l.get("tkb_tuan"))
+                ev_hk = await self.hass.async_add_executor_job(
+                    build_teaching_events, lop_hoc, wm, exclude
                 )
+                _LOGGER.debug(
+                    "HK %s: %d lớp (%d lớp có TKB) -> %d buổi dạy",
+                    hk, len(lop_hoc), co_tkb, len(ev_hk)
+                )
+                if lop_hoc and not ev_hk:
+                    _LOGGER.warning(
+                        "HK %s: có %d lớp nhưng KHÔNG dựng được buổi dạy nào "
+                        "(số lớp có TKB: %d, số tuần tra được: %d)",
+                        hk, len(lop_hoc), co_tkb, len(wm)
+                    )
+                buoi_day.extend(ev_hk)
 
             # Áp dụng báo nghỉ / dạy bù: buổi đã báo nghỉ được
             # đánh dấu (không im lặng biến mất), buổi dạy bù được

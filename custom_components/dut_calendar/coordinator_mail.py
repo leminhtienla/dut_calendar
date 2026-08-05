@@ -37,7 +37,9 @@ from .const import (
 from .mail_client import (
     fetch_recent_mails,
     filter_mails_by_keywords,
+    extract_original_sender,
     mail_stable_id,
+    normalize_subject,
     parse_meeting_info,
 )
 from .parser_public import parse_keyword_groups
@@ -182,7 +184,11 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             item = {
                 "id": key,
                 "sender": m.get("sender"),
+                # Mail forward: header From là người CHUYỂN TIẾP, người
+                # gửi thật nằm trong phần trích dẫn -> lấy ra để hiển thị.
+                "original_sender": extract_original_sender(m.get("body", "")),
                 "subject": m.get("subject"),
+                "subject_key": normalize_subject(m.get("subject", "")),
                 "received": m["received"].isoformat() if m.get("received") else None,
                 "matched_keywords": m.get("matched_keywords"),
                 "matched_variants": m.get("matched_variants"),

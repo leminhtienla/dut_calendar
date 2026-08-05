@@ -291,6 +291,23 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
     (vẫn báo bình thường) — thà thiếu còn hơn đặt sai giờ.
   - Mail không ghi giờ kết thúc nên sự kiện mặc định dài **60 phút**.
   - Chỉ lưu phần đã tách vào `.storage`, **không lưu toàn văn** mail.
+  - **Tiêu đề sự kiện có tiền tố `[Nhóm từ khóa]`** như lịch tuần, và
+    bỏ tiền tố `Fw:`/`Re:` cho gọn.
+  - **Khử trùng theo cuộc họp**: gom các mail cùng tiêu đề (sau khi bỏ
+    `Fw:`/`Re:`), chỉ giữ bản của mail **nhận gần nhất**. Nhờ vậy
+    forward nhiều lần chỉ ra 1 sự kiện, và mail đính chính (gửi sau)
+    **tự thay** giờ cũ thay vì tạo thêm sự kiện trùng.
+  - **Mail chuyển tiếp**: header `From` là người *chuyển tiếp*, nên
+    người gửi **gốc** được lấy từ dòng `Từ:`/`From:` trong phần trích
+    dẫn; mô tả hiện cả hai.
+
+**Nhóm từ khóa dùng CHUNG định dạng với `dut_lichtuan`** — mỗi dòng một
+nhóm, `Nhãn: biến thể 1, biến thể 2`:
+
+```
+Họp: họp, mời họp, hội nghị
+Đảng: chi bộ, đảng ủy, đảng viên
+```
 
 ## `dut_deadline_diem` — Hạn nộp điểm
 

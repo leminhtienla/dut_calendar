@@ -5,6 +5,22 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-08-05
+
+### Chẩn đoán
+- Sensor đếm buổi dạy có thêm thuộc tính chẩn đoán: `hoc_ky_theo_doi`, `hoc_ky_lay_duoc_du_lieu`, `so_lop_co_tkb`, `tong_so_buoi_day`, `buoi_dau_tien`, `buoi_cuoi_cung` — xem trực tiếp trong Developer Tools để biết lịch trống là do chưa chọn học kỳ, không lấy được dữ liệu, hay không dựng được buổi.
+- Thêm log: số tuần đọc được và ngày của tuần 1 theo từng học kỳ; cảnh báo rõ khi có lớp nhưng không dựng được buổi dạy nào.
+
+## [1.25.0] - 2026-08-05
+
+### Sửa lỗi / Thêm mới (từ phản hồi thực tế)
+- **Trùng sự kiện cuộc họp**: cùng một cuộc họp tạo ra 3 sự kiện (forward 2 lần + 1 bản giờ cũ đã bị đính chính). Nay gom theo tiêu đề đã bỏ tiền tố `Fw:`/`Re:`, chỉ giữ bản của mail **nhận gần nhất** — forward nhiều lần chỉ còn 1 sự kiện, mail đính chính tự thay giờ cũ.
+- **Người gửi sai với mail chuyển tiếp**: header `From` là người *chuyển tiếp* (chính bạn), không phải người gửi thật. Nay lấy người gửi **gốc** từ dòng `Từ:`/`From:` trong phần trích dẫn, mô tả hiện cả hai.
+- **Thêm tiền tố `[Nhóm từ khóa]`** vào tiêu đề sự kiện email, giống lịch tuần — phân biệt khi dùng nhiều nhóm từ khóa khác nhau. Tiêu đề cũng bỏ `Fw:`/`Re:` cho gọn.
+
+### Ghi chú
+- Nhóm từ khóa của email dùng **chung định dạng và chung cơ chế so khớp** với `dut_lichtuan` (mỗi dòng `Nhãn: biến thể 1, biến thể 2`) — cùng dùng `parse_keyword_groups`.
+
 ## [1.24.0] - 2026-08-05
 
 ### Thêm mới
@@ -375,7 +391,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.24.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.25.1...HEAD
+[1.25.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.1
+[1.25.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.0
 [1.24.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.24.0
 [1.23.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.23.1
 [1.23.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.23.0

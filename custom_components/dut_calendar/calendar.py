@@ -399,17 +399,30 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
         tzinfo = dt_util.DEFAULT_TIME_ZONE
         events: list[CalendarEvent] = []
 
+        # Khử trùng: cùng một cuộc họp có thể tới nhiều lần (bạn forward
+        # nhiều lần, hoặc có mail đính chính). Gom theo TIÊU ĐỀ đã bỏ
+        # tiền tố Fw:/Re:, giữ bản của mail NHẬN GẦN NHẤT — nhờ đó mail
+        # đính chính (gửi sau) tự thay giờ cũ thay vì tạo thêm sự kiện.
+        newest: dict[str, dict[str, Any]] = {}
         for m in data.get("matches", []):
-            raw = m.get("meeting_start")
-            if not raw:
+            if not m.get("meeting_start"):
                 continue
+            key = m.get("subject_key") or m.get("subject") or m.get("id")
+            cu = newest.get(key)
+            if cu is None or (m.get("received") or "") > (cu.get("received") or ""):
+                newest[key] = m
+
+        for m in newest.values():
+            raw = m.get("meeting_start")
             try:
                 start = datetime.fromisoformat(raw)
             except (TypeError, ValueError):
                 continue
             end = start + timedelta(minutes=DEFAULT_MEETING_DURATION)
 
-            desc = [f"Người gửi: {m.get('sender')}"]
+            desc = [f"Người gửi: {m.get('original_sender') or m.get('sender')}"]
+            if m.get("original_sender") and m.get("sender"):
+                desc.append(f"(chuyển tiếp bởi: {m['sender']})")
             if m.get("thoi_gian_raw"):
                 desc.append(f"Thời gian (nguyên văn): {m['thoi_gian_raw']}")
             if m.get("thanh_phan_raw"):
@@ -421,7 +434,10 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                 CalendarEvent(
                     start=start.replace(tzinfo=tzinfo),
                     end=end.replace(tzinfo=tzinfo),
-                    summary=m.get("subject") or "(không có tiêu đề)",
+                    summary=(
+                        (f"[{', '.join(m['matched_keywords'])}] " if m.get("matched_keywords") else "")
+                        + (m.get("subject_key") or m.get("subject") or "(không có tiêu đề)")
+                    ),
                     description="\n".join(desc),
                     location=m.get("meeting_location") or "",
                     uid=f"{self._entry.entry_id}_{m.get('id')}",
