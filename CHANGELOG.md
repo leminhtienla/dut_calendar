@@ -5,6 +5,38 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-08-05
+
+### Thay đổi (dựa trên tài liệu chính thức của Phòng Đào tạo)
+- **Quy tắc mã học kỳ nay theo tài liệu chính thức** (*Hướng dẫn sử dụng website Hệ thống tác nghiệp*, mục 3.1 "Quy ước Mã"): `YY` = 2 số cuối năm đầu của năm học, `S` = học kỳ (1/2), `K` = kỳ **chính** (0) hay kỳ **phụ** (1). Trước đây suy luận từ dropdown nên chỉ xử lý được kỳ Hè (`S=2,K=1`); giờ xử lý đúng cả kỳ phụ của HK1 (`2511` → "Học kỳ 1 (phụ)"). Vẫn khớp 14/14 nhãn thật.
+- **Bảng quy đổi tuần học → ngày nay lấy từ chính `cb.dut.udn.vn`** (tab *"Biểu đồ thời gian giảng ở năm học"*, `E=ctrLGD_KeHoach&SKH=<mã HK>`) thay vì phụ thuộc trang ngoài — cùng nguồn với thời khóa biểu nên chắc chắn khớp cách đánh số tuần. Vẫn giữ `lichtuan.dut.udn.vn` làm **dự phòng**. Đối chiếu 2 nguồn: **khớp 52/52 tuần**.
+
+## [1.16.0] - 2026-08-05
+
+### Thêm mới
+- **Calendar `Giảng dạy`** — dựng các buổi lên lớp cụ thể (ngày + giờ + phòng) từ thời khóa biểu học kỳ. Test với dữ liệu thật: 8 lớp có TKB → **123 buổi dạy**, thứ/ngày khớp chính xác.
+- `parse_all_weeks()` (parser_public): đọc ánh xạ **số tuần học → ngày Thứ Hai** từ dropdown công khai của `lichtuan.dut.udn.vn` (không cần đăng nhập). Chính xác hơn tự cộng 7 ngày từ tuần 1 vì năm học có **tuần ngắt quãng** (tuần 22 = 29/12/2025, tuần 28-30 nghỉ Tết, tuần 31 = 02/03/2026).
+- `parse_tuan_hoc()` / `parse_tkb_slots()` / `build_teaching_events()` (parser_exam): phân tích chuỗi TKB dạng `22-27;31-40` và `T3,6-7,F109` (hỗ trợ nhiều buổi/tuần, cả Chủ nhật).
+- Bảng giờ tiết học `TIET_START` trong `const.py` — trường không công bố dữ liệu chính thức dạng máy đọc, bảng theo quy ước thực tế, sửa được ở một chỗ nếu trường đổi giờ.
+
+## [1.15.0] - 2026-08-05
+
+### Thay đổi lớn
+- **Đổi nguồn dữ liệu hạn nộp điểm sang trang "Kế hoạch giảng dạy & thi"** (`E=ctrLichGiangDay&SKH=<mã HK>`): **1 request cho cả học kỳ** thay vì ≈11 request (`ctrlLopHP` + `ctrlListHP` từng lớp). Nhanh hơn nhiều và nhiều dữ liệu hơn hẳn. Có **fallback tự động** về cách cũ nếu endpoint mới lỗi.
+- **Biết được đã nhập điểm xong hay chưa** (cột "xác nhận lúc"/"đã xác nhận"): sensor `Cần nhập điểm` giờ **loại bỏ các mốc đã hoàn thành**, chỉ liệt kê việc còn phải làm — trước đây liệt kê cả mốc đã nhập xong nên không dùng để nhắc việc được. Calendar `Nhập điểm` đánh dấu `✓` cho mốc đã xong.
+- **Theo dõi thêm loại hạn hoàn toàn mới: hạn NỘP BẢNG IN ĐIỂM** (giữa kỳ / thành phần / cuối kỳ / tổng hợp) — khác với hạn *nhập* điểm, trước đây integration không hề biết tới.
+- Bổ sung hạn **đính chính điểm cuối kỳ**, tuần thi, gia hạn, trễ hạn.
+
+### Kỹ thuật
+- `parse_lich_giang_day()` đọc đủ 4 bảng của trang (lịch giảng dạy + hạn nhập điểm + nộp bảng điểm + thi chung), `lgd_to_grade_deadlines()` chuyển sang cấu trúc cũ để tương thích ngược.
+- Xử lý đúng các cột dấu ✓ **rỗng về text** — trạng thái nằm ở class CSS `GridCellCenterCheck` / `GridCellDisable`; đọc theo text sẽ sai toàn bộ.
+
+## [1.14.2] - 2026-08-05
+
+### Thay đổi
+- **Calendar `Nhập điểm`: đưa loại điểm lên trước tên môn** — `Hạn điểm giữa kỳ: Cảm biến & Kỹ thuật đo` thay vì `Cảm biến & Kỹ thuật đo: Hạn điểm giữa kỳ`, dễ quét mắt hơn khi nhiều mốc cùng ngày.
+- **Thêm số nhóm lớp để phân biệt các lớp cùng tên môn.** Trước đây 2 nhóm khác nhau của cùng học phần (mã `...2419` và `...2420`) hiện thành 2 dòng trùng hệt nhau trên lịch, không biết đâu là lớp nào. Giờ hiện `(nhóm 24.19)` / `(nhóm 24.20)`, lấy từ 4 chữ số cuối của mã lớp 15 số. Sensor `Cần nhập điểm` cũng có thêm attribute `nhom`.
+
 ## [1.14.1] - 2026-08-05
 
 ### Thêm mới
@@ -204,7 +236,11 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.14.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.17.0
+[1.16.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.16.0
+[1.15.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.15.0
+[1.14.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.14.2
 [1.14.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.14.1
 [1.14.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.14.0
 [1.13.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.2

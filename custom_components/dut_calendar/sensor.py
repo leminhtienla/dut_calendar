@@ -534,11 +534,17 @@ class DeadlineTodoSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
             d = e["date"]
             if d < today:
                 continue
+            # Bỏ các mốc ĐÃ HOÀN THÀNH (đã xác nhận nhập điểm / đã nộp
+            # bảng điểm) — chỉ liệt kê việc CÒN PHẢI LÀM.
+            if e.get("da_xong"):
+                continue
             pending.append(
                 {
                     "ngay": d.strftime("%d/%m/%Y"),
                     "con_lai_ngay": (d - today).days,
                     "mon": e.get("ten_lop") or "(thi chung)",
+                    "nhom": e.get("nhom"),
+                    "da_xong": False,
                     "loai": e.get("loai"),
                     "hoc_ky": e.get("hoc_ky"),
                     "hoc_ky_ten": format_hoc_ky(e.get("hoc_ky") or ""),

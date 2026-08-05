@@ -233,6 +233,49 @@ Xem attribute **`trang_thai`** để biết chính xác lý do:
 
 Kèm theo: `so_moc_sap_toi`, `so_moc_da_qua`, `han_gan_nhat_da_qua`.
 
+### Nguồn dữ liệu hạn nộp điểm
+
+Từ v1.15.0, dữ liệu lấy từ trang **"Kế hoạch giảng dạy & thi"**
+(`E=ctrLichGiangDay&SKH=<mã HK>`) — **1 request cho cả học kỳ** thay vì
+gọi `ctrlLopHP` + `ctrlListHP` cho từng lớp (≈11 request). Nhờ đó có
+thêm các thông tin trước đây không có:
+
+- **Đã xác nhận nhập điểm hay chưa** → sensor `Cần nhập điểm` chỉ liệt
+  kê việc **còn phải làm**, bỏ qua mốc đã hoàn thành; Calendar đánh dấu
+  `✓` cho mốc đã xong.
+- **Hạn nộp bảng in điểm** (khác hạn *nhập* điểm): giữa kỳ / thành
+  phần / cuối kỳ / tổng hợp.
+- Hạn **đính chính** cuối kỳ, tuần thi, gia hạn, trễ hạn.
+
+Nếu endpoint này lỗi, integration **tự lùi về cách lấy cũ** để không
+mất dữ liệu.
+
+*Lưu ý kỹ thuật: các cột dấu ✓ trên trang này rỗng về text, trạng thái
+nằm ở class CSS (`GridCellCenterCheck` = có tick, `GridCellDisable` =
+không áp dụng) — đọc theo text sẽ sai toàn bộ.*
+
+### Calendar `Giảng dạy` — các buổi lên lớp
+
+Dựng từ thời khóa biểu của học kỳ (vd tuần `22-27;31-40`, buổi
+`T3,6-7,F109`) thành **buổi dạy cụ thể có ngày + giờ + phòng**.
+
+- **Tuần học → ngày** lấy từ tab *"Biểu đồ thời gian giảng ở năm học"*
+  ngay trên `cb.dut.udn.vn` (cùng nguồn với thời khóa biểu nên chắc
+  chắn khớp cách đánh số tuần); nếu không đọc được thì **dự phòng**
+  bằng dropdown công khai của `lichtuan.dut.udn.vn`. Hai nguồn đã
+  được đối chiếu: **khớp 52/52 tuần**. Cách này chính xác hơn tự cộng
+  7 ngày từ tuần 1 — vì năm học có tuần ngắt quãng (nghỉ Tết). Tuần
+  nào không tra được sẽ **bỏ qua** thay vì đoán ngày.
+- **Tiết → giờ** dùng bảng `TIET_START` trong `const.py`:
+
+  | Tiết | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | Bắt đầu | 7:00 | 8:00 | 9:00 | 10:00 | 11:00 | 12:30 | 13:30 | 14:30 | 15:30 | 16:30 | 17:30 | 18:30 |
+
+  Mỗi tiết 50 phút. ⚠️ **Trường không công bố dữ liệu giờ học dạng máy
+  đọc được**, bảng trên theo quy ước thực tế — nếu sai hoặc trường đổi
+  giờ, chỉ cần sửa `TIET_START` trong `const.py`.
+
 ### Mã học kỳ
 
 Trường dùng mã 4 chữ số `YYSK`, integration tự chuyển sang tên đọc
@@ -240,9 +283,13 @@ Trường dùng mã 4 chữ số `YYSK`, integration tự chuyển sang tên đ�
 
 | Thành phần | Ý nghĩa |
 |---|---|
-| `YY` | Năm bắt đầu năm học (`25` → 2025-2026) |
+| `YY` | 2 số cuối của năm ĐẦU trong năm học (`25` → 2025-2026) |
 | `S` | `1` = Học kỳ 1, `2` = Học kỳ 2 |
-| `K` | `0` = kỳ chính, `1` = kỳ **Hè** (chỉ đi kèm `S=2`) |
+| `K` | `0` = kỳ **chính**, `1` = kỳ **phụ** (kỳ phụ của HK2 = kỳ **Hè**) |
+
+Quy tắc này lấy từ **tài liệu chính thức** của Phòng Đào tạo
+(*Hướng dẫn sử dụng website Hệ thống tác nghiệp*, mục 3.1 "Quy ước
+Mã"), đã đối chiếu khớp 14/14 mã có thật.
 
 Ví dụ: `2510` → HK1 2025-2026, `2520` → HK2 2025-2026, `2521` → **Hè**
 2025-2026. Quy tắc này được đối chiếu khớp 14/14 mã có thật trên hệ

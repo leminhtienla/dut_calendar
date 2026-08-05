@@ -31,7 +31,10 @@ async def async_setup_entry(
         if entry_type == TYPE_COITHI:
             async_add_entities([ExamDutyCalendar(coordinator, entry)])
         elif entry_type == TYPE_DEADLINE_DIEM:
-            async_add_entities([DeadlineCalendar(coordinator, entry)])
+            async_add_entities([
+                DeadlineCalendar(coordinator, entry),
+                TeachingCalendar(coordinator, entry),
+            ])
 
 
 def _end_as_datetime(value: Any) -> datetime:
@@ -238,7 +241,7 @@ class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             CalendarEvent(
                 start=e["date"],
                 end=e["date"] + timedelta(days=1),
-                summary=e["summary"],
+                summary=("✓ " if e.get("da_xong") else "") + e["summary"],
                 description=f"Học kỳ: {format_hoc_ky(e['hoc_ky'])}",
                 uid=f"{self._entry.entry_id}_{e['hoc_ky']}_{e.get('ma_lop', 'chung')}_{e['summary']}",
             )
@@ -261,5 +264,68 @@ class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             e_start = _start_as_datetime(e.start)
             e_end = _end_as_datetime(e.end)
             if e_end >= start_date and e_start <= end_date:
+                result.append(e)
+        return result
+
+
+# =====================================================================
+# Nguồn: Lịch giảng dạy — từng buổi dạy cụ thể (ngày + giờ + phòng)
+# =====================================================================
+class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
+    """Lịch các buổi lên lớp, dựng từ thời khóa biểu của học kỳ."""
+
+    _attr_has_entity_name = False  # tránh trùng với tên thiết bị
+    _attr_name = "Giảng dạy"
+    _attr_icon = "mdi:teach"
+
+    def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_calendar_giangday"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="DUT Calendar - Hạn nộp điểm",
+            manufacturer="cb.dut.udn.vn (không chính thức)",
+            model="Cảnh báo hạn nộp điểm",
+        )
+
+    def _build_events(self) -> list[CalendarEvent]:
+        data = self.coordinator.data or {}
+        tzinfo = dt_util.DEFAULT_TIME_ZONE
+        events: list[CalendarEvent] = []
+
+        for b in data.get("buoi_day", []):
+            start, end = b.get("start"), b.get("end")
+            if start is None or end is None:
+                continue
+            events.append(
+                CalendarEvent(
+                    start=start.replace(tzinfo=tzinfo),
+                    end=end.replace(tzinfo=tzinfo),
+                    summary=f"{b.get('ten_lop') or '(lớp)'} — P.{b.get('phong')}",
+                    description=(
+                        f"Mã lớp: {b.get('ma_lop')}\n"
+                        f"Tiết: {b.get('tiet')}\n"
+                        f"Tuần học: {b.get('tuan')}"
+                    ),
+                    location=b.get("phong") or "",
+                    uid=f"{self._entry.entry_id}_{b.get('ma_lop')}_{start.isoformat()}",
+                )
+            )
+        events.sort(key=lambda ev: _start_as_datetime(ev.start))
+        return events
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        now = dt_util.now()
+        upcoming = [e for e in self._build_events() if _end_as_datetime(e.end) >= now]
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        result = []
+        for e in self._build_events():
+            if _end_as_datetime(e.end) >= start_date and _start_as_datetime(e.start) <= end_date:
                 result.append(e)
         return result

@@ -9,6 +9,8 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from .const import TIET_DURATION_MINUTES, TIET_START
+
 
 def parse_hidden_field(html: str, field_id: str) -> str | None:
     """Lấy value của 1 input ẩn ASP.NET WebForms (vd __VIEWSTATE)."""
@@ -230,14 +232,15 @@ def parse_hoc_ky_options(html: str) -> list[dict[str, Any]]:
 
 
 def format_hoc_ky(code: str) -> str:
-    """Chuyển mã học kỳ (vd '2521') sang tên đọc được (vd 'Học kỳ Hè
-    năm học 2025-2026').
+    """Chuyển mã học kỳ (vd '2521') sang tên đọc được.
 
-    Quy tắc suy ra từ dropdown thật của trường (đối chiếu đủ 14 mã):
-      YY S K  →  YY = năm bắt đầu (25 = 2025-2026)
-                 S  = 1 (Học kỳ 1) | 2 (Học kỳ 2)
-                 K  = 0 (kỳ chính) | 1 (kỳ Hè, chỉ đi kèm S=2)
-      2510 → HK1 2025-2026 | 2520 → HK2 2025-2026 | 2521 → Hè 2025-2026
+    Quy tắc theo TÀI LIỆU CHÍNH THỨC của Phòng Đào tạo (mục 3.1 "Quy
+    ước Mã" — phần mã lớp học phần, 4 ký tự mã học kỳ):
+      YY S K  →  YY = 2 số cuối của năm ĐẦU trong năm học (25 -> 2025-2026)
+                 S  = 1 hoặc 2  : chỉ học kỳ
+                 K  = 0 hoặc 1  : chỉ kỳ CHÍNH (0) hay kỳ PHỤ (1)
+    Trên giao diện trường, kỳ phụ của học kỳ 2 được gọi là "Học kỳ Hè".
+      2510 -> HK1 2025-2026 | 2520 -> HK2 2025-2026 | 2521 -> Hè 2025-2026
 
     Trả về nguyên mã nếu không khớp định dạng (phòng khi trường đổi
     quy ước mà chưa kịp cập nhật).
@@ -246,15 +249,16 @@ def format_hoc_ky(code: str) -> str:
     if not re.fullmatch(r"\d{4}", code):
         return code
 
-    yy, s, k = int(code[:2]), code[2], code[3]
+    yy, s_ky, k_phu = int(code[:2]), code[2], code[3]
     nam_hoc = f"{2000 + yy}-{2000 + yy + 1}"
 
-    if s == "2" and k == "1":
-        ky = "Hè"
-    elif s in ("1", "2"):
-        ky = s
-    else:
+    if s_ky not in ("1", "2") or k_phu not in ("0", "1"):
         return code
+
+    if k_phu == "1":
+        ky = "Hè" if s_ky == "2" else f"{s_ky} (phụ)"
+    else:
+        ky = s_ky
 
     return f"Học kỳ {ky} năm học {nam_hoc}"
 
@@ -278,6 +282,24 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
         "ngay_cuoi_ky": "Hạn điểm cuối kỳ",
         "han_dinh_chinh_giua_ky": "Đính chính điểm giữa kỳ",
         "han_dinh_chinh_thanh_phan": "Đính chính điểm thành phần",
+        "han_dinh_chinh_cuoi_ky": "Đính chính điểm cuối kỳ",
+        "nop_bang_giua_ky": "Nộp bảng điểm giữa kỳ",
+        "nop_bang_thanh_phan": "Nộp bảng điểm thành phần",
+        "nop_bang_cuoi_ky": "Nộp bảng điểm cuối kỳ",
+        "nop_bang_tong_hop": "Nộp bảng điểm tổng hợp",
+    }
+    # Mốc nào đã hoàn thành thì lấy cờ từ đâu (nếu có dữ liệu xác nhận)
+    done_flag = {
+        "ngay_giua_ky": "giua_ky_xong",
+        "han_dinh_chinh_giua_ky": "giua_ky_xong",
+        "ngay_thanh_phan": "thanh_phan_xong",
+        "han_dinh_chinh_thanh_phan": "thanh_phan_xong",
+        "ngay_cuoi_ky": "cuoi_ky_xong",
+        "han_dinh_chinh_cuoi_ky": "cuoi_ky_xong",
+        "nop_bang_giua_ky": "nop_bang_giua_ky_xong",
+        "nop_bang_thanh_phan": "nop_bang_thanh_phan_xong",
+        "nop_bang_cuoi_ky": "nop_bang_cuoi_ky_xong",
+        "nop_bang_tong_hop": "nop_bang_tong_hop_xong",
     }
 
     for hoc_ky, hk_info in (grade_deadlines or {}).items():
@@ -291,24 +313,36 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
                         "summary": label,
                         "hoc_ky": hoc_ky,
                         "ten_lop": None,
+                        "nhom": None,
                         "ma_lop": None,
                         "loai": label,
+                        "da_xong": bool(ca_thi_chung.get("da_xac_nhan")),
                     }
                 )
 
         for ma_lop, info in hk_info.get("theo_lop", {}).items():
             ten_lop = info.get("ten_lop") or ma_lop
+            # Mã lớp 15 chữ số dạng: [7 mã HP][4 mã HK][2 khóa][2 nhóm]
+            # vd 103164025202419 -> nhóm "24.19". Cần hiện số nhóm vì
+            # nhiều lớp KHÁC NHAU có cùng tên môn (2 nhóm cùng học
+            # phần), nếu không sẽ ra 2 dòng trùng hệt nhau trên lịch.
+            m = re.fullmatch(r"\d{11}(\d{2})(\d{2})", str(ma_lop))
+            nhom = f" (nhóm {m.group(1)}.{m.group(2)})" if m else ""
+
             for key, label in label_theo_lop.items():
                 d = parse_vn_date(info.get(key))
                 if d:
+                    flag = done_flag.get(key)
                     events.append(
                         {
                             "date": d,
-                            "summary": f"{ten_lop}: {label}",
+                            "summary": f"{label}: {ten_lop}{nhom}",
                             "hoc_ky": hoc_ky,
                             "ten_lop": ten_lop,
+                            "nhom": m.group(1) + "." + m.group(2) if m else None,
                             "ma_lop": ma_lop,
                             "loai": label,
+                            "da_xong": bool(info.get(flag)) if flag else False,
                         }
                     )
 
@@ -432,3 +466,357 @@ def exam_hash(entry: dict[str, Any]) -> str:
         ]
     )
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+# =====================================================================
+# Trang "Kế hoạch giảng dạy & thi" (PageLichGiangDay) — 1 request duy
+# nhất trả về 4 bảng, thay cho việc gọi ctrlLopHP + ctrlListHP cho
+# TỪNG lớp (≈11 request/học kỳ) như trước.
+#
+# LƯU Ý QUAN TRỌNG: các cột dấu ✓ trên trang này RỖNG về mặt text,
+# trạng thái nằm ở class CSS của ô:
+#   GridCellCenterCheck -> có tick (✓)
+#   GridCellDisable     -> ô bị vô hiệu (không áp dụng)
+# Đọc theo text sẽ ra sai toàn bộ.
+# =====================================================================
+def _lgd_rows(table, ncols: int):
+    """Lấy các dòng dữ liệu (đúng số cột), bỏ dòng tiêu đề gộp nhiều tầng."""
+    out = []
+    for tr in table.find_all("tr"):
+        cells = tr.find_all("td")
+        if len(cells) != ncols:
+            continue
+        vals = [unicodedata.normalize("NFC", c.get_text(" ", strip=True)) for c in cells]
+        if not vals[0].isdigit():  # cột TT/STT phải là số
+            continue
+        out.append((vals, cells))
+    return out
+
+
+def _lgd_checked(td) -> bool:
+    return "GridCellCenterCheck" in (td.get("class") or [])
+
+
+def _lgd_disabled(td) -> bool:
+    return "GridCellDisable" in (td.get("class") or [])
+
+
+def parse_lich_giang_day(html: str) -> dict[str, Any]:
+    """Phân tích response của E=ctrLichGiangDay&SKH=<mã học kỳ>."""
+    soup = BeautifulSoup(html, "html.parser")
+    result: dict[str, Any] = {
+        "lop_hoc": [],
+        "nhap_diem_theo_lop": [],
+        "nop_bang_diem_rieng": [],
+        "thi_chung": [],
+    }
+
+    # 1) Lịch giảng dạy trong kỳ (kèm thời khóa biểu)
+    tb = soup.find("table", id="LichGiangDay_Grid")
+    if tb:
+        for v, c in _lgd_rows(tb, 14):
+            result["lop_hoc"].append(
+                {
+                    "ma_lop": v[1],
+                    "ten_lop": v[2],
+                    "so_tin_chi": v[3],
+                    "danh_gia": v[4],
+                    "tkb_tuan": v[6] or None,
+                    "tkb_thu_tiet_phong": v[7] or None,
+                    "lich_trinh_da_nhap": _lgd_checked(c[8]),
+                    "lich_trinh_da_nop": _lgd_checked(c[9]),
+                }
+            )
+
+    # 2) Hạn nhập điểm theo lớp (GK / TP / CK thi riêng)
+    tb = soup.find("table", id="LichGiangDay_KiemTra")
+    if tb:
+        for v, c in _lgd_rows(tb, 19):
+
+            def _block(off: int) -> dict[str, Any]:
+                return {
+                    "han_nhap_diem": v[off] or None,
+                    "han_dinh_chinh": v[off + 1] or None,
+                    "xac_nhan_luc": v[off + 2] or None,
+                    "gia_han": v[off + 3] or None,
+                    "tre_han": v[off + 4] or None,
+                }
+
+            result["nhap_diem_theo_lop"].append(
+                {
+                    "ma_lop": v[1],
+                    "ten_lop": v[2],
+                    "tuan_thi": v[3] or None,
+                    "giua_ky": _block(4),
+                    "thanh_phan": _block(9),
+                    "cuoi_ky_rieng": _block(14),
+                }
+            )
+
+    # 3) Nộp bảng in điểm thi riêng
+    tb = soup.find("table", id="LichGiangDay_BDTRieng")
+    if tb:
+        for v, c in _lgd_rows(tb, 15):
+
+            def _blk(off: int) -> dict[str, Any]:
+                return {
+                    "phai_nop": _lgd_checked(c[off]),
+                    "khong_ap_dung": _lgd_disabled(c[off]),
+                    "han_nop": v[off + 1] or None,
+                    "ngay_nop": v[off + 2] or None,
+                }
+
+            result["nop_bang_diem_rieng"].append(
+                {
+                    "ma_lop": v[1],
+                    "ten_lop": v[2],
+                    "giua_ky": _blk(3),
+                    "thanh_phan": _blk(6),
+                    "cuoi_ky": _blk(9),
+                    "tong_hop": _blk(12),
+                }
+            )
+
+    # 4) Thi chung
+    tb = soup.find("table", id="LichGiangDay_ThiChung")
+    if tb:
+        for v, c in _lgd_rows(tb, 13):
+            result["thi_chung"].append(
+                {
+                    "ngay": v[1],
+                    "ma_ca_thi": v[2],
+                    "phong": v[3],
+                    "hoc_phan": v[4],
+                    "nhap_diem_bat_dau": v[5] or None,
+                    "nhap_diem_ket_thuc": v[6] or None,
+                    "gia_han": v[7] or None,
+                    "han_dinh_chinh": v[8] or None,
+                    "da_xac_nhan": _lgd_checked(c[9]),
+                    "ngay_tre_han": v[10] or None,
+                    "han_nop_bang": v[11] or None,
+                    "da_nop_luc": v[12] or None,
+                }
+            )
+
+    return result
+
+
+def lgd_to_grade_deadlines(parsed: dict[str, Any], hoc_ky: str) -> dict[str, Any]:
+    """Chuyển kết quả parse_lich_giang_day sang cấu trúc grade_deadlines
+    mà coordinator/sensor/calendar đang dùng, BỔ SUNG cờ đã hoàn thành
+    (`*_xong`) lấy từ cột "xác nhận lúc" — nhờ đó phân biệt được mốc
+    hạn CÒN PHẢI LÀM với mốc ĐÃ NHẬP ĐIỂM XONG.
+    """
+    theo_lop: dict[str, Any] = {}
+    for row in parsed.get("nhap_diem_theo_lop", []):
+        gk = row.get("giua_ky") or {}
+        tp = row.get("thanh_phan") or {}
+        ck = row.get("cuoi_ky_rieng") or {}
+        theo_lop[row["ma_lop"]] = {
+            "ten_lop": row.get("ten_lop"),
+            "tuan_thi": row.get("tuan_thi"),
+            "ngay_giua_ky": gk.get("han_nhap_diem"),
+            "han_dinh_chinh_giua_ky": gk.get("han_dinh_chinh"),
+            "giua_ky_xong": bool(gk.get("xac_nhan_luc")),
+            "ngay_thanh_phan": tp.get("han_nhap_diem"),
+            "han_dinh_chinh_thanh_phan": tp.get("han_dinh_chinh"),
+            "thanh_phan_xong": bool(tp.get("xac_nhan_luc")),
+            "ngay_cuoi_ky": ck.get("han_nhap_diem"),
+            "han_dinh_chinh_cuoi_ky": ck.get("han_dinh_chinh"),
+            "cuoi_ky_xong": bool(ck.get("xac_nhan_luc")),
+        }
+
+    # Hạn nộp BẢNG IN điểm (khác hạn NHẬP điểm) — gộp theo mã lớp gốc
+    # (bỏ hậu tố A/B của bảng điểm) để hiện cùng lớp tương ứng.
+    for row in parsed.get("nop_bang_diem_rieng", []):
+        key = re.sub(r"[.\s]", "", row["ma_lop"])
+        key = re.sub(r"[A-Z]$", "", key)
+        target = theo_lop.setdefault(key, {"ten_lop": row.get("ten_lop")})
+        for field, blk in (
+            ("nop_bang_giua_ky", row.get("giua_ky")),
+            ("nop_bang_thanh_phan", row.get("thanh_phan")),
+            ("nop_bang_cuoi_ky", row.get("cuoi_ky")),
+            ("nop_bang_tong_hop", row.get("tong_hop")),
+        ):
+            blk = blk or {}
+            han = blk.get("han_nop")
+            if blk.get("phai_nop") and han and parse_vn_date(han):
+                target[field] = han
+                target[f"{field}_xong"] = bool(blk.get("ngay_nop"))
+
+    # Thi chung: lấy mốc chung nhất của học kỳ
+    thi_chung_rows = parsed.get("thi_chung", [])
+    ca_thi_chung: dict[str, Any] = {}
+    if thi_chung_rows:
+        first = thi_chung_rows[0]
+        ca_thi_chung = {
+            "ngay_bat_dau": first.get("nhap_diem_bat_dau"),
+            "ngay_ket_thuc": first.get("nhap_diem_ket_thuc"),
+            "han_dinh_chinh": first.get("han_dinh_chinh"),
+            "ngay_nop_ban_diem": first.get("han_nop_bang"),
+            "da_xac_nhan": all(r.get("da_xac_nhan") for r in thi_chung_rows),
+            "so_ca": len(thi_chung_rows),
+        }
+
+    return {"ca_thi_chung": ca_thi_chung or None, "theo_lop": theo_lop}
+
+
+# =====================================================================
+# Thời khóa biểu -> buổi dạy cụ thể (Calendar "Giảng dạy")
+# =====================================================================
+def parse_tuan_hoc(raw: str) -> list[int]:
+    """'22-27;31-40' -> [22..27, 31..40]. Chấp nhận cả dấu ',' và ';'."""
+    weeks: list[int] = []
+    for part in re.split(r"[;,]", raw or ""):
+        part = part.strip()
+        if not part:
+            continue
+        m = re.fullmatch(r"(\d+)\s*-\s*(\d+)", part)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            weeks.extend(range(min(a, b), max(a, b) + 1))
+        elif part.isdigit():
+            weeks.append(int(part))
+    return sorted(set(weeks))
+
+
+def parse_tkb_slots(raw: str) -> list[dict[str, Any]]:
+    """'T3,6-7,F109' -> [{'thu':3,'tiet_dau':6,'tiet_cuoi':7,'phong':'F109'}].
+
+    Hỗ trợ nhiều buổi trong tuần, cách nhau bằng ';'. 'CN' = Chủ nhật.
+    """
+    slots: list[dict[str, Any]] = []
+    for part in re.split(r"[;]", raw or ""):
+        part = part.strip()
+        if not part:
+            continue
+        m = re.match(
+            r"^(?:T(\d+)|CN)\s*,\s*(\d+)(?:\s*-\s*(\d+))?\s*,\s*(.+)$",
+            part,
+            flags=re.IGNORECASE,
+        )
+        if not m:
+            continue
+        thu = 8 if m.group(1) is None else int(m.group(1))  # CN coi như "thứ 8"
+        tiet_dau = int(m.group(2))
+        tiet_cuoi = int(m.group(3)) if m.group(3) else tiet_dau
+        slots.append(
+            {
+                "thu": thu,
+                "tiet_dau": tiet_dau,
+                "tiet_cuoi": tiet_cuoi,
+                "phong": m.group(4).strip(),
+            }
+        )
+    return slots
+
+
+def build_teaching_events(
+    lop_hoc: list[dict[str, Any]], week_map: dict[int, date]
+) -> list[dict[str, Any]]:
+    """Dựng danh sách buổi dạy cụ thể (có ngày + giờ) từ thời khóa biểu.
+
+    `week_map` = {số tuần học -> ngày Thứ Hai}, lấy từ dropdown công
+    khai của lichtuan.dut.udn.vn (parser_public.parse_all_weeks).
+
+    Giờ bắt đầu/kết thúc suy từ bảng TIET_START trong const.py.
+    Tuần nào không có trong week_map (vd lịch trỏ sang năm học khác)
+    sẽ được BỎ QUA thay vì đoán bừa ngày.
+    """
+    events: list[dict[str, Any]] = []
+
+    for lop in lop_hoc:
+        weeks = parse_tuan_hoc(lop.get("tkb_tuan") or "")
+        slots = parse_tkb_slots(lop.get("tkb_thu_tiet_phong") or "")
+        if not weeks or not slots:
+            continue
+
+        for w in weeks:
+            monday = week_map.get(w)
+            if monday is None:
+                continue
+            for s in slots:
+                # Thứ 2 -> offset 0, Thứ 3 -> 1, ..., CN ("thứ 8") -> 6
+                offset = s["thu"] - 2
+                if not 0 <= offset <= 6:
+                    continue
+                day = monday + timedelta(days=offset)
+
+                start_hm = TIET_START.get(s["tiet_dau"])
+                end_hm = TIET_START.get(s["tiet_cuoi"])
+                if not start_hm or not end_hm:
+                    continue
+                start = datetime(day.year, day.month, day.day, *start_hm)
+                end = datetime(day.year, day.month, day.day, *end_hm) + timedelta(
+                    minutes=TIET_DURATION_MINUTES
+                )
+
+                events.append(
+                    {
+                        "start": start,
+                        "end": end,
+                        "ten_lop": lop.get("ten_lop"),
+                        "ma_lop": lop.get("ma_lop"),
+                        "phong": s["phong"],
+                        "tuan": w,
+                        "tiet": f"{s['tiet_dau']}-{s['tiet_cuoi']}"
+                        if s["tiet_dau"] != s["tiet_cuoi"]
+                        else str(s["tiet_dau"]),
+                    }
+                )
+
+    events.sort(key=lambda e: e["start"])
+    return events
+
+
+def parse_bieu_do_nam_hoc(html: str, hoc_ky: str) -> dict[int, date]:
+    """Đọc tab "Biểu đồ thời gian giảng ở năm học"
+    (E=ctrLGD_KeHoach&SKH=<mã HK>) -> {số tuần học: ngày Thứ Hai}.
+
+    Bảng có 2 hàng tiêu đề lồng nhau: hàng THÁNG (mỗi ô colspan = số
+    tuần trong tháng) và hàng NGÀY (mỗi ô = ngày đầu tuần). Ghép lại
+    ra ngày đầy đủ. Năm suy từ mã học kỳ: tháng >= 8 thuộc năm đầu của
+    năm học, tháng <= 7 thuộc năm sau.
+
+    Ưu điểm so với đọc từ lichtuan.dut.udn.vn: cùng nguồn với dữ liệu
+    thời khóa biểu nên chắc chắn khớp cách đánh số tuần, không phụ
+    thuộc trang ngoài.
+    """
+    if not re.fullmatch(r"\d{4}", (hoc_ky or "").strip()):
+        return {}
+    start_year = 2000 + int(hoc_ky[:2])
+
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="ctrLGD_KeHoach_Grid")
+    if table is None:
+        return {}
+
+    rows = table.find_all("tr")
+    if len(rows) < 3:
+        return {}
+
+    months: list[int] = []
+    for cell in rows[1].find_all(["th", "td"]):
+        m = re.search(r"(\d{1,2})", cell.get_text(" ", strip=True))
+        if not m:
+            continue
+        try:
+            span = int(cell.get("colspan") or 1)
+        except ValueError:
+            span = 1
+        months.extend([int(m.group(1))] * span)
+
+    days = [c.get_text(strip=True) for c in rows[2].find_all(["th", "td"])]
+    if len(months) != len(days):
+        return {}
+
+    week_map: dict[int, date] = {}
+    for idx, (month, day_txt) in enumerate(zip(months, days), start=1):
+        if not day_txt.isdigit():
+            continue
+        year = start_year if month >= 8 else start_year + 1
+        try:
+            week_map[idx] = date(year, month, int(day_txt))
+        except ValueError:
+            continue
+    return week_map

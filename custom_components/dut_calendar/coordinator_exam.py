@@ -12,11 +12,14 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api_exam import CBDutAuthError, CBDutClient
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
 from .const import (
     CONF_EXAM_DURATION,
     CONF_EXTRA_LECTURER,
     CONF_EXTRA_LECTURERS,
     CONF_HOC_KY,
+    LICHTUAN_BASE_URL,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
@@ -39,12 +42,17 @@ from .parser_exam import (
     filter_exam_duty_by_lecturer,
     filter_exam_duty_by_lecturers,
     infer_self_name,
+    build_teaching_events,
+    lgd_to_grade_deadlines,
     parse_class_deadline,
     parse_class_list,
     parse_exam_datetime,
     parse_exam_duty,
     parse_grade_deadline,
+    parse_bieu_do_nam_hoc,
+    parse_lich_giang_day,
 )
+from .parser_public import parse_all_weeks
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -261,69 +269,43 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._async_notify(new_duties)
 
         # --- Hạn nhập điểm (chỉ với entry loại "dut_deadline_diem") ---
-        # Có 2 loại hạn KHÁC NHAU:
-        #  1. Hạn điểm CUỐI KỲ THI CHUNG — theo "ca thi" (tái dùng mã ca thi
-        #     đã có từ danh sách coi thi), áp dụng chung cho cả ca thi.
-        #  2. Hạn điểm GIỮA KỲ / THÀNH PHẦN — khác nhau theo TỪNG LỚP học
-        #     phần cụ thể, phải tra riêng từng lớp qua danh sách lớp phụ trách.
-        # CHỦ Ý: cả 2 API đều chỉ đọc phần header hạn nộp điểm, KHÔNG đụng
-        # tới bảng điểm/tên/mã số sinh viên nằm trong cùng response.
+        # Nguồn CHÍNH: trang "Kế hoạch giảng dạy & thi" — MỘT request cho
+        # cả học kỳ, trả về đủ: hạn nhập điểm GK/TP/CK từng lớp, hạn đính
+        # chính, ĐÃ XÁC NHẬN NHẬP ĐIỂM CHƯA, hạn nộp bảng in điểm, và mốc
+        # thi chung. Trước đây phải gọi ctrlLopHP + ctrlListHP cho TỪNG
+        # lớp (≈11 request/học kỳ) mà vẫn thiếu các thông tin trên.
+        # Nếu endpoint này lỗi -> tự lùi về cách cũ để không mất dữ liệu.
+        # CHỦ Ý: chỉ đọc các bảng kế hoạch/hạn nộp, KHÔNG đụng tới bảng
+        # điểm hay thông tin sinh viên.
         grade_deadlines: dict[str, dict[str, Any]] = {}
         changed_deadlines: list[dict[str, Any]] = []
+        lich_giang_day: dict[str, Any] = {}
 
         if self.is_deadline_diem:
             for hoc_ky in hoc_ky_list:
-                hk_result: dict[str, Any] = {"ca_thi_chung": None, "theo_lop": {}}
+                hk_result: dict[str, Any] | None = None
 
-                # 1. Hạn điểm cuối kỳ thi chung (theo ca thi)
-                sample_ca = next(
-                    (
-                        d["ma_ca_thi"]
-                        for d in all_duties
-                        if d["hoc_ky_label"] == hoc_ky and d.get("ma_ca_thi")
-                    ),
-                    None,
-                )
-                if sample_ca:
-                    try:
-                        raw = await self._client.fetch_grade_deadline_html(sample_ca)
-                        hk_result["ca_thi_chung"] = await self.hass.async_add_executor_job(
-                            parse_grade_deadline, raw
-                        )
-                    except CBDutAuthError as err:
-                        raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
-                    except Exception:  # noqa: BLE001
-                        _LOGGER.warning(
-                            "Không lấy được hạn điểm cuối kỳ thi chung cho HK %s", hoc_ky
-                        )
-
-                # 2. Hạn điểm giữa kỳ/thành phần (theo từng lớp)
                 try:
-                    class_list_html = await self._client.fetch_class_list_html(hoc_ky)
-                    classes = await self.hass.async_add_executor_job(
-                        parse_class_list, class_list_html
+                    raw = await self._client.fetch_lich_giang_day_html(hoc_ky)
+                    parsed_lgd = await self.hass.async_add_executor_job(
+                        parse_lich_giang_day, raw
                     )
+                    if parsed_lgd.get("nhap_diem_theo_lop") or parsed_lgd.get("thi_chung"):
+                        lich_giang_day[hoc_ky] = parsed_lgd
+                        hk_result = await self.hass.async_add_executor_job(
+                            lgd_to_grade_deadlines, parsed_lgd, hoc_ky
+                        )
                 except CBDutAuthError as err:
                     raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning("Không lấy được danh sách lớp cho HK %s", hoc_ky)
-                    classes = []
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "Không tải được Kế hoạch giảng dạy HK %s (%s), lùi về cách cũ",
+                        hoc_ky,
+                        err,
+                    )
 
-                for cls in classes:
-                    try:
-                        raw = await self._client.fetch_class_deadline_html(cls["ma_lop"])
-                    except CBDutAuthError as err:
-                        raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
-                    except Exception:  # noqa: BLE001
-                        _LOGGER.warning("Không lấy được hạn điểm cho lớp %s", cls["ma_lop"])
-                        continue
-
-                    parsed = await self.hass.async_add_executor_job(parse_class_deadline, raw)
-                    hk_result["theo_lop"][cls["ma_lop"]] = {
-                        **parsed,
-                        "ten_lop": cls["ten_lop"],
-                        "ma_lop_display": cls["ma_lop_display"],
-                    }
+                if hk_result is None:
+                    hk_result = await self._async_fetch_deadlines_legacy(hoc_ky, all_duties)
 
                 grade_deadlines[hoc_ky] = hk_result
 
@@ -337,11 +319,111 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._async_save_storage()
                 await self._async_notify_deadline(changed_deadlines)
 
+        # --- Buổi dạy cụ thể (Calendar "Giảng dạy") ---
+        # Thời khóa biểu chỉ cho SỐ TUẦN học (vd "22-27;31-40"), phải
+        # quy đổi sang ngày thật. Bảng quy đổi lấy từ dropdown CÔNG KHAI
+        # của lichtuan.dut.udn.vn (không cần đăng nhập) — chính xác hơn
+        # tự cộng 7 ngày từ tuần 1, vì năm học có tuần ngắt quãng (nghỉ Tết).
+        buoi_day: list[dict[str, Any]] = []
+        if lich_giang_day:
+            week_map: dict[int, Any] = {}
+            # Nguồn ƯU TIÊN: chính cb.dut.udn.vn (tab "Biểu đồ thời
+            # gian giảng ở năm học") — cùng nguồn với thời khóa biểu
+            # nên chắc chắn khớp cách đánh số tuần.
+            for hk in lich_giang_day:
+                try:
+                    raw_bd = await self._client.fetch_bieu_do_nam_hoc_html(hk)
+                    week_map = await self.hass.async_add_executor_job(
+                        parse_bieu_do_nam_hoc, raw_bd, hk
+                    )
+                    if week_map:
+                        break
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Không đọc được biểu đồ năm học HK %s: %s", hk, err)
+
+            # Dự phòng: dropdown công khai của lichtuan.dut.udn.vn
+            if not week_map:
+                try:
+                    session = async_get_clientsession(self.hass)
+                    async with session.get(LICHTUAN_BASE_URL, timeout=30) as resp:
+                        resp.raise_for_status()
+                        html_week = await resp.text()
+                    week_map = await self.hass.async_add_executor_job(
+                        parse_all_weeks, html_week
+                    )
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.warning("Không lấy được bảng quy đổi tuần học: %s", err)
+
+            if week_map:
+                for parsed_lgd in lich_giang_day.values():
+                    buoi_day.extend(
+                        await self.hass.async_add_executor_job(
+                            build_teaching_events, parsed_lgd.get("lop_hoc", []), week_map
+                        )
+                    )
+                buoi_day.sort(key=lambda e: e["start"])
+
         return {
             "duties": all_duties,
             "new_duties": new_duties,
             "grade_deadlines": grade_deadlines,
+            "lich_giang_day": lich_giang_day,
+            "buoi_day": buoi_day,
         }
+
+    async def _async_fetch_deadlines_legacy(
+        self, hoc_ky: str, all_duties: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Cách lấy hạn nộp điểm CŨ (nhiều request), chỉ dùng khi trang
+        Kế hoạch giảng dạy không truy cập được.
+        """
+        hk_result: dict[str, Any] = {"ca_thi_chung": None, "theo_lop": {}}
+
+        sample_ca = next(
+            (
+                d["ma_ca_thi"]
+                for d in all_duties
+                if d["hoc_ky_label"] == hoc_ky and d.get("ma_ca_thi")
+            ),
+            None,
+        )
+        if sample_ca:
+            try:
+                raw = await self._client.fetch_grade_deadline_html(sample_ca)
+                hk_result["ca_thi_chung"] = await self.hass.async_add_executor_job(
+                    parse_grade_deadline, raw
+                )
+            except CBDutAuthError as err:
+                raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
+            except Exception:  # noqa: BLE001
+                _LOGGER.warning("Không lấy được hạn điểm cuối kỳ thi chung cho HK %s", hoc_ky)
+
+        try:
+            class_list_html = await self._client.fetch_class_list_html(hoc_ky)
+            classes = await self.hass.async_add_executor_job(parse_class_list, class_list_html)
+        except CBDutAuthError as err:
+            raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Không lấy được danh sách lớp cho HK %s", hoc_ky)
+            classes = []
+
+        for cls in classes:
+            try:
+                raw = await self._client.fetch_class_deadline_html(cls["ma_lop"])
+            except CBDutAuthError as err:
+                raise UpdateFailed(f"Lỗi đăng nhập cb.dut.udn.vn: {err}") from err
+            except Exception:  # noqa: BLE001
+                _LOGGER.warning("Không lấy được hạn điểm cho lớp %s", cls["ma_lop"])
+                continue
+
+            parsed = await self.hass.async_add_executor_job(parse_class_deadline, raw)
+            hk_result["theo_lop"][cls["ma_lop"]] = {
+                **parsed,
+                "ten_lop": cls["ten_lop"],
+                "ma_lop_display": cls["ma_lop_display"],
+            }
+
+        return hk_result
 
     async def _async_notify_deadline(self, changed: list[dict[str, Any]]) -> None:
         title = "Hạn nộp điểm cập nhật"

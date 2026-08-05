@@ -338,3 +338,31 @@ def filter_by_keywords(
             results.append(new_entry)
 
     return results
+
+
+def parse_all_weeks(html: str) -> dict[int, date]:
+    """Đọc dropdown 'Tuần' trên lichtuan.dut.udn.vn, trả về ánh xạ
+    {số tuần học -> ngày Thứ Hai của tuần đó}.
+
+    Dùng để quy đổi "tuần học" trong thời khóa biểu (vd '22-27;31-40')
+    sang ngày thật. Nhãn option có dạng 'Tuần 3 : 18-08-2025', value là
+    ngày ISO của Thứ Hai — lấy số tuần từ nhãn, ngày từ value (chắc
+    chắn hơn là tự cộng 7 ngày từ tuần 1, phòng khi trường có tuần
+    ngắt quãng).
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    sel = soup.find("select", id="week-container")
+    if sel is None:
+        return {}
+
+    result: dict[int, date] = {}
+    for opt in sel.find_all("option"):
+        value = (opt.get("value") or "").strip()
+        m = re.search(r"(\d+)", _clean_text(opt.get_text(" ", strip=True)))
+        if not value or not m:
+            continue
+        try:
+            result[int(m.group(1))] = date.fromisoformat(value)
+        except ValueError:
+            continue
+    return result

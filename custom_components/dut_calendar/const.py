@@ -64,6 +64,7 @@ CB_PAGE_COITHI_URL = f"{CB_BASE_URL}/PageCNDKCoiThi.aspx"
 CB_GRADE_DEADLINE_AJAX_URL = f"{CB_BASE_URL}/WebAjax/evLopHP_Load.aspx"
 CB_PAGE_LTDIEM_URL = f"{CB_BASE_URL}/PageLTDiem.aspx"
 CB_PAGE_DIEMHP_URL = f"{CB_BASE_URL}/PageDiemHP.aspx"
+CB_PAGE_LICHGIANGDAY_URL = f"{CB_BASE_URL}/PageLichGiangDay.aspx"
 
 LOGIN_FIELD_BUTTON = "_ctl0:Main_panLogin:Login_btnLogin"
 LOGIN_BUTTON_VALUE = " Đăng nhập "
@@ -77,3 +78,16 @@ MAX_STORED_HASHES_EXAM = 500
 # =====================================================================
 STORAGE_VERSION = 1
 STORAGE_KEY_TEMPLATE = f"{DOMAIN}_{{entry_id}}_seen"
+
+# Giờ bắt đầu từng tiết học (do người dùng cung cấp — trường KHÔNG công
+# bố dữ liệu chính thức dạng máy đọc được, nên đây là quy ước thực tế:
+#   Sáng:   tiết 1..5  = 07:00, 08:00, 09:00, 10:00, 11:00
+#   Chiều:  tiết 6..10 = 12:30, 13:30, 14:30, 15:30, 16:30
+#   Tối:    tiết 11,12 = 17:30, 18:30
+# Mỗi tiết 50 phút. Nếu trường đổi giờ, chỉ cần sửa bảng này.
+TIET_START = {
+    1: (7, 0), 2: (8, 0), 3: (9, 0), 4: (10, 0), 5: (11, 0),
+    6: (12, 30), 7: (13, 30), 8: (14, 30), 9: (15, 30), 10: (16, 30),
+    11: (17, 30), 12: (18, 30),
+}
+TIET_DURATION_MINUTES = 50

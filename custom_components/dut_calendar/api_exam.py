@@ -8,6 +8,7 @@ import aiohttp
 from .const import (
     CB_EXAM_AJAX_URL as EXAM_AJAX_URL,
     CB_GRADE_DEADLINE_AJAX_URL as GRADE_DEADLINE_AJAX_URL,
+    CB_PAGE_LICHGIANGDAY_URL as PAGE_LICHGIANGDAY_URL,
     CB_LOGIN_URL as LOGIN_URL,
     CB_PAGE_COITHI_URL as PAGE_COITHI_URL,
     CB_PAGE_DIEMHP_URL as PAGE_DIEMHP_URL,
@@ -245,5 +246,63 @@ class CBDutClient:
         }
         async with self._session.post(
             EXAM_AJAX_URL, params=params, headers=headers, timeout=90
+        ) as resp:
+            return await resp.text()
+
+
+    async def fetch_lich_giang_day_html(self, hoc_ky: str) -> str:
+        """Tải trang "Kế hoạch giảng dạy & thi" cho 1 học kỳ.
+
+        MỘT request duy nhất trả về đủ 4 bảng (lịch giảng dạy + hạn
+        nhập điểm theo lớp + hạn nộp bảng in điểm + thi chung), thay
+        cho việc gọi ctrlLopHP rồi ctrlListHP cho TỪNG lớp như trước.
+        """
+        await self.ensure_logged_in()
+        text = await self._call_lich_giang_day(hoc_ky)
+
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_lich_giang_day(hoc_ky)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+
+        return text
+
+    async def _call_lich_giang_day(self, hoc_ky: str) -> str:
+        params = {"E": "ctrLichGiangDay", "SKH": hoc_ky}
+        headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": PAGE_LICHGIANGDAY_URL,
+        }
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
+        ) as resp:
+            return await resp.text()
+
+
+    async def fetch_bieu_do_nam_hoc_html(self, hoc_ky: str) -> str:
+        """Tab "Biểu đồ thời gian giảng ở năm học" — chứa bảng quy đổi
+        SỐ TUẦN HỌC sang ngày, cùng nguồn với thời khóa biểu nên chắc
+        chắn khớp cách đánh số tuần.
+        """
+        await self.ensure_logged_in()
+        text = await self._call_bieu_do(hoc_ky)
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_bieu_do(hoc_ky)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+        return text
+
+    async def _call_bieu_do(self, hoc_ky: str) -> str:
+        params = {"E": "ctrLGD_KeHoach", "SKH": hoc_ky}
+        headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": PAGE_LICHGIANGDAY_URL,
+        }
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
         ) as resp:
             return await resp.text()
