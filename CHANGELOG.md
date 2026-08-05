@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-08-05
+
+### Thêm mới
+- **Tiêu đề sự kiện `Lịch dạy` có thứ tự tiết và số lượng tiết**: `Điều khiển tự động trên động cơ · H108 · tiết 9-10 (2 tiết)`. Trước đây thông tin tiết chỉ nằm trong phần mô tả, phải bấm vào mới thấy.
+- Mỗi buổi dạy có thêm trường `so_tiet` (buổi thường tính từ khoảng tiết; buổi dạy bù lấy đúng số tiết đã đăng ký). Kiểm chứng dữ liệu thật: 0 buổi thiếu trường này.
+
 ## [1.20.3] - 2026-08-05
 
 ### Sửa lỗi
@@ -323,7 +329,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.20.3...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.21.0
 [1.20.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.3
 [1.20.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.2
 [1.20.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.1

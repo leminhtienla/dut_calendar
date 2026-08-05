@@ -320,6 +320,12 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
                         + ("🔁 " if b.get("la_day_bu") else "")
                         + (f"[{b['nguoi']}] " if b.get("nguoi") else "")
                         + f"{b.get('ten_lop') or '(lớp)'} · {b.get('phong')}"
+                        + (
+                            f" · tiết {b['tiet']}"
+                            + (f" ({b['so_tiet']} tiết)" if b.get("so_tiet") else "")
+                            if b.get("tiet")
+                            else ""
+                        )
                     ),
                     description=(
                         (f"Giảng viên: {b['nguoi']}\n" if b.get("nguoi") else "")

@@ -800,6 +800,7 @@ def build_teaching_events(
                         "tiet": f"{s['tiet_dau']}-{s['tiet_cuoi']}"
                         if s["tiet_dau"] != s["tiet_cuoi"]
                         else str(s["tiet_dau"]),
+                        "so_tiet": s["tiet_cuoi"] - s["tiet_dau"] + 1,
                     }
                 )
 
@@ -975,6 +976,8 @@ def apply_bao_nghi(
                     "tiet": f"{rec['tiet_dau']}-{rec['tiet_cuoi']}"
                     if rec.get("tiet_dau") != rec.get("tiet_cuoi")
                     else str(rec.get("tiet_dau")),
+                    "so_tiet": rec.get("so_tiet")
+                    or (rec["tiet_cuoi"] - rec["tiet_dau"] + 1),
                     "la_day_bu": True,
                 }
             )
