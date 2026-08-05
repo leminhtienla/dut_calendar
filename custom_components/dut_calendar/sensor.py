@@ -228,6 +228,8 @@ class ExamDutySensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
                 "can_bo_2": d.get("can_bo_2"),
                 "hoc_ky": d.get("hoc_ky_label"),
                 "giang_vien_khac": d.get("extra_lecturer_match", False),
+                "ten": d.get("target_name"),
+                "giam_thi_so": d.get("role"),
             }
             for d in self._upcoming[:MAX_ATTR_ENTRIES]
         ]

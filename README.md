@@ -150,6 +150,19 @@ nếu không muốn đổi.
 - Chọn học kỳ cần theo dõi từ danh sách thật (xem mục "quy trình cài
   đặt 2 bước" phía trên), không cần nhớ mã số.
 - Tạo sensor `Lịch coi thi` + Calendar `calendar.coi_thi`.
+- **Tiêu đề sự kiện Calendar luôn có tên + vai trò + phòng thi**, áp
+  dụng cho **cả ca của chính bạn lẫn ca của giảng viên khác đang theo
+  dõi** (trước đây chỉ ca giảng viên khác mới có tên, ca của chính
+  mình không hiện gì): vd `[103-Lê Minh Tiến · GT1] Coi thi: Kỹ thuật
+  điện - điện tử — Phòng F108`. `GT1`/`GT2` = Giám thị 1/2 (tức đang
+  là Cán bộ 1 hay Cán bộ 2 trong ca đó).
+  - Tên của **chính bạn** được **suy luận tự động**: vì cột "Cán bộ
+    1"/"Cán bộ 2" trên hệ thống trường **không cố định vị trí** (có ca
+    bạn là Cán bộ 1, có ca là Cán bộ 2, tùy ai đăng ký trước) — không
+    thể giả định vị trí cố định. Suy luận dựa trên: tên của bạn là tên
+    **duy nhất xuất hiện ở MỌI ca trong danh sách của chính bạn** (vì
+    mọi ca đó chắc chắn có bạn tham gia, chỉ người cùng coi thi đổi
+    khác nhau tuỳ ca).
 - **Ý nghĩa số đếm sensor `Lịch coi thi`:** tổng số ca coi thi **sắp
   tới** (chưa diễn ra) trong các học kỳ đang theo dõi — khác với các
   sensor "Hôm nay"/"Tuần này"... chỉ đếm theo 1 khoảng ngày cụ thể.
@@ -164,8 +177,14 @@ nếu không muốn đổi.
   tiếp qua 3 bước:
   1. Chọn học kỳ (như cũ)
   2. Chọn **Khoa** (dropdown, kèm số người mỗi khoa) để rút gọn danh
-     sách — hoặc **"Không theo dõi thêm ai"** để bỏ qua tính năng này,
-     hoặc **"— Tất cả các khoa —"** để hiện toàn bộ.
+     sách. Khi sửa qua Options mà đã có sẵn người đang theo dõi, có
+     **2 lựa chọn tách biệt rõ ràng** (tránh nhầm lẫn hệ quả):
+     - **↩️ "Giữ nguyên N người đang theo dõi, không đổi gì"** — chỉ
+       bỏ qua lần chỉnh sửa này, KHÔNG xóa ai (mặc định chọn sẵn).
+     - **🗑️ "Xóa hết, không theo dõi ai"** — xóa hẳn toàn bộ danh
+       sách đang theo dõi, đặt về rỗng.
+     - Hoặc chọn **"— Tất cả các khoa —"** / 1 khoa cụ thể để đi tiếp
+       bước chọn tên.
   3. Chọn **tên** (nhiều lựa chọn cùng lúc, gõ để tìm kiếm nếu danh
      sách dài) — tên lấy trực tiếp từ dữ liệu thật trên hệ thống
      (dạng `mã khoa-Tên`, vd `103-Lê Minh Tiến`), không gõ tay nên
@@ -178,9 +197,12 @@ nếu không muốn đổi.
   khiến danh sách bị thiếu nếu chỉ dựa vào 1 học kỳ.
 
   *Khi sửa qua Options: nếu entry đã có sẵn giảng viên đang theo dõi,
-  tick này tự mặc định BẬT (để tiện chỉnh sửa); nếu bỏ tick đi, lựa
-  chọn giảng viên hiện tại được GIỮ NGUYÊN, không bị xóa — chỉ đơn
-  giản là không tải lại danh sách/không đổi gì lần lưu đó.*
+  tick này tự mặc định BẬT (để tiện chỉnh sửa). Có 2 chỗ "bỏ qua"
+  tách biệt rõ ràng để không nhầm lẫn hệ quả:*
+  - *Bỏ tick ngay từ đầu (chưa vào bước chọn khoa) → GIỮ NGUYÊN, không
+    đổi gì, không tải dữ liệu.*
+  - *Đã vào bước chọn khoa → có 2 lựa chọn tách biệt: "↩️ Giữ nguyên"
+    (không đổi gì, như trên) hoặc "🗑️ Xóa hết" (xóa hẳn danh sách).*
 
   Khi có chọn, mỗi lần quét sẽ tải thêm danh sách **toàn bộ ca thi**
   (không giới hạn theo tài khoản đăng nhập, response lớn hơn — chỉ

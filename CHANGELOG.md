@@ -5,6 +5,20 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-04
+
+### Thay đổi
+- **`dut_coithi` — tiêu đề sự kiện Calendar giờ luôn có tên + vai trò (GT1/GT2) + phòng thi**, áp dụng cho CẢ ca của chính bạn lẫn ca của giảng viên khác (trước đây chỉ ca giảng viên khác mới có tên trong tiêu đề). Vd `[103-Lê Minh Tiến · GT1] Coi thi: Kỹ thuật điện - điện tử — Phòng F108`.
+- Thêm `parser_exam.infer_self_name()`: suy luận tên hiển thị của tài khoản đăng nhập từ danh sách ca thi của chính mình — phát hiện quan trọng qua dữ liệu thật: cột "Cán bộ 1"/"Cán bộ 2" **không cố định vị trí** (có ca mình là CB1, có ca là CB2, tùy ai đăng ký trước), nên không thể giả định vị trí cố định như trước. Suy luận dựa trên tên duy nhất xuất hiện ở mọi ca — test đúng 100% với dữ liệu thật (11/11 ca).
+- Thêm `parser_exam.duty_role()`: xác định 1 người là Cán bộ 1 hay 2 trong 1 ca cụ thể — dùng chung cho cả ca của chính mình lẫn ca giảng viên khác (xác định đúng người nào trong danh sách nhiều người theo dõi khớp với từng dòng, thay vì lấy tên đầu tiên bất kỳ).
+- Sensor `Lịch coi thi` thêm attributes `ten`/`giam_thi_so`; thông báo ca thi mới cũng đồng bộ hiện tên+vai trò.
+
+## [1.12.1] - 2026-08-04
+
+### Sửa lỗi (UX gây nhầm lẫn, người dùng phát hiện)
+- **Bước "chọn khoa" khi sửa Options có 2 cách "bỏ qua" trông giống nhau nhưng hệ quả khác hẳn** — dễ xóa nhầm danh sách đang theo dõi. Cụ thể trước đây: bỏ tick "Theo dõi thêm giảng viên khác?" ngay từ đầu thì GIỮ NGUYÊN dữ liệu, nhưng nếu đã vào bước chọn khoa rồi mới chọn "Không theo dõi thêm ai" thì lại XÓA HẲN — cùng ý định "không muốn đổi" nhưng 1 chỗ an toàn, 1 chỗ phá dữ liệu.
+- Đã tách biệt rõ ràng thành **2 lựa chọn riêng** trong bước chọn khoa (chỉ hiện khi entry đã có sẵn người đang theo dõi): **"↩️ Giữ nguyên N người đang theo dõi, không đổi gì"** (an toàn, mặc định chọn sẵn) và **"🗑️ Xóa hết, không theo dõi ai"** (rõ ràng là hành động xóa). Không còn 1 lựa chọn duy nhất gánh 2 ý nghĩa khác nhau.
+
 ## [1.12.0] - 2026-08-04
 
 ### Thêm mới
@@ -166,7 +180,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.13.0
+[1.12.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.12.1
 [1.12.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.12.0
 [1.11.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.2
 [1.11.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.11.1

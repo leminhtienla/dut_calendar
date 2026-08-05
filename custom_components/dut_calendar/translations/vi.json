@@ -67,7 +67,7 @@
       },
       "chon_khoa": {
         "title": "Theo dõi thêm giảng viên khác (tùy chọn)",
-        "description": "Chọn khoa để rút gọn danh sách tên ở bước sau, hoặc bỏ qua nếu không cần theo dõi ai khác ngoài chính bạn.",
+        "description": "Nếu đã có người đang theo dõi, chọn \"Giữ nguyên\" để không đổi gì, hoặc \"Xóa hết\" để xóa hẳn — 2 lựa chọn tách biệt, không nhầm lẫn.",
         "data": {
           "khoa": "Khoa"
         }
@@ -119,7 +119,7 @@
       },
       "chon_khoa": {
         "title": "Theo dõi thêm giảng viên khác (tùy chọn)",
-        "description": "Chọn khoa để rút gọn danh sách tên ở bước sau, hoặc bỏ qua nếu không cần theo dõi ai khác ngoài chính bạn.",
+        "description": "Nếu đã có người đang theo dõi, chọn \"Giữ nguyên\" để không đổi gì, hoặc \"Xóa hết\" để xóa hẳn — 2 lựa chọn tách biệt, không nhầm lẫn.",
         "data": {
           "khoa": "Khoa"
         }

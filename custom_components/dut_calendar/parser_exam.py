@@ -274,6 +274,48 @@ def build_deadline_events(grade_deadlines: dict[str, Any]) -> list[dict[str, Any
     return events
 
 
+def infer_self_name(own_duties: list[dict[str, Any]]) -> str | None:
+    """Suy luận tên hiển thị của TÀI KHOẢN ĐANG ĐĂNG NHẬP từ danh sách
+    ca thi CỦA CHÍNH MÌNH (DDK=true) — vì "Cán bộ 1"/"Cán bộ 2" không
+    cố định vị trí (có ca mình là CB1, có ca mình là CB2, tùy ai đăng
+    ký trước), KHÔNG thể giả định vị trí cố định.
+
+    Suy luận: tên của chính mình là tên DUY NHẤT xuất hiện ở MỌI dòng
+    (ở CB1 hoặc CB2, không quan trọng vị trí) — vì mọi ca trong danh
+    sách "của chính mình" chắc chắn có mình tham gia, còn người cùng
+    coi thi thì đổi khác nhau tuỳ ca.
+
+    Trả về None nếu không đủ dữ liệu hoặc không suy luận được rõ ràng
+    (vd danh sách rỗng, hoặc nhiều hơn 1 tên khớp mọi dòng).
+    """
+    rows = [
+        {d.get("can_bo_1", "").strip(), d.get("can_bo_2", "").strip()} - {""}
+        for d in own_duties
+    ]
+    rows = [r for r in rows if r]
+    if not rows:
+        return None
+    common = set.intersection(*rows)
+    if len(common) == 1:
+        return next(iter(common))
+    return None
+
+
+def duty_role(duty: dict[str, Any], target_name: str | None) -> str | None:
+    """Xác định vai trò của `target_name` trong 1 ca thi: '1' nếu là
+    Cán bộ 1, '2' nếu là Cán bộ 2, None nếu không khớp cả hai (hoặc
+    target_name rỗng).
+    """
+    if not target_name:
+        return None
+    name = unicodedata.normalize("NFC", target_name.strip().lower())
+    if unicodedata.normalize("NFC", duty.get("can_bo_1", "").strip().lower()) == name:
+        return "1"
+    if unicodedata.normalize("NFC", duty.get("can_bo_2", "").strip().lower()) == name:
+        return "2"
+    return None
+
+
 def filter_exam_duty_by_lecturer(
     entries: list[dict[str, Any]], lecturer_name: str
 ) -> list[dict[str, Any]]:

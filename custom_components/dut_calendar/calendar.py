@@ -160,26 +160,33 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
             end = end.replace(tzinfo=tzinfo)
 
             desc_lines = [f"Mã ca thi: {d.get('ma_ca_thi')}"]
-            if d.get("extra_lecturer_match"):
-                desc_lines.append(f"Cán bộ 1: {d.get('can_bo_1')}")
-            if d.get("can_bo_2"):
-                desc_lines.append(f"Cùng coi thi: {d['can_bo_2']}")
+            desc_lines.append(f"Cán bộ 1: {d.get('can_bo_1') or '(trống)'}")
+            desc_lines.append(f"Cán bộ 2: {d.get('can_bo_2') or '(trống)'}")
             if d.get("xuat"):
                 desc_lines.append(f"Xuất: {d['xuat']}")
             if d.get("hoc_ky_label"):
                 desc_lines.append(f"Học kỳ: {d['hoc_ky_label']}")
 
-            summary_prefix = (
-                f"[{d.get('can_bo_1') or d.get('can_bo_2')}] "
-                if d.get("extra_lecturer_match")
-                else ""
-            )
+            # Tiêu đề: [Tên · GT<vai trò>] Coi thi: <môn> — Phòng <phòng>
+            # Áp dụng cho CẢ ca của chính mình lẫn ca của giảng viên
+            # khác đang theo dõi (trước đây chỉ ca giảng viên khác mới
+            # có tên trong tiêu đề, ca của chính mình không có gì).
+            name = d.get("target_name")
+            role = d.get("role")
+            if name:
+                role_txt = f" · GT{role}" if role else ""
+                prefix = f"[{name}{role_txt}] "
+            else:
+                prefix = ""
+            phong_txt = f" — Phòng {d['phong']}" if d.get("phong") else ""
 
             events.append(
                 CalendarEvent(
                     start=start,
                     end=end,
-                    summary=f"{summary_prefix}Coi thi: {d.get('mon_thi') or '(không rõ môn)'}",
+                    summary=(
+                        f"{prefix}Coi thi: {d.get('mon_thi') or '(không rõ môn)'}{phong_txt}"
+                    ),
                     description="\n".join(desc_lines),
                     location=d.get("phong") or "",
                     uid=d.get("id"),

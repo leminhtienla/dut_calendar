@@ -34,9 +34,11 @@ from .const import (
     TYPE_DEADLINE_DIEM,
 )
 from .parser_exam import (
+    duty_role,
     exam_hash,
     filter_exam_duty_by_lecturer,
     filter_exam_duty_by_lecturers,
+    infer_self_name,
     parse_class_deadline,
     parse_class_list,
     parse_exam_datetime,
@@ -169,6 +171,15 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 d["extra_lecturer_match"] = False
             all_duties.extend(duties)
 
+        # Suy luận tên hiển thị của chính tài khoản đăng nhập từ danh
+        # sách ca thi CỦA CHÍNH MÌNH (trước khi gộp thêm ca của giảng
+        # viên khác) — CB1/CB2 không cố định vị trí nên phải suy luận,
+        # không thể giả định CB1 luôn là mình.
+        self_name = await self.hass.async_add_executor_job(infer_self_name, all_duties)
+        for d in all_duties:
+            d["target_name"] = self_name
+            d["role"] = duty_role(d, self_name)
+
         # --- Theo dõi thêm giảng viên khác (nếu có chọn) ---
         # Tải danh sách TOÀN BỘ (không giới hạn theo tài khoản đăng nhập)
         # rồi lọc cục bộ theo (các) tên đã chọn, gộp thêm vào all_duties.
@@ -194,6 +205,19 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
                 for d in matched:
                     d["extra_lecturer_match"] = True
+                    # Xác định ĐÚNG người trong (các) giảng viên đang
+                    # theo dõi khớp với dòng này (để hiện tên + vai trò
+                    # GT1/GT2 chính xác, không phải tên đầu tiên bất kỳ).
+                    matched_name = next(
+                        (
+                            lecturer
+                            for lecturer in lecturers
+                            if duty_role(d, lecturer) is not None
+                        ),
+                        None,
+                    )
+                    d["target_name"] = matched_name
+                    d["role"] = duty_role(d, matched_name)
                 all_duties.extend(matched)
 
         # Khử trùng theo id (vd giảng viên khác vốn đã là "Cán bộ 2" cùng
@@ -371,13 +395,13 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for d in new_duties[:10]:
             start = d["start"]
             time_str = start.strftime("%H:%M %d/%m/%Y") if start else d["thoi_gian_raw"]
-            if d.get("extra_lecturer_match"):
-                tag = f"[{d.get('can_bo_1') or d.get('can_bo_2')}] "
-            else:
-                tag = ""
+            name = d.get("target_name")
+            role = d.get("role")
+            tag = f"[{name} · GT{role}] " if name and role else ""
+            other = d["can_bo_2"] if role == "1" else d["can_bo_1"]
             lines.append(
                 f"• {tag}{d['mon_thi']} — {time_str}, phòng {d['phong']} "
-                f"(cùng coi thi: {d['can_bo_2']})"
+                f"(cùng coi thi: {other})"
             )
         if len(new_duties) > 10:
             lines.append(f"... và {len(new_duties) - 10} ca khác.")

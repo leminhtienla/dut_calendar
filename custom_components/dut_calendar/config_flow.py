@@ -210,23 +210,39 @@ def _schema_login_credentials(
 
 
 # Giá trị đặc biệt cho bước chọn khoa
-KHOA_NONE_SENTINEL = "__none__"  # không theo dõi thêm ai
+KHOA_NONE_SENTINEL = "__none__"  # XÓA HẾT, không theo dõi ai
+KHOA_KEEP_SENTINEL = "__keep__"  # GIỮ NGUYÊN lựa chọn hiện tại, không đổi gì (chỉ OptionsFlow)
 KHOA_ALL_SENTINEL = "__all__"  # gộp tất cả khoa vào 1 danh sách để chọn
 KHOA_RETRY_SENTINEL = "__retry__"  # tải danh sách lỗi -> thử lại
 
 
 def _schema_chon_khoa(
-    khoa_counts: dict[str, int], default: str, failed: bool = False
+    khoa_counts: dict[str, int],
+    default: str,
+    failed: bool = False,
+    current_count: int = 0,
 ) -> vol.Schema:
     """Bước chọn khoa (để rút gọn danh sách tên ở bước sau).
 
-    Khi `failed=True` (tải danh sách lỗi), chỉ hiện 2 lựa chọn: bỏ qua
-    hẳn tính năng này, hoặc thử tải lại — không hiện danh sách khoa
-    (vì không có dữ liệu thật để hiện).
+    Khi `failed=True` (tải danh sách lỗi), chỉ hiện lựa chọn giữ
+    nguyên/xóa hết + thử tải lại — không hiện danh sách khoa (vì
+    không có dữ liệu thật để hiện).
+
+    `current_count > 0` (chỉ xảy ra khi sửa qua Options, entry đã có
+    sẵn người đang theo dõi) -> hiện thêm lựa chọn "Giữ nguyên", TÁCH
+    BIỆT rõ với "Xóa hết" — tránh nhầm giữa 2 hành động khác hệ quả.
     """
-    options = [
-        SelectOptionDict(value=KHOA_NONE_SENTINEL, label="Không theo dõi thêm ai"),
-    ]
+    options: list[SelectOptionDict] = []
+    if current_count > 0:
+        options.append(
+            SelectOptionDict(
+                value=KHOA_KEEP_SENTINEL,
+                label=f"↩️ Giữ nguyên {current_count} người đang theo dõi, không đổi gì",
+            )
+        )
+    options.append(
+        SelectOptionDict(value=KHOA_NONE_SENTINEL, label="🗑️ Xóa hết, không theo dõi ai")
+    )
     if failed:
         options.append(SelectOptionDict(value=KHOA_RETRY_SENTINEL, label="🔄 Thử tải lại"))
     else:
@@ -717,7 +733,10 @@ class DutCalendarOptionsFlow(OptionsFlow):
         current_lecturers = self._config_entry.options.get(
             CONF_EXTRA_LECTURERS, self._config_entry.data.get(CONF_EXTRA_LECTURERS, [])
         )
-        default_khoa = KHOA_NONE_SENTINEL if not current_lecturers else KHOA_ALL_SENTINEL
+        # Mặc định an toàn: có sẵn người đang theo dõi -> mặc định GIỮ
+        # NGUYÊN (không phải xóa hay đổi khoa), tránh mất dữ liệu nếu
+        # người dùng bấm nhầm/không chú ý tới dropdown này.
+        default_khoa = KHOA_KEEP_SENTINEL if current_lecturers else KHOA_NONE_SENTINEL
 
         if user_input is not None:
             khoa = user_input["khoa"]
@@ -725,6 +744,9 @@ class DutCalendarOptionsFlow(OptionsFlow):
                 self._lecturer_directory = None
                 self._directory_failed = False
                 return await self.async_step_chon_khoa()
+            if khoa == KHOA_KEEP_SENTINEL:
+                self._pending_data[CONF_EXTRA_LECTURERS] = current_lecturers
+                return self.async_create_entry(title="", data=self._pending_data)
             if khoa == KHOA_NONE_SENTINEL:
                 self._pending_data[CONF_EXTRA_LECTURERS] = []
                 return self.async_create_entry(title="", data=self._pending_data)
@@ -746,14 +768,18 @@ class DutCalendarOptionsFlow(OptionsFlow):
         if self._directory_failed:
             return self.async_show_form(
                 step_id="chon_khoa",
-                data_schema=_schema_chon_khoa({}, KHOA_NONE_SENTINEL, failed=True),
+                data_schema=_schema_chon_khoa(
+                    {}, default_khoa, failed=True, current_count=len(current_lecturers)
+                ),
                 errors=errors,
             )
 
         khoa_counts = {k: len(v) for k, v in self._lecturer_directory.items()}
         return self.async_show_form(
             step_id="chon_khoa",
-            data_schema=_schema_chon_khoa(khoa_counts, default_khoa),
+            data_schema=_schema_chon_khoa(
+                khoa_counts, default_khoa, current_count=len(current_lecturers)
+            ),
             errors=errors,
         )
 
