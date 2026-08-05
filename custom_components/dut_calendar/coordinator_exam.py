@@ -44,6 +44,7 @@ from .parser_exam import (
     filter_exam_duty_by_lecturer,
     filter_exam_duty_by_lecturers,
     infer_self_name,
+    infer_self_name_from_khoa,
     apply_bao_nghi,
     build_teaching_events,
     lgd_to_grade_deadlines,
@@ -126,6 +127,12 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def is_deadline_diem(self) -> bool:
         return self.entry.data.get(CONF_TYPE) == TYPE_DEADLINE_DIEM
+
+    @property
+    def username(self) -> str:
+        return str(
+            self.entry.options.get(CONF_USERNAME, self.entry.data.get(CONF_USERNAME, ""))
+        )
 
     @property
     def is_lichgiangday(self) -> bool:
@@ -424,13 +431,47 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     khoa, ten = muc.split("|", 1)
                     theo_khoa.setdefault(khoa.strip(), []).append(ten.strip())
 
+                # Cache theo (học kỳ, khoa) để không tải trùng — response
+                # danh sách lớp cả khoa khá nặng (~170KB).
+                cache_khoa: dict[tuple[str, str], list[dict[str, Any]]] = {}
+
+                async def _rows_of(hk: str, khoa: str) -> list[dict[str, Any]]:
+                    key = (hk, khoa)
+                    if key in cache_khoa:
+                        return cache_khoa[key]
+                    raw_kh = await self._client.fetch_lop_hp_khoa_html(hk, khoa)
+                    rows = await self.hass.async_add_executor_job(parse_lop_hp_khoa, raw_kh)
+                    cache_khoa[key] = rows
+                    return rows
+
+                # Nếu có theo dõi người khác thì gắn luôn TÊN CỦA CHÍNH
+                # MÌNH lên buổi dạy của mình, để nhìn lịch biết ngay
+                # buổi nào của ai (trước đây chỉ người khác mới có tên).
+                # Khoa của mình suy từ 3 số đầu của tài khoản (theo quy
+                # ước mã tài khoản của trường: 3 số mã đơn vị + tên).
+                if theo_khoa:
+                    own_khoa = (self.username or "")[:3]
+                    if own_khoa.isdigit():
+                        for hk, parsed_lgd in lich_giang_day.items():
+                            own_ma = {
+                                re.sub(r"\D", "", str(l.get("ma_lop") or ""))
+                                for l in parsed_lgd.get("lop_hoc", [])
+                            }
+                            try:
+                                rows_own = await _rows_of(hk, own_khoa)
+                            except Exception:  # noqa: BLE001
+                                continue
+                            ten_toi = await self.hass.async_add_executor_job(
+                                infer_self_name_from_khoa, rows_own, own_ma
+                            )
+                            if ten_toi:
+                                for ev in buoi_day:
+                                    ev.setdefault("nguoi", ten_toi)
+
                 for hk in lich_giang_day:
                     for khoa, ten_list in theo_khoa.items():
                         try:
-                            raw_kh = await self._client.fetch_lop_hp_khoa_html(hk, khoa)
-                            rows_kh = await self.hass.async_add_executor_job(
-                                parse_lop_hp_khoa, raw_kh
-                            )
+                            rows_kh = await _rows_of(hk, khoa)
                         except Exception as err:  # noqa: BLE001
                             _LOGGER.warning(
                                 "Không lấy được lớp học phần khoa %s (HK %s): %s",

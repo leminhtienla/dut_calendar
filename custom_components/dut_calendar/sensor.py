@@ -222,7 +222,7 @@ def _device_info_coithi(entry: ConfigEntry) -> DeviceInfo:
 def _device_info_deadline(entry: ConfigEntry) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
-        name="DUT Calendar - Hạn nộp điểm",
+        name="DUT Calendar - Nhập điểm",
         manufacturer="cb.dut.udn.vn (không chính thức)",
         model="Cảnh báo hạn nộp điểm",
     )
@@ -588,7 +588,7 @@ class DeadlineTodoSensor(CoordinatorEntity[CBDutCoordinator], SensorEntity):
 def _device_info_lichgiangday(entry: ConfigEntry) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
-        name="DUT Calendar - Lịch giảng dạy",
+        name="DUT Calendar - Lịch dạy",
         manufacturer="cb.dut.udn.vn (không chính thức)",
         model="Lịch giảng dạy",
     )

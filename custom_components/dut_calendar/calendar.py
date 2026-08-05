@@ -54,8 +54,10 @@ def _start_as_datetime(value: Any) -> datetime:
 class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], CalendarEntity):
     """Lịch gồm mọi mục đang khớp bất kỳ nhóm từ khóa nào đã cấu hình."""
 
-    _attr_has_entity_name = False  # tránh trùng với tên thiết bị -> hiện gọn "Lịch tuần"
-    _attr_name = "Lịch tuần"
+    # Lấy thẳng tên thiết bị làm tên entity (name=None) để danh sách
+    # lịch không hiện lặp "DUT Calendar - X X".
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_icon = "mdi:calendar-text"
 
     def __init__(self, coordinator: LichTuanDutCoordinator, entry: ConfigEntry) -> None:
@@ -134,8 +136,10 @@ class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], Calendar
 class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     """Lịch gồm mọi ca coi thi đã đăng ký trong các học kỳ đang theo dõi."""
 
-    _attr_has_entity_name = False  # tránh trùng với tên thiết bị -> hiện gọn "Coi thi"
-    _attr_name = "Coi thi"
+    # Lấy thẳng tên thiết bị làm tên entity (name=None) để danh sách
+    # lịch không hiện lặp "DUT Calendar - X X".
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
@@ -216,8 +220,10 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
 class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     """Lịch gồm mọi mốc hạn nộp điểm (thi chung + từng lớp) đang theo dõi."""
 
-    _attr_has_entity_name = False  # tránh trùng với tên thiết bị -> hiện gọn "Nhập điểm"
-    _attr_name = "Nhập điểm"
+    # Lấy thẳng tên thiết bị làm tên entity (name=None) để danh sách
+    # lịch không hiện lặp "DUT Calendar - X X".
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_icon = "mdi:calendar-alert"
 
     def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
@@ -226,7 +232,7 @@ class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
         self._attr_unique_id = f"{entry.entry_id}_calendar"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="DUT Calendar - Hạn nộp điểm",
+            name="DUT Calendar - Nhập điểm",
             manufacturer="cb.dut.udn.vn (không chính thức)",
             model="Cảnh báo hạn nộp điểm",
         )
@@ -273,8 +279,10 @@ class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
 class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     """Lịch các buổi lên lớp, dựng từ thời khóa biểu của học kỳ."""
 
-    _attr_has_entity_name = False  # tránh trùng với tên thiết bị
-    _attr_name = "Lịch dạy"
+    # Lấy thẳng tên thiết bị làm tên entity (name=None) để danh sách
+    # lịch không hiện lặp "DUT Calendar - X X".
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_icon = "mdi:teach"
 
     def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
@@ -283,7 +291,7 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
         self._attr_unique_id = f"{entry.entry_id}_calendar_giangday"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="DUT Calendar - Lịch giảng dạy",
+            name="DUT Calendar - Lịch dạy",
             manufacturer="cb.dut.udn.vn (không chính thức)",
             model="Lịch giảng dạy",
         )

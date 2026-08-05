@@ -5,6 +5,19 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.20.2] - 2026-08-05
+
+### Sửa lỗi
+- **Buổi dạy của chính mình không có tên** trong khi buổi của người khác có `[Tên]`, nhìn lịch dễ tưởng là "không rõ của ai". Nay khi có theo dõi thêm người khác, buổi của bạn cũng được gắn tên cho nhất quán (không theo dõi ai thì vẫn không hiện tiền tố, tránh thừa).
+- Thêm `infer_self_name_from_khoa()`: suy luận tên hiển thị của tài khoản bằng cách đối chiếu mã lớp mình dạy (từ `ctrLichGiangDay`, chỉ có mã lớp) với danh sách lớp của khoa (`LopHPKH`, có tên giảng viên). Khoa của mình lấy từ 3 số đầu tài khoản theo quy ước mã của trường. Test dữ liệu thật: suy ra đúng "Lê Minh Tiến" từ 10 lớp.
+- Thêm cache theo (học kỳ, khoa) để không tải trùng danh sách lớp khoa (~170KB/lần).
+
+## [1.20.1] - 2026-08-05
+
+### Sửa lỗi
+- **Danh sách lịch hiện tên lặp** (`DUT Calendar - Lịch giảng dạy Lịch dạy`, `DUT Calendar - Coi thi Coi thi`...). Bản sửa cũ (1.5.1) đặt `has_entity_name = False` chỉ có tác dụng ở trang thiết bị, danh sách Calendar vẫn ghép "tên thiết bị + tên entity". Nay đặt `has_entity_name = True` + `name = None` để entity **lấy thẳng tên thiết bị**, hiển thị đúng 1 lần.
+- Đổi tên thiết bị cho gọn/đúng: `DUT Calendar - Hạn nộp điểm` -> **`DUT Calendar - Nhập điểm`**, `DUT Calendar - Lịch giảng dạy` -> **`DUT Calendar - Lịch dạy`**. Tên thiết bị trong `sensor.py` và `calendar.py` đã đối chiếu khớp nhau (nếu lệch, HA sẽ tạo 2 thiết bị trùng).
+
 ## [1.20.0] - 2026-08-05
 
 ### Thay đổi (làm rõ 2 loại hạn dễ nhầm)
@@ -304,7 +317,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.20.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.20.2...HEAD
+[1.20.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.2
+[1.20.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.1
 [1.20.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.0
 [1.19.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.3
 [1.19.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.2

@@ -1064,3 +1064,34 @@ def filter_lop_hp_by_lecturer(
                 out.append(r)
                 break
     return out
+
+
+def infer_self_name_from_khoa(
+    rows: list[dict[str, Any]], own_ma_lops: set[str]
+) -> str | None:
+    """Suy luận TÊN HIỂN THỊ của chính tài khoản đăng nhập.
+
+    Endpoint cá nhân (ctrLichGiangDay) chỉ cho mã lớp chứ không cho
+    tên giảng viên; còn danh sách lớp của cả khoa (LopHPKH) thì có
+    tên. Đối chiếu 2 nguồn: tên xuất hiện nhiều nhất trên chính các
+    lớp mình dạy là tên của mình.
+
+    `own_ma_lops` = tập mã lớp (chỉ chữ số) lấy từ ctrLichGiangDay.
+    Trả về None nếu không đủ dữ liệu để kết luận.
+    """
+    if not own_ma_lops:
+        return None
+
+    dem: dict[str, int] = {}
+    for r in rows:
+        ma = re.sub(r"\D", "", str(r.get("ma_lop") or ""))
+        if ma not in own_ma_lops:
+            continue
+        for key in ("gv_chinh", "gv_cong_tac"):
+            n = (r.get(key) or "").strip()
+            if n:
+                dem[n] = dem.get(n, 0) + 1
+
+    if not dem:
+        return None
+    return max(dem.items(), key=lambda kv: kv[1])[0]

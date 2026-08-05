@@ -103,6 +103,19 @@ khóa** (vd "Lê Minh Tiến: Hôm nay", "Lê Minh Tiến: Tuần này"...), bê
 cạnh bộ đếm TỔNG (gộp mọi nhóm) đã có sẵn — tổng cộng `5 × (1 + số
 nhóm từ khóa)` sensor đếm cho riêng `dut_lichtuan`.
 
+## Tên thiết bị & Calendar
+
+Mỗi loại nguồn là 1 thiết bị riêng, entity Calendar **lấy thẳng tên
+thiết bị** (không ghép "thiết bị + entity") nên danh sách lịch không
+bị lặp:
+
+| Thiết bị | Calendar hiển thị |
+|---|---|
+| DUT Calendar - Lịch tuần | `DUT Calendar - Lịch tuần` |
+| DUT Calendar - Coi thi | `DUT Calendar - Coi thi` |
+| DUT Calendar - Nhập điểm | `DUT Calendar - Nhập điểm` |
+| DUT Calendar - Lịch dạy | `DUT Calendar - Lịch dạy` |
+
 ## Calendar — tên rút gọn
 
 - `dut_lichtuan` → Calendar **`Lịch tuần`**
