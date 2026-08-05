@@ -5,6 +5,22 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.23.1] - 2026-08-05
+
+### Tài liệu
+- Làm rõ: "Chỉ quét email chưa đọc" và "Số mail gần nhất" hoạt động theo kiểu **VÀ** — bật tick + để 50 nghĩa là quét **50 mail chưa đọc mới nhất** (lọc `UNSEEN` trước, cắt 50 mail mới nhất sau). Bước lọc chỉ lấy danh sách ID nên hộp thư nhiều nghìn mail chưa đọc không làm lần quét nặng thêm.
+
+## [1.23.0] - 2026-08-05
+
+### Thêm mới
+- **Tùy chọn "Chỉ quét email chưa đọc"** cho `dut_mail` (mặc định tắt). Bật thì dùng cờ IMAP `UNSEEN` — nhẹ hơn nhiều với hộp thư lớn, nhưng mail mở ở nơi khác trước khi HA quét sẽ bị bỏ sót; tắt thì quét N mail gần nhất rồi khử trùng theo `Message-ID` (an toàn, không bỏ sót). Cả 2 chế độ đều không đánh dấu đã đọc và không xóa mail.
+- (Ô "Số mail gần nhất quét mỗi lần", mặc định 50, đã có sẵn trong form từ 1.22.0.)
+
+## [1.22.2] - 2026-08-05
+
+### Sửa lỗi
+- **Lần quét email đầu tiên bắn thông báo hàng loạt cho mail cũ**: lịch sử còn rỗng nên mọi mail khớp từ khóa trong cửa sổ quét đều bị coi là "mới". Nay lần quét đầu chỉ **nạp nền** (ghi vào lịch sử, hiện trên sensor) và **không gửi thông báo**; từ lần quét thứ hai trở đi mới cảnh báo mail mới.
+
 ## [1.22.1] - 2026-08-05
 
 ### Sửa lỗi (người dùng phát hiện: chọn HK1 26-27 nhưng không thấy buổi dạy nào)
@@ -349,7 +365,10 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.22.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.23.1...HEAD
+[1.23.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.23.1
+[1.23.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.23.0
+[1.22.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.22.2
 [1.22.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.22.1
 [1.22.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.22.0
 [1.21.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.21.0

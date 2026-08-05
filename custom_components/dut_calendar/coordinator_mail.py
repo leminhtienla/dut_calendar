@@ -17,6 +17,7 @@ from .const import (
     CONF_MAIL_HOST,
     CONF_MAIL_LIMIT,
     CONF_MAIL_PORT,
+    CONF_MAIL_UNSEEN_ONLY,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
@@ -25,6 +26,7 @@ from .const import (
     DEFAULT_MAIL_HOST,
     DEFAULT_MAIL_LIMIT,
     DEFAULT_MAIL_PORT,
+    DEFAULT_MAIL_UNSEEN_ONLY,
     DEFAULT_SCAN_INTERVAL_MAIL,
     DOMAIN,
     EVENT_MAIL_MATCH,
@@ -55,6 +57,10 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._history: dict[str, dict[str, Any]] = {}
         self._keywords_signature: str | None = None
         self._loaded_storage = False
+        # Lần quét ĐẦU TIÊN (chưa có lịch sử) sẽ nạp nền, KHÔNG thông
+        # báo — nếu không sẽ bắn hàng loạt cảnh báo cho mail cũ ngay
+        # khi vừa cài đặt.
+        self._first_run = True
 
     # ---------------- cấu hình ----------------
     def _opt(self, key: str, default: Any) -> Any:
@@ -92,6 +98,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._loaded_storage:
             return
         data = await self._store.async_load()
+        self._first_run = not (data and isinstance(data.get("mail_history"), dict))
         if data and isinstance(data.get("mail_history"), dict):
             self._history = data["mail_history"]
         if data and isinstance(data.get("mail_keywords_signature"), str):
@@ -151,6 +158,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 str(self._opt(CONF_PASSWORD, "")),
                 str(self._opt(CONF_MAIL_FOLDER, DEFAULT_MAIL_FOLDER)),
                 int(self._opt(CONF_MAIL_LIMIT, DEFAULT_MAIL_LIMIT)),
+                bool(self._opt(CONF_MAIL_UNSEEN_ONLY, DEFAULT_MAIL_UNSEEN_ONLY)),
             )
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Lỗi đọc hộp thư: {err}") from err
@@ -174,10 +182,19 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 new_matches.append(item)
             self._history[key] = item
 
+        if new_matches and self._first_run:
+            _LOGGER.info(
+                "Lần quét đầu: nạp nền %d email khớp từ khóa, không gửi thông báo",
+                len(new_matches),
+            )
+            new_matches = []
+
         if new_matches:
             for m in new_matches:
                 self.hass.bus.async_fire(EVENT_MAIL_MATCH, m)
             await self._async_notify(new_matches)
+
+        self._first_run = False
 
         self._prune_history()
         await self._async_save_storage()

@@ -258,9 +258,25 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
   không, tiêu đề tiếng Việt sẽ không bao giờ khớp từ khóa.
 - Chỉ báo email **mới**, khử trùng theo `Message-ID`; lưu lịch sử
   **30 ngày**. Đổi từ khóa thì xóa lịch sử và quét lại (như lịch tuần).
-- **Không dùng cờ `UNSEEN`** như cách làm thường thấy: nếu bạn mở mail
-  trên điện thoại trước, mail đó thành "đã đọc" và sẽ bị bỏ sót. Thay
-  vào đó quét N mail gần nhất rồi khử trùng theo ID.
+- **Phạm vi quét**: mỗi lần chỉ đọc **N email mới nhất** của thư mục
+  (mặc định 50, chỉnh được) — không quét lại toàn bộ hộp thư. Với chu
+  kỳ 15 phút thì cửa sổ 50 mail là quá đủ; chỉ cần tăng nếu bạn nhận
+  rất nhiều mail hoặc để chu kỳ quét thưa.
+- **Lần quét đầu tiên chỉ nạp nền, KHÔNG thông báo** — nếu không, mọi
+  mail cũ khớp từ khóa sẽ bị coi là "mới" và bắn hàng loạt cảnh báo
+  ngay khi vừa cài. Từ lần quét thứ hai trở đi mới cảnh báo mail mới.
+- **Tùy chọn "Chỉ quét email chưa đọc"** (mặc định **tắt**):
+  - *Tắt* — quét N mail gần nhất rồi khử trùng theo `Message-ID`. An
+    toàn nhất, không bỏ sót.
+  - *Bật* — chỉ lấy mail chưa đọc, nhẹ hơn với hộp thư lớn, **nhưng**
+    mail nào bạn mở trên điện thoại/máy tính trước khi HA kịp quét sẽ
+    thành "đã đọc" và **bị bỏ sót vĩnh viễn**.
+  - Hai tùy chọn hoạt động theo kiểu **VÀ**: bật tick + để 50 nghĩa là
+    quét **50 mail chưa đọc mới nhất**. Thứ tự xử lý: lọc `UNSEEN`
+    trước, cắt lấy 50 mail mới nhất sau. Bước lọc chỉ lấy danh sách ID
+    (rất nhẹ), phần tải nội dung luôn bị giới hạn bởi con số này — nên
+    hộp thư nhiều nghìn mail chưa đọc cũng không làm lần quét nặng lên.
+  - Cả hai chế độ đều **không** đánh dấu đã đọc và **không** xóa mail.
 - Sensor: `Email khớp từ khóa` (tổng) + 1 sensor mỗi nhóm từ khóa +
   đếm **Hôm nay / Tuần này / Tháng này** (mail chỉ có ngày nhận trong
   quá khứ nên không có "Ngày mai"/"Tuần sau").

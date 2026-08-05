@@ -125,7 +125,8 @@
           "mail_folder": "Thư mục",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "mail_limit": "Số mail gần nhất quét mỗi lần",
-          "notify_service": "Notify service tùy chọn"
+          "notify_service": "Notify service tùy chọn",
+          "mail_unseen_only": "Chỉ quét email CHƯA ĐỌC (nhẹ hơn với hộp thư lớn, nhưng mail bạn đã mở ở nơi khác trước khi HA quét sẽ bị bỏ sót)"
         }
       }
     },
@@ -160,7 +161,8 @@
           "mail_host": "Máy chủ IMAP",
           "mail_port": "Cổng IMAP",
           "mail_folder": "Thư mục",
-          "mail_limit": "Số mail gần nhất quét mỗi lần"
+          "mail_limit": "Số mail gần nhất quét mỗi lần",
+          "mail_unseen_only": "Chỉ quét email CHƯA ĐỌC (nhẹ hơn với hộp thư lớn, nhưng mail bạn đã mở ở nơi khác trước khi HA quét sẽ bị bỏ sót)"
         }
       },
       "hocky": {

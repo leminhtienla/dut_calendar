@@ -36,6 +36,7 @@ from .const import (
     CONF_MAIL_HOST,
     CONF_MAIL_LIMIT,
     CONF_MAIL_PORT,
+    CONF_MAIL_UNSEEN_ONLY,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
@@ -50,6 +51,7 @@ from .const import (
     DEFAULT_MAIL_HOST,
     DEFAULT_MAIL_LIMIT,
     DEFAULT_MAIL_PORT,
+    DEFAULT_MAIL_UNSEEN_ONLY,
     DEFAULT_SCAN_INTERVAL_MAIL,
     MAX_SCAN_INTERVAL_MAIL,
     MIN_SCAN_INTERVAL_MAIL,
@@ -288,6 +290,10 @@ def _schema_mail(defaults: dict[str, Any], require_password: bool) -> vol.Schema
             vol.Optional(
                 CONF_MAIL_LIMIT, default=defaults.get(CONF_MAIL_LIMIT, DEFAULT_MAIL_LIMIT)
             ): NumberSelector(NumberSelectorConfig(min=10, max=500, step=10, mode=NumberSelectorMode.BOX)),
+            vol.Optional(
+                CONF_MAIL_UNSEEN_ONLY,
+                default=defaults.get(CONF_MAIL_UNSEEN_ONLY, DEFAULT_MAIL_UNSEEN_ONLY),
+            ): BooleanSelector(),
             vol.Optional(
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),

@@ -125,7 +125,8 @@
           "mail_folder": "Folder",
           "scan_interval": "Check interval (minutes)",
           "mail_limit": "Number of recent mails to scan",
-          "notify_service": "Optional notify service"
+          "notify_service": "Optional notify service",
+          "mail_unseen_only": "Scan UNREAD mails only (lighter for large mailboxes, but mails you open elsewhere before HA scans will be missed)"
         }
       }
     },
@@ -160,7 +161,8 @@
           "mail_host": "IMAP host",
           "mail_port": "IMAP port",
           "mail_folder": "Folder",
-          "mail_limit": "Number of recent mails to scan"
+          "mail_limit": "Number of recent mails to scan",
+          "mail_unseen_only": "Scan UNREAD mails only (lighter for large mailboxes, but mails you open elsewhere before HA scans will be missed)"
         }
       },
       "hocky": {

@@ -125,13 +125,21 @@ def fetch_recent_mails(
     password: str,
     folder: str = "INBOX",
     limit: int = 50,
+    unseen_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Kết nối IMAP, lấy `limit` email MỚI NHẤT của thư mục.
 
-    CHỦ Ý không dùng cờ UNSEEN như script cũ: HA quét định kỳ, nếu bạn
-    mở mail trên điện thoại trước thì mail đó thành SEEN và sẽ bị bỏ
-    sót. Thay vào đó lấy N mail gần nhất rồi khử trùng theo Message-ID
-    ở coordinator. Cũng KHÔNG đánh dấu đã đọc / KHÔNG xóa mail.
+    `unseen_only=False` (mặc định): lấy N mail GẦN NHẤT rồi khử trùng
+    theo Message-ID ở coordinator — an toàn nhất, không bỏ sót.
+
+    `unseen_only=True`: chỉ lấy mail CHƯA ĐỌC. Nhẹ hơn nhiều nếu hộp
+    thư lớn, NHƯNG có rủi ro: mail nào bạn mở trên điện thoại/máy tính
+    trước khi HA kịp quét sẽ thành "đã đọc" và bị BỎ SÓT vĩnh viễn.
+
+    Hai tham số kết hợp theo kiểu VÀ: lọc UNSEEN trước, rồi mới cắt
+    lấy `limit` mail mới nhất trong số đó.
+
+    Cả 2 chế độ đều KHÔNG đánh dấu đã đọc và KHÔNG xóa mail.
     """
     conn = imaplib.IMAP4_SSL(host, port)
     try:
@@ -139,7 +147,7 @@ def fetch_recent_mails(
         # readonly=True: tuyệt đối không làm thay đổi trạng thái hộp thư
         conn.select(folder, readonly=True)
 
-        typ, data = conn.search(None, "ALL")
+        typ, data = conn.search(None, "UNSEEN" if unseen_only else "ALL")
         if typ != "OK" or not data or not data[0]:
             return []
 
