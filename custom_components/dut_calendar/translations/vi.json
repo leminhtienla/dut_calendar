@@ -7,7 +7,8 @@
           "dut_lichtuan": "Lịch tuần (công khai, theo từ khóa, không cần đăng nhập)",
           "dut_coithi": "Lịch coi thi (cần đăng nhập cb.dut.udn.vn)",
           "dut_deadline_diem": "Hạn nộp điểm (cần đăng nhập cb.dut.udn.vn)",
-          "dut_lichgiangday": "Lịch giảng dạy (cần đăng nhập)"
+          "dut_lichgiangday": "Lịch giảng dạy (cần đăng nhập)",
+          "dut_mail": "Email (IMAP, lọc theo từ khóa)"
         }
       },
       "dut_lichtuan": {
@@ -111,6 +112,21 @@
         "data": {
           "extra_lecturers": "Giảng viên"
         }
+      },
+      "dut_mail": {
+        "title": "Email",
+        "description": "Đọc hộp thư qua IMAP và cảnh báo email khớp từ khóa. Gmail yêu cầu bật Xác minh 2 bước rồi tạo App Password. Chỉ ĐỌC, không đánh dấu đã đọc và không xóa mail.",
+        "data": {
+          "username": "Địa chỉ email (vd: lmtntla@gmail.com)",
+          "password": "Mật khẩu ứng dụng (App Password) — KHÔNG dùng mật khẩu Gmail thường",
+          "keywords": "Nhóm từ khóa (mỗi dòng 1 nhóm)",
+          "mail_host": "Máy chủ IMAP",
+          "mail_port": "Cổng IMAP",
+          "mail_folder": "Thư mục",
+          "scan_interval": "Tần suất kiểm tra (phút)",
+          "mail_limit": "Số mail gần nhất quét mỗi lần",
+          "notify_service": "Notify service tùy chọn"
+        }
       }
     },
     "error": {
@@ -131,16 +147,20 @@
         "title": "Cập nhật cấu hình",
         "description": "Với nguồn 'Lịch tuần': sửa từ khóa trực tiếp. Với nguồn cần đăng nhập: để trống ô Mật khẩu nếu không muốn đổi — sau khi lưu sẽ chuyển sang bước chọn lại học kỳ.",
         "data": {
-          "keywords": "Danh sách nhóm từ khóa (mỗi dòng 1 nhóm)",
+          "keywords": "Nhóm từ khóa (mỗi dòng 1 nhóm)",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "weeks_ahead": "Số tuần kiểm tra thêm",
           "notify_service": "Notify service tùy chọn",
-          "username": "Tài khoản",
-          "password": "Mật khẩu mới (để trống = giữ nguyên)",
+          "username": "Địa chỉ email (vd: lmtntla@gmail.com)",
+          "password": "Mật khẩu ứng dụng (App Password) — KHÔNG dùng mật khẩu Gmail thường",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
           "update_mode": "Chế độ cập nhật",
           "clear_history": "Xóa lịch sử cũ (tick để xóa 1 lần, tự tắt lại sau khi xóa)",
-          "configure_extra_lecturer": "Theo dõi thêm giảng viên khác? (bật thì bước sau sẽ tải danh sách khoa/tên, ~1MB, có thể mất chút thời gian)"
+          "configure_extra_lecturer": "Theo dõi thêm giảng viên khác? (bật thì bước sau sẽ tải danh sách khoa/tên, ~1MB, có thể mất chút thời gian)",
+          "mail_host": "Máy chủ IMAP",
+          "mail_port": "Cổng IMAP",
+          "mail_folder": "Thư mục",
+          "mail_limit": "Số mail gần nhất quét mỗi lần"
         }
       },
       "hocky": {

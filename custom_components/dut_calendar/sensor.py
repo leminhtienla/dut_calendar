@@ -14,14 +14,24 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_TYPE, DOMAIN, TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY
+from .const import (
+    CONF_TYPE,
+    DOMAIN,
+    TYPE_COITHI,
+    TYPE_DEADLINE_DIEM,
+    TYPE_LICHGIANGDAY,
+    TYPE_MAIL,
+)
 from .coordinator_exam import CBDutCoordinator
+from .coordinator_mail import DutMailCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 from .parser_exam import build_deadline_events, format_hoc_ky, parse_vn_date
 from .parser_public import parse_event_datetime
 
 MAX_ATTR_ENTRIES = 25
 PERIODS = ("today", "tomorrow", "week", "next_week", "month")
+# Mail chỉ có ngày NHẬN (quá khứ) nên bỏ "ngày mai"/"tuần sau"
+MAIL_PERIODS = ("today", "week", "month")
 
 
 def _purge_stale_sensors(
@@ -51,7 +61,16 @@ async def async_setup_entry(
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
-    if isinstance(coordinator, LichTuanDutCoordinator):
+    if isinstance(coordinator, DutMailCoordinator):
+        mail_entities: list[SensorEntity] = [MailTotalSensor(coordinator, entry)]
+        for label in coordinator.keyword_labels:
+            mail_entities.append(MailKeywordSensor(coordinator, entry, label))
+        mail_entities += [
+            MailCountSensor(coordinator, entry, period) for period in MAIL_PERIODS
+        ]
+        _purge_stale_sensors(hass, entry, {e.unique_id for e in mail_entities})
+        async_add_entities(mail_entities)
+    elif isinstance(coordinator, LichTuanDutCoordinator):
         entities: list[SensorEntity] = [PublicTotalSensor(coordinator, entry)]
         labels = coordinator.keyword_labels
         for label in labels:
@@ -612,3 +631,112 @@ class TeachingCountSensor(_CountSensorBase):
             for b in data.get("buoi_day", [])
             if b.get("start") and not b.get("da_nghi")
         ]
+
+
+# =====================================================================
+# Nguồn: Email (IMAP) — lọc theo nhóm từ khóa
+# =====================================================================
+def _device_info_mail(entry: ConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="DUT Calendar - Email",
+        manufacturer="IMAP (không chính thức)",
+        model="Cảnh báo email theo từ khóa",
+    )
+
+
+def _simplify_mail(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "nguoi_gui": m.get("sender"),
+            "tieu_de": m.get("subject"),
+            "nhan_luc": m.get("received"),
+            "matched_keywords": m.get("matched_keywords"),
+        }
+        for m in matches[:MAX_ATTR_ENTRIES]
+    ]
+
+
+class MailTotalSensor(CoordinatorEntity[DutMailCoordinator], SensorEntity):
+    """Tổng số email khớp từ khóa (trong phạm vi còn lưu lịch sử)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Email khớp từ khóa"
+    _attr_icon = "mdi:email-search"
+    _attr_native_unit_of_measurement = "mail"
+
+    def __init__(self, coordinator: DutMailCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_mail_total"
+        self._attr_device_info = _device_info_mail(entry)
+
+    @property
+    def native_value(self) -> int:
+        return len((self.coordinator.data or {}).get("matches", []))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        return {
+            "so_mail_da_quet": data.get("total_mails", 0),
+            "mail_moi_lan_quet_gan_nhat": len(data.get("new_matches", [])),
+            "matches": _simplify_mail(data.get("matches", [])),
+            "last_checked": datetime.now().isoformat(timespec="seconds"),
+        }
+
+
+class MailKeywordSensor(CoordinatorEntity[DutMailCoordinator], SensorEntity):
+    """Số email khớp một nhóm từ khóa cụ thể."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:email-alert"
+    _attr_native_unit_of_measurement = "mail"
+
+    def __init__(
+        self, coordinator: DutMailCoordinator, entry: ConfigEntry, label: str
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._label = label
+        self._attr_name = f"Email: {label}"
+        kw_hash = hashlib.sha1(label.strip().lower().encode("utf-8")).hexdigest()[:12]
+        self._attr_unique_id = f"{entry.entry_id}_mail_kw_{kw_hash}"
+        self._attr_device_info = _device_info_mail(entry)
+
+    def _matches(self) -> list[dict[str, Any]]:
+        return [
+            m
+            for m in (self.coordinator.data or {}).get("matches", [])
+            if self._label in (m.get("matched_keywords") or [])
+        ]
+
+    @property
+    def native_value(self) -> int:
+        return len(self._matches())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"label": self._label, "matches": _simplify_mail(self._matches())}
+
+
+class MailCountSensor(_CountSensorBase):
+    """Đếm email khớp từ khóa theo hôm nay / tuần này / tháng này."""
+
+    def __init__(
+        self, coordinator: DutMailCoordinator, entry: ConfigEntry, period: str
+    ) -> None:
+        super().__init__(coordinator, entry, period)
+        self._attr_device_info = _device_info_mail(entry)
+
+    def _event_dates(self) -> list[date]:
+        out: list[date] = []
+        for m in (self.coordinator.data or {}).get("matches", []):
+            raw = m.get("received")
+            if not raw:
+                continue
+            try:
+                out.append(datetime.fromisoformat(raw).date())
+            except (TypeError, ValueError):
+                continue
+        return out

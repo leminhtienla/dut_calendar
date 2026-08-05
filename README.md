@@ -239,6 +239,33 @@ nếu không muốn đổi.
   vẫn tạo/lưu entry bình thường — chỉ là bỏ qua tính năng này lần đó,
   có thể vào lại Options để thử chọn lại sau.*
 
+## `dut_mail` — Email lọc theo từ khóa
+
+Đọc hộp thư qua **IMAP** và cảnh báo email khớp nhóm từ khóa, dùng
+**cùng cơ chế so khớp với `dut_lichtuan`** (biến thể viết tắt khớp
+theo ranh giới từ + phân biệt hoa thường; biến thể thường khớp chuỗi
+con, không phân biệt hoa thường; chuẩn hóa Unicode NFC).
+
+**Chuẩn bị (Gmail):** bật **Xác minh 2 bước** rồi tạo **App Password**
+(16 ký tự) — Google không cho đăng nhập IMAP bằng mật khẩu tài khoản
+thường. Dùng App Password còn thu hồi riêng được khi cần.
+
+**An toàn:** kết nối ở chế độ **chỉ đọc** (`readonly=True`) — không
+đánh dấu đã đọc, không xóa, không di chuyển mail.
+
+- Lọc trong: **người gửi + tiêu đề + nội dung** (bỏ qua tệp đính kèm).
+- Header MIME (`=?UTF-8?B?...?=`) được giải mã trước khi lọc — nếu
+  không, tiêu đề tiếng Việt sẽ không bao giờ khớp từ khóa.
+- Chỉ báo email **mới**, khử trùng theo `Message-ID`; lưu lịch sử
+  **30 ngày**. Đổi từ khóa thì xóa lịch sử và quét lại (như lịch tuần).
+- **Không dùng cờ `UNSEEN`** như cách làm thường thấy: nếu bạn mở mail
+  trên điện thoại trước, mail đó thành "đã đọc" và sẽ bị bỏ sót. Thay
+  vào đó quét N mail gần nhất rồi khử trùng theo ID.
+- Sensor: `Email khớp từ khóa` (tổng) + 1 sensor mỗi nhóm từ khóa +
+  đếm **Hôm nay / Tuần này / Tháng này** (mail chỉ có ngày nhận trong
+  quá khứ nên không có "Ngày mai"/"Tuần sau").
+- Không có Calendar — email không phải sự kiện có giờ diễn ra.
+
 ## `dut_deadline_diem` — Hạn nộp điểm
 
 **Sensor `Hạn nộp điểm` hiện `Unknown` nghĩa là gì?** Sensor này có

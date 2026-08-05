@@ -351,148 +351,168 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # ngắt quãng (nghỉ Tết). Chỉ áp dụng cho loại "lịch giảng dạy".
         buoi_day: list[dict[str, Any]] = []
         if lich_giang_day and self.is_lichgiangday:
-            week_map: dict[int, Any] = {}
-            # Nguồn ƯU TIÊN: chính cb.dut.udn.vn (tab "Biểu đồ thời
-            # gian giảng ở năm học") — cùng nguồn với thời khóa biểu
-            # nên chắc chắn khớp cách đánh số tuần.
+            # LƯU Ý: mỗi HỌC KỲ thuộc một NĂM HỌC khác nhau nên phải
+            # dựng bảng quy đổi tuần RIÊNG cho từng học kỳ. Trước đây
+            # dùng chung 1 bảng lấy từ học kỳ đầu tiên -> khi chọn
+            # nhiều học kỳ khác năm học (vd HK2 25-26 + HK1 26-27),
+            # lớp của năm sau bị quy ra ngày của năm trước (lệch ~1 năm)
+            # nên không thấy buổi dạy nào ở tuần hiện tại/tuần sau.
+            week_maps: dict[str, dict[int, Any]] = {}
             for hk in lich_giang_day:
                 try:
                     raw_bd = await self._client.fetch_bieu_do_nam_hoc_html(hk)
-                    week_map = await self.hass.async_add_executor_job(
+                    wm = await self.hass.async_add_executor_job(
                         parse_bieu_do_nam_hoc, raw_bd, hk
                     )
-                    if week_map:
-                        break
+                    if wm:
+                        week_maps[hk] = wm
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.debug("Không đọc được biểu đồ năm học HK %s: %s", hk, err)
 
-            # Dự phòng: dropdown công khai của lichtuan.dut.udn.vn
-            if not week_map:
+            # Dự phòng cho học kỳ không đọc được biểu đồ: dropdown công
+            # khai của lichtuan.dut.udn.vn (chỉ đúng cho NĂM HỌC HIỆN
+            # TẠI nên chỉ dùng khi thiếu, không áp cho mọi học kỳ).
+            missing = [hk for hk in lich_giang_day if hk not in week_maps]
+            if missing:
                 try:
                     session = async_get_clientsession(self.hass)
                     async with session.get(LICHTUAN_BASE_URL, timeout=30) as resp:
                         resp.raise_for_status()
                         html_week = await resp.text()
-                    week_map = await self.hass.async_add_executor_job(
+                    wm_public = await self.hass.async_add_executor_job(
                         parse_all_weeks, html_week
                     )
+                    for hk in missing:
+                        if wm_public:
+                            week_maps[hk] = wm_public
+                            _LOGGER.warning(
+                                "HK %s dùng bảng tuần dự phòng từ lichtuan (có thể lệch "
+                                "nếu khác năm học hiện tại)",
+                                hk,
+                            )
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.warning("Không lấy được bảng quy đổi tuần học: %s", err)
 
-            if week_map:
-                for parsed_lgd in lich_giang_day.values():
-                    # Tuần thi giữa kỳ nằm TRONG chuỗi tuần của thời
-                    # khóa biểu nhưng KHÔNG lên lớp -> phải loại ra,
-                    # nếu không sẽ sinh buổi dạy "ma". Lấy từ cột
-                    # "Tuần thi" của bảng hạn nhập điểm (đã đối chiếu
-                    # khớp với ô "K" trên biểu đồ thời gian giảng).
-                    exclude: dict[str, set[int]] = {}
-                    for row in parsed_lgd.get("nhap_diem_theo_lop", []):
-                        tuan_thi = str(row.get("tuan_thi") or "").strip()
-                        if tuan_thi.isdigit():
-                            ma_digits = re.sub(r"\D", "", str(row.get("ma_lop") or ""))
-                            exclude.setdefault(ma_digits, set()).add(int(tuan_thi))
+            for hk, parsed_lgd in lich_giang_day.items():
+                wm = week_maps.get(hk)
+                if not wm:
+                    _LOGGER.warning("Bỏ qua dựng lịch dạy HK %s: thiếu bảng quy đổi tuần", hk)
+                    continue
 
-                    buoi_day.extend(
-                        await self.hass.async_add_executor_job(
-                            build_teaching_events,
-                            parsed_lgd.get("lop_hoc", []),
-                            week_map,
-                            exclude,
-                        )
+                # Tuần thi giữa kỳ nằm TRONG chuỗi tuần của thời khóa
+                # biểu nhưng KHÔNG lên lớp -> phải loại ra, nếu không
+                # sẽ sinh buổi dạy "ma".
+                exclude: dict[str, set[int]] = {}
+                for row in parsed_lgd.get("nhap_diem_theo_lop", []):
+                    tuan_thi = str(row.get("tuan_thi") or "").strip()
+                    if tuan_thi.isdigit():
+                        ma_digits = re.sub(r"\D", "", str(row.get("ma_lop") or ""))
+                        exclude.setdefault(ma_digits, set()).add(int(tuan_thi))
+
+                buoi_day.extend(
+                    await self.hass.async_add_executor_job(
+                        build_teaching_events,
+                        parsed_lgd.get("lop_hoc", []),
+                        wm,
+                        exclude,
                     )
-                # Áp dụng báo nghỉ / dạy bù: buổi đã báo nghỉ được
-                # đánh dấu (không im lặng biến mất), buổi dạy bù được
-                # thêm vào đúng ngày/giờ/phòng đã đăng ký.
-                bao_nghi_all: list[dict[str, Any]] = []
-                for hk in lich_giang_day:
-                    try:
-                        raw_bn = await self._client.fetch_bao_nghi_html(hk)
-                        bao_nghi_all.extend(
-                            await self.hass.async_add_executor_job(parse_bao_nghi, raw_bn)
-                        )
-                    except Exception as err:  # noqa: BLE001
-                        _LOGGER.warning("Không lấy được báo nghỉ/dạy bù HK %s: %s", hk, err)
+                )
 
-                if bao_nghi_all:
-                    buoi_day = await self.hass.async_add_executor_job(
-                        apply_bao_nghi, buoi_day, bao_nghi_all
+            # Áp dụng báo nghỉ / dạy bù: buổi đã báo nghỉ được
+            # đánh dấu (không im lặng biến mất), buổi dạy bù được
+            # thêm vào đúng ngày/giờ/phòng đã đăng ký.
+            bao_nghi_all: list[dict[str, Any]] = []
+            for hk in lich_giang_day:
+                try:
+                    raw_bn = await self._client.fetch_bao_nghi_html(hk)
+                    bao_nghi_all.extend(
+                        await self.hass.async_add_executor_job(parse_bao_nghi, raw_bn)
                     )
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.warning("Không lấy được báo nghỉ/dạy bù HK %s: %s", hk, err)
 
-                # --- Lịch dạy của giảng viên khác (nếu có chọn) ---
-                # Lấy từ danh sách lớp học phần CỦA CẢ KHOA. Lưu ý:
-                # nguồn này KHÔNG có thông tin báo nghỉ/dạy bù, nên
-                # lịch của người khác chỉ là thời khóa biểu gốc.
-                # Tên lưu dạng "<mã khoa>|<họ tên>".
-                theo_khoa: dict[str, list[str]] = {}
-                for muc in self.extra_lecturers:
-                    if "|" not in muc:
-                        continue
-                    khoa, ten = muc.split("|", 1)
-                    theo_khoa.setdefault(khoa.strip(), []).append(ten.strip())
+            if bao_nghi_all:
+                buoi_day = await self.hass.async_add_executor_job(
+                    apply_bao_nghi, buoi_day, bao_nghi_all
+                )
 
-                # Cache theo (học kỳ, khoa) để không tải trùng — response
-                # danh sách lớp cả khoa khá nặng (~170KB).
-                cache_khoa: dict[tuple[str, str], list[dict[str, Any]]] = {}
+            # --- Lịch dạy của giảng viên khác (nếu có chọn) ---
+            # Lấy từ danh sách lớp học phần CỦA CẢ KHOA. Lưu ý:
+            # nguồn này KHÔNG có thông tin báo nghỉ/dạy bù, nên
+            # lịch của người khác chỉ là thời khóa biểu gốc.
+            # Tên lưu dạng "<mã khoa>|<họ tên>".
+            theo_khoa: dict[str, list[str]] = {}
+            for muc in self.extra_lecturers:
+                if "|" not in muc:
+                    continue
+                khoa, ten = muc.split("|", 1)
+                theo_khoa.setdefault(khoa.strip(), []).append(ten.strip())
 
-                async def _rows_of(hk: str, khoa: str) -> list[dict[str, Any]]:
-                    key = (hk, khoa)
-                    if key in cache_khoa:
-                        return cache_khoa[key]
-                    raw_kh = await self._client.fetch_lop_hp_khoa_html(hk, khoa)
-                    rows = await self.hass.async_add_executor_job(parse_lop_hp_khoa, raw_kh)
-                    cache_khoa[key] = rows
-                    return rows
+            # Cache theo (học kỳ, khoa) để không tải trùng — response
+            # danh sách lớp cả khoa khá nặng (~170KB).
+            cache_khoa: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
-                # Nếu có theo dõi người khác thì gắn luôn TÊN CỦA CHÍNH
-                # MÌNH lên buổi dạy của mình, để nhìn lịch biết ngay
-                # buổi nào của ai (trước đây chỉ người khác mới có tên).
-                # Khoa của mình suy từ 3 số đầu của tài khoản (theo quy
-                # ước mã tài khoản của trường: 3 số mã đơn vị + tên).
-                if theo_khoa:
-                    own_khoa = (self.username or "")[:3]
-                    if own_khoa.isdigit():
-                        for hk, parsed_lgd in lich_giang_day.items():
-                            own_ma = {
-                                re.sub(r"\D", "", str(l.get("ma_lop") or ""))
-                                for l in parsed_lgd.get("lop_hoc", [])
-                            }
-                            try:
-                                rows_own = await _rows_of(hk, own_khoa)
-                            except Exception:  # noqa: BLE001
-                                continue
-                            ten_toi = await self.hass.async_add_executor_job(
-                                infer_self_name_from_khoa, rows_own, own_ma
-                            )
-                            if ten_toi:
-                                for ev in buoi_day:
-                                    ev.setdefault("nguoi", ten_toi)
+            async def _rows_of(hk: str, khoa: str) -> list[dict[str, Any]]:
+                key = (hk, khoa)
+                if key in cache_khoa:
+                    return cache_khoa[key]
+                raw_kh = await self._client.fetch_lop_hp_khoa_html(hk, khoa)
+                rows = await self.hass.async_add_executor_job(parse_lop_hp_khoa, raw_kh)
+                cache_khoa[key] = rows
+                return rows
 
-                for hk in lich_giang_day:
-                    for khoa, ten_list in theo_khoa.items():
+            # Nếu có theo dõi người khác thì gắn luôn TÊN CỦA CHÍNH
+            # MÌNH lên buổi dạy của mình, để nhìn lịch biết ngay
+            # buổi nào của ai (trước đây chỉ người khác mới có tên).
+            # Khoa của mình suy từ 3 số đầu của tài khoản (theo quy
+            # ước mã tài khoản của trường: 3 số mã đơn vị + tên).
+            if theo_khoa:
+                own_khoa = (self.username or "")[:3]
+                if own_khoa.isdigit():
+                    for hk, parsed_lgd in lich_giang_day.items():
+                        own_ma = {
+                            re.sub(r"\D", "", str(l.get("ma_lop") or ""))
+                            for l in parsed_lgd.get("lop_hoc", [])
+                        }
                         try:
-                            rows_kh = await _rows_of(hk, khoa)
-                        except Exception as err:  # noqa: BLE001
-                            _LOGGER.warning(
-                                "Không lấy được lớp học phần khoa %s (HK %s): %s",
-                                khoa,
-                                hk,
-                                err,
-                            )
+                            rows_own = await _rows_of(hk, own_khoa)
+                        except Exception:  # noqa: BLE001
                             continue
+                        ten_toi = await self.hass.async_add_executor_job(
+                            infer_self_name_from_khoa, rows_own, own_ma
+                        )
+                        if ten_toi:
+                            for ev in buoi_day:
+                                ev.setdefault("nguoi", ten_toi)
 
-                        for ten in ten_list:
-                            lop_cua_ho = await self.hass.async_add_executor_job(
-                                filter_lop_hp_by_lecturer, rows_kh, ten
-                            )
-                            ev_ho = await self.hass.async_add_executor_job(
-                                build_teaching_events, lop_cua_ho, week_map, None
-                            )
-                            for ev in ev_ho:
-                                ev["nguoi"] = ten
-                            buoi_day.extend(ev_ho)
+            for hk in lich_giang_day:
+                wm_hk = week_maps.get(hk)
+                if not wm_hk:
+                    continue
+                for khoa, ten_list in theo_khoa.items():
+                    try:
+                        rows_kh = await _rows_of(hk, khoa)
+                    except Exception as err:  # noqa: BLE001
+                        _LOGGER.warning(
+                            "Không lấy được lớp học phần khoa %s (HK %s): %s",
+                            khoa,
+                            hk,
+                            err,
+                        )
+                        continue
 
-                buoi_day.sort(key=lambda e: e["start"])
+                    for ten in ten_list:
+                        lop_cua_ho = await self.hass.async_add_executor_job(
+                            filter_lop_hp_by_lecturer, rows_kh, ten
+                        )
+                        ev_ho = await self.hass.async_add_executor_job(
+                            build_teaching_events, lop_cua_ho, wm_hk, None
+                        )
+                        for ev in ev_ho:
+                            ev["nguoi"] = ten
+                        buoi_day.extend(ev_ho)
+
+            buoi_day.sort(key=lambda e: e["start"])
 
         return {
             "duties": all_duties,

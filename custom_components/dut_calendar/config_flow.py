@@ -32,6 +32,10 @@ from .const import (
     CONF_EXTRA_LECTURERS,
     CONF_HOC_KY,
     CONF_KEYWORDS,
+    CONF_MAIL_FOLDER,
+    CONF_MAIL_HOST,
+    CONF_MAIL_LIMIT,
+    CONF_MAIL_PORT,
     CONF_NOTIFY_SERVICE,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
@@ -42,6 +46,13 @@ from .const import (
     DEFAULT_EXAM_DURATION,
     DEFAULT_SCAN_INTERVAL_EXAM,
     DEFAULT_SCAN_INTERVAL_PUBLIC,
+    DEFAULT_MAIL_FOLDER,
+    DEFAULT_MAIL_HOST,
+    DEFAULT_MAIL_LIMIT,
+    DEFAULT_MAIL_PORT,
+    DEFAULT_SCAN_INTERVAL_MAIL,
+    MAX_SCAN_INTERVAL_MAIL,
+    MIN_SCAN_INTERVAL_MAIL,
     DEFAULT_UPDATE_MODE,
     DEFAULT_WEEKS_AHEAD,
     DOMAIN,
@@ -54,6 +65,7 @@ from .const import (
     TYPE_DEADLINE_DIEM,
     TYPE_LICHGIANGDAY,
     TYPE_LICHTUAN,
+    TYPE_MAIL,
     UPDATE_MODE_FULL,
     UPDATE_MODE_SMART,
 )
@@ -230,6 +242,57 @@ def _schema_login_credentials(
         ] = BooleanSelector()
 
     return vol.Schema(schema_dict)
+
+
+def _schema_mail(defaults: dict[str, Any], require_password: bool) -> vol.Schema:
+    """Cấu hình đọc & lọc email qua IMAP.
+
+    Với Gmail phải dùng App Password (mật khẩu ứng dụng 16 ký tự) —
+    Google không cho đăng nhập IMAP bằng mật khẩu tài khoản thường.
+    """
+    pw_key = (
+        vol.Required(CONF_PASSWORD)
+        if require_password
+        else vol.Optional(CONF_PASSWORD, default="")
+    )
+    return vol.Schema(
+        {
+            vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            pw_key: TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Required(
+                CONF_KEYWORDS, default=defaults.get(CONF_KEYWORDS, "")
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT, multiline=True)),
+            vol.Required(
+                CONF_MAIL_HOST, default=defaults.get(CONF_MAIL_HOST, DEFAULT_MAIL_HOST)
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
+                CONF_MAIL_PORT, default=defaults.get(CONF_MAIL_PORT, DEFAULT_MAIL_PORT)
+            ): NumberSelector(NumberSelectorConfig(min=1, max=65535, mode=NumberSelectorMode.BOX)),
+            vol.Required(
+                CONF_MAIL_FOLDER, default=defaults.get(CONF_MAIL_FOLDER, DEFAULT_MAIL_FOLDER)
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
+                CONF_SCAN_INTERVAL,
+                default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_MAIL),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=MIN_SCAN_INTERVAL_MAIL,
+                    max=MAX_SCAN_INTERVAL_MAIL,
+                    step=5,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="phút",
+                )
+            ),
+            vol.Optional(
+                CONF_MAIL_LIMIT, default=defaults.get(CONF_MAIL_LIMIT, DEFAULT_MAIL_LIMIT)
+            ): NumberSelector(NumberSelectorConfig(min=10, max=500, step=10, mode=NumberSelectorMode.BOX)),
+            vol.Optional(
+                CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+        }
+    )
 
 
 # Giá trị đặc biệt cho bước chọn khoa
@@ -556,6 +619,7 @@ class DutCalendarConfigFlow(_GiangDayLecturerMixin, ConfigFlow, domain=DOMAIN):
                 "dut_coithi",
                 "dut_deadline_diem",
                 "dut_lichgiangday",
+                "dut_mail",
             ],
         )
 
@@ -636,6 +700,22 @@ class DutCalendarConfigFlow(_GiangDayLecturerMixin, ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(
             title=f"DUT Calendar - Lịch giảng dạy ({self._pending_data[CONF_USERNAME]})",
             data=self._pending_data,
+        )
+
+    async def async_step_dut_mail(self, user_input: dict[str, Any] | None = None) -> Any:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if not parse_keyword_groups(user_input.get(CONF_KEYWORDS, "")):
+                errors["base"] = "no_keywords"
+            else:
+                data = {**user_input, CONF_TYPE: TYPE_MAIL}
+                return self.async_create_entry(
+                    title=f"DUT Calendar - Email ({data[CONF_USERNAME]})", data=data
+                )
+        return self.async_show_form(
+            step_id="dut_mail",
+            data_schema=_schema_mail(user_input or {}, require_password=True),
+            errors=errors,
         )
 
     async def _step_account_gate(
@@ -842,7 +922,29 @@ class DutCalendarOptionsFlow(_GiangDayLecturerMixin, OptionsFlow):
         entry_type = self._config_entry.data.get(CONF_TYPE)
         if entry_type == TYPE_LICHTUAN:
             return await self._step_lichtuan(user_input)
+        if entry_type == TYPE_MAIL:
+            return await self._step_mail(user_input)
         return await self._step_credentials(user_input)
+
+    async def _step_mail(self, user_input: dict[str, Any] | None) -> Any:
+        errors: dict[str, str] = {}
+        current = {**self._config_entry.data, **self._config_entry.options}
+
+        if user_input is not None:
+            if not parse_keyword_groups(user_input.get(CONF_KEYWORDS, "")):
+                errors["base"] = "no_keywords"
+            else:
+                data = dict(user_input)
+                # Để trống mật khẩu = giữ mật khẩu đã lưu
+                if not data.get(CONF_PASSWORD):
+                    data[CONF_PASSWORD] = current.get(CONF_PASSWORD, "")
+                return self.async_create_entry(title="", data=data)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_schema_mail(user_input or current, require_password=False),
+            errors=errors,
+        )
 
     async def _step_lichtuan(self, user_input: dict[str, Any] | None) -> Any:
         errors: dict[str, str] = {}

@@ -5,6 +5,26 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.22.1] - 2026-08-05
+
+### Sửa lỗi (người dùng phát hiện: chọn HK1 26-27 nhưng không thấy buổi dạy nào)
+- **Bảng quy đổi tuần học bị dùng chung cho mọi học kỳ.** Code cũ chỉ dựng bảng từ **học kỳ đầu tiên** đọc được rồi áp cho tất cả. Khi chọn nhiều học kỳ khác **năm học** (vd HK2 2025-2026 + HK1 2026-2027), lớp của năm sau bị quy ra ngày của năm trước — **lệch đúng 1 năm** (tuần 2 của HK 2610 là 11/08/**2026** nhưng bị tính thành 11/08/**2025**), nên không có buổi nào rơi vào tuần hiện tại/tuần sau.
+- Đã sửa: dựng bảng quy đổi **riêng cho từng học kỳ**; áp dụng cho cả lịch của mình lẫn lịch giảng viên khác. Học kỳ nào không đọc được biểu đồ thì ghi cảnh báo rõ ràng thay vì âm thầm dùng bảng sai; nguồn dự phòng `lichtuan` chỉ dùng khi thiếu và có cảnh báo (vì chỉ đúng cho năm học hiện tại).
+
+## [1.22.0] - 2026-08-05
+
+### Thêm mới
+- **Loại nguồn thứ 5: `dut_mail` — đọc & lọc email qua IMAP**, dùng lại nguyên cơ chế so khớp từ khóa của `dut_lichtuan` (biến thể viết tắt/chuỗi con, chuẩn hóa Unicode NFC).
+  - Giải mã header MIME trước khi lọc — tiêu đề tiếng Việt thường ở dạng `=?UTF-8?B?...?=`, không giải mã thì lọc luôn trượt.
+  - Kết nối **chỉ đọc**: không đánh dấu đã đọc, không xóa, không di chuyển mail.
+  - **Không dùng cờ `UNSEEN`**: nếu mở mail trên điện thoại trước thì mail thành "đã đọc" và bị bỏ sót; thay vào đó quét N mail gần nhất rồi khử trùng theo `Message-ID`.
+  - Chỉ báo mail mới, lưu lịch sử 30 ngày, đổi từ khóa thì quét lại từ đầu.
+  - Sensor: tổng + theo từng nhóm từ khóa + đếm Hôm nay/Tuần này/Tháng này.
+- Module `mail_client.py` thuần Python (test độc lập không cần HA) và `coordinator_mail.py`.
+
+### Lưu ý
+- Gmail cần bật Xác minh 2 bước rồi tạo **App Password**; HA lưu mật khẩu trong `.storage` nên dùng App Password (thu hồi riêng được), đừng dùng mật khẩu Gmail chính.
+
 ## [1.21.0] - 2026-08-05
 
 ### Thêm mới
@@ -329,7 +349,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.21.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.22.1...HEAD
+[1.22.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.22.1
+[1.22.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.22.0
 [1.21.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.21.0
 [1.20.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.3
 [1.20.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.2

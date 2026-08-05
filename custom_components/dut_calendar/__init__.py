@@ -11,8 +11,10 @@ from .const import (
     TYPE_DEADLINE_DIEM,
     TYPE_LICHGIANGDAY,
     TYPE_LICHTUAN,
+    TYPE_MAIL,
 )
 from .coordinator_exam import CBDutCoordinator
+from .coordinator_mail import DutMailCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 
 PLATFORMS = ["sensor", "calendar"]
@@ -23,6 +25,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if entry_type == TYPE_LICHTUAN:
         coordinator = LichTuanDutCoordinator(hass, entry)
+        await coordinator.async_config_entry_first_refresh()
+    elif entry_type == TYPE_MAIL:
+        coordinator = DutMailCoordinator(hass, entry)
         await coordinator.async_config_entry_first_refresh()
     elif entry_type in (TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY):
         coordinator = CBDutCoordinator(hass, entry)

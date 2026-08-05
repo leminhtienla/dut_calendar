@@ -7,7 +7,8 @@
           "dut_lichtuan": "Weekly schedule (public, keyword alerts, no login)",
           "dut_coithi": "Exam invigilation schedule (requires cb.dut.udn.vn login)",
           "dut_deadline_diem": "Grade entry deadlines (requires cb.dut.udn.vn login)",
-          "dut_lichgiangday": "Teaching schedule (login required)"
+          "dut_lichgiangday": "Teaching schedule (login required)",
+          "dut_mail": "Email (IMAP, keyword filter)"
         }
       },
       "dut_lichtuan": {
@@ -111,6 +112,21 @@
         "data": {
           "extra_lecturers": "Lecturer(s)"
         }
+      },
+      "dut_mail": {
+        "title": "Email",
+        "description": "Read a mailbox over IMAP and alert on mails matching keywords. Gmail requires 2-Step Verification then an App Password. Read-only: never marks as read nor deletes.",
+        "data": {
+          "username": "Email address",
+          "password": "App Password (not your normal Gmail password)",
+          "keywords": "Keyword groups (one per line)",
+          "mail_host": "IMAP host",
+          "mail_port": "IMAP port",
+          "mail_folder": "Folder",
+          "scan_interval": "Check interval (minutes)",
+          "mail_limit": "Number of recent mails to scan",
+          "notify_service": "Optional notify service"
+        }
       }
     },
     "error": {
@@ -135,12 +151,16 @@
           "scan_interval": "Check interval (minutes)",
           "weeks_ahead": "Extra weeks to check",
           "notify_service": "Optional notify service",
-          "username": "Username",
-          "password": "New password (empty = keep current)",
+          "username": "Email address",
+          "password": "App Password (not your normal Gmail password)",
           "exam_duration": "Default exam duration (minutes)",
           "update_mode": "Update mode",
           "clear_history": "Clear old history (check to clear once, auto-unchecks after clearing)",
-          "configure_extra_lecturer": "Track another invigilator? (enabling loads the department/name list next, ~1MB, may take a moment)"
+          "configure_extra_lecturer": "Track another invigilator? (enabling loads the department/name list next, ~1MB, may take a moment)",
+          "mail_host": "IMAP host",
+          "mail_port": "IMAP port",
+          "mail_folder": "Folder",
+          "mail_limit": "Number of recent mails to scan"
         }
       },
       "hocky": {
