@@ -283,7 +283,9 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     # lịch không hiện lặp "DUT Calendar - X X".
     _attr_has_entity_name = True
     _attr_name = None
-    _attr_icon = "mdi:teach"
+    # KHÔNG đặt icon riêng -> dùng icon mặc định chuẩn của Home Assistant
+    # cho entity calendar. (Trước đây dùng "mdi:teach" nhưng MDI đã đổi
+    # tên icon này thành "human-male-board" nên hiện ra ô trống.)
 
     def __init__(self, coordinator: CBDutCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)

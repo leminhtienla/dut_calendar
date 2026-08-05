@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.20.3] - 2026-08-05
+
+### Sửa lỗi
+- **Calendar `Lịch dạy` không hiện icon** (ô trống trong danh sách lịch). Nguyên nhân: dùng `mdi:teach`, nhưng Material Design Icons đã **đổi tên icon này thành `human-male-board`** nên tên cũ không còn tồn tại và HA không vẽ được gì. Đã bỏ icon tùy chỉnh để dùng **icon mặc định chuẩn của Home Assistant** cho entity calendar.
+- Rà soát toàn bộ icon MDI đang dùng, đối chiếu danh sách icon đã bị đổi tên/gỡ bỏ của MDI: không còn tên lỗi thời nào khác.
+
 ## [1.20.2] - 2026-08-05
 
 ### Sửa lỗi
@@ -317,7 +323,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.20.2...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.20.3...HEAD
+[1.20.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.3
 [1.20.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.2
 [1.20.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.1
 [1.20.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.20.0
