@@ -388,8 +388,7 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
                     buoi_day.extend(
                         await self.hass.async_add_executor_job(
-                            apply_bao_nghi,
-    build_teaching_events,
+                            build_teaching_events,
                             parsed_lgd.get("lop_hoc", []),
                             week_map,
                             exclude,

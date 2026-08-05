@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.19.2] - 2026-08-05
+
+### Sửa lỗi
+- **`TypeError: apply_bao_nghi() takes 2 positional arguments but 4 were given`** khiến entry `dut_lichgiangday` không nạp được. Nguyên nhân: khi thêm import `apply_bao_nghi`, chuỗi tìm-thay `"    build_teaching_events,"` khớp trúng cả **phần cuối của dòng gọi hàm** (vốn thụt sâu hơn), nên tên hàm bị chèn nhầm vào lời gọi. Đã khôi phục lời gọi đúng.
+- Bổ sung kiểm tra tự động bằng AST: đối chiếu số tham số của **mọi** lời gọi `async_add_executor_job(fn, ...)` với chữ ký hàm thật trong `parser_exam`/`parser_public` — hiện 0 lời gọi sai. Cùng với đó quét toàn bộ file tìm dòng bị chèn sai thụt lề.
+
 ## [1.19.1] - 2026-08-05
 
 ### Sửa lỗi (bản 1.19.0 KHÔNG dùng được, hãy cập nhật ngay)
@@ -282,7 +288,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.19.2...HEAD
+[1.19.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.2
 [1.19.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.1
 [1.19.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.19.0
 [1.18.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.18.2
