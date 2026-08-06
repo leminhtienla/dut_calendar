@@ -32,7 +32,7 @@ riêng trong Home Assistant, không phụ thuộc lẫn nhau.
 - Cấu hình từ khóa dạng nhiều dòng, mỗi dòng 1 nhóm (gộp tên đầy đủ +
   viết tắt):
   ```
-  Lê Minh Tiến: Lê Minh Tiến, LMT, Thầy Tiến
+  Nguyễn Văn A: Nguyễn Văn A, NVA, Thầy A
   Khoa Cơ khí Giao thông: Khoa Cơ khí Giao thông, CKGT
   Bộ môn Kỹ thuật Ô tô: Kỹ thuật Ô tô, KTOT
   ```
@@ -99,7 +99,7 @@ Với `dut_lichtuan`: đếm theo mục lịch tuần khớp từ khóa. Với
 mốc hạn nộp điểm (thi chung + từng lớp gộp lại).
 
 **Riêng `dut_lichtuan`: có thêm 1 bộ 5 sensor đếm này cho TỪNG NHÓM từ
-khóa** (vd "Lê Minh Tiến: Hôm nay", "Lê Minh Tiến: Tuần này"...), bên
+khóa** (vd "Nguyễn Văn A: Hôm nay", "Nguyễn Văn A: Tuần này"...), bên
 cạnh bộ đếm TỔNG (gộp mọi nhóm) đã có sẵn — tổng cộng `5 × (1 + số
 nhóm từ khóa)` sensor đếm cho riêng `dut_lichtuan`.
 
@@ -175,7 +175,7 @@ nếu không muốn đổi.
 - **Tiêu đề sự kiện Calendar luôn có tên + vai trò + phòng thi**, áp
   dụng cho **cả ca của chính bạn lẫn ca của giảng viên khác đang theo
   dõi** (trước đây chỉ ca giảng viên khác mới có tên, ca của chính
-  mình không hiện gì): vd `[103-Lê Minh Tiến · GT1] Coi thi: Kỹ thuật
+  mình không hiện gì): vd `[103-Nguyễn Văn A · GT1] Coi thi: Kỹ thuật
   điện - điện tử — Phòng F108`. `GT1`/`GT2` = Giám thị 1/2 (tức đang
   là Cán bộ 1 hay Cán bộ 2 trong ca đó).
   - Tên của **chính bạn** được **suy luận tự động**: vì cột "Cán bộ
@@ -209,7 +209,7 @@ nếu không muốn đổi.
        bước chọn tên.
   3. Chọn **tên** (nhiều lựa chọn cùng lúc, gõ để tìm kiếm nếu danh
      sách dài) — tên lấy trực tiếp từ dữ liệu thật trên hệ thống
-     (dạng `mã khoa-Tên`, vd `103-Lê Minh Tiến`), không gõ tay nên
+     (dạng `mã khoa-Tên`, vd `103-Nguyễn Văn A`), không gõ tay nên
      không lo sai chính tả/không khớp.
 
   Danh sách khoa/tên được **gộp từ TẤT CẢ học kỳ** đã chọn ở bước

@@ -34,7 +34,7 @@
         "title": "Exam invigilation - Log in",
         "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch salary data. After a successful login, the next step lets you pick semesters from a real list.",
         "data": {
-          "username": "Username (e.g. 103LMTIEN)",
+          "username": "cb.dut.udn.vn username",
           "password": "Password",
           "scan_interval": "Check interval (minutes)",
           "exam_duration": "Default exam duration (minutes)",
@@ -53,7 +53,7 @@
         "title": "Grade deadlines - Log in",
         "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch student grades/names/IDs. After a successful login, the next step lets you pick semesters from a real list.",
         "data": {
-          "username": "Username (e.g. 103LMTIEN)",
+          "username": "cb.dut.udn.vn username",
           "password": "Password",
           "scan_interval": "Check interval (minutes)",
           "exam_duration": "(Not used for this source)",
@@ -92,7 +92,7 @@
         "title": "Teaching schedule - Sign in",
         "description": "Log in with your cb.dut.udn.vn account (once). Does NOT fetch student grades/names/IDs. After a successful login, the next step lets you pick semesters from a real list.",
         "data": {
-          "username": "Username (e.g. 103LMTIEN)",
+          "username": "cb.dut.udn.vn username",
           "password": "Password",
           "scan_interval": "Check interval (minutes)",
           "exam_duration": "(Not used for this source)",

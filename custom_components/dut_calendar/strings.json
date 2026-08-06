@@ -34,7 +34,7 @@
         "title": "Lịch coi thi - Đăng nhập",
         "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần, tự đăng nhập lại khi phiên hết hạn). KHÔNG lấy dữ liệu lương. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
         "data": {
-          "username": "Tài khoản (vd: 103LMTIEN)",
+          "username": "Tài khoản cổng cb.dut.udn.vn",
           "password": "Mật khẩu",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
@@ -53,7 +53,7 @@
         "title": "Hạn nộp điểm - Đăng nhập",
         "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần). KHÔNG lấy điểm số/tên/mã số sinh viên. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
         "data": {
-          "username": "Tài khoản (vd: 103LMTIEN)",
+          "username": "Tài khoản cổng cb.dut.udn.vn",
           "password": "Mật khẩu",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "exam_duration": "(Không dùng cho loại này)",
@@ -92,7 +92,7 @@
         "title": "Lịch giảng dạy - Đăng nhập",
         "description": "Đăng nhập bằng tài khoản cổng cb.dut.udn.vn (đúng 1 lần). KHÔNG lấy điểm số/tên/mã số sinh viên. Sau khi đăng nhập thành công, bước tiếp theo sẽ cho chọn học kỳ từ danh sách thật.",
         "data": {
-          "username": "Tài khoản (vd: 103LMTIEN)",
+          "username": "Tài khoản cổng cb.dut.udn.vn",
           "password": "Mật khẩu",
           "scan_interval": "Tần suất kiểm tra (phút)",
           "exam_duration": "(Không dùng cho loại này)",
@@ -117,7 +117,7 @@
         "title": "Email",
         "description": "Đọc hộp thư qua IMAP và cảnh báo email khớp từ khóa. Gmail yêu cầu bật Xác minh 2 bước rồi tạo App Password. Chỉ ĐỌC, không đánh dấu đã đọc và không xóa mail.",
         "data": {
-          "username": "Địa chỉ email (vd: lmtntla@gmail.com)",
+          "username": "Địa chỉ email",
           "password": "Mật khẩu ứng dụng (App Password) — KHÔNG dùng mật khẩu Gmail thường",
           "keywords": "Nhóm từ khóa (mỗi dòng 1 nhóm)",
           "mail_host": "Máy chủ IMAP",
@@ -152,7 +152,7 @@
           "scan_interval": "Tần suất kiểm tra (phút)",
           "weeks_ahead": "Số tuần kiểm tra thêm",
           "notify_service": "Notify service tùy chọn",
-          "username": "Địa chỉ email (vd: lmtntla@gmail.com)",
+          "username": "Địa chỉ email",
           "password": "Mật khẩu ứng dụng (App Password) — KHÔNG dùng mật khẩu Gmail thường",
           "exam_duration": "Thời lượng ca thi mặc định (phút)",
           "update_mode": "Chế độ cập nhật",

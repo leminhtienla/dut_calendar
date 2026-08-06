@@ -83,10 +83,12 @@ from .parser_public import parse_keyword_groups
 
 _LOGGER = logging.getLogger(__name__)
 
+# Gợi ý điền sẵn ô từ khóa. CHỦ Ý dùng chỗ trống chung chung, không
+# nhúng tên người/đơn vị thật — form này hiển thị trên giao diện và có
+# thể lọt vào ảnh chụp màn hình khi báo lỗi.
 KEYWORDS_EXAMPLE = (
-    "Lê Minh Tiến: Lê Minh Tiến, LMT, Thầy Tiến\n"
-    "Khoa Cơ khí Giao thông: Khoa Cơ khí Giao thông, CKGT\n"
-    "Bộ môn Kỹ thuật Ô tô: Kỹ thuật Ô tô, KTOT"
+    "Tên nhóm 1: từ khóa, từ viết tắt\n"
+    "Tên nhóm 2: từ khóa khác, biến thể khác"
 )
 
 ACCOUNT_NEW_SENTINEL = "__new_account__"

@@ -5,6 +5,14 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.27.2] - 2026-08-06
+
+### Riêng tư
+- **Xóa toàn bộ thông tin cá nhân khỏi dữ liệu mẫu và tài liệu.** Trước đây form cấu hình điền sẵn tên người thật và nhãn ô tài khoản ghi ví dụ là tài khoản/email thật — những thứ này hiện ngay trên giao diện nên dễ lọt vào ảnh chụp màn hình khi báo lỗi, và tài liệu thì công khai trên GitHub.
+  - Gợi ý ô từ khóa: đổi thành `Tên nhóm 1: từ khóa, từ viết tắt`.
+  - Nhãn ô tài khoản: bỏ ví dụ, chỉ còn `Tài khoản cổng cb.dut.udn.vn` / `Địa chỉ email`.
+  - README, CHANGELOG, docstring: thay tên người/địa chỉ email thật bằng tên giả (`Nguyễn Văn A`, `user@dut.udn.vn`...).
+
 ## [1.27.1] - 2026-08-06
 
 ### Sửa lỗi
@@ -122,7 +130,7 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ### Sửa lỗi
 - **Buổi dạy của chính mình không có tên** trong khi buổi của người khác có `[Tên]`, nhìn lịch dễ tưởng là "không rõ của ai". Nay khi có theo dõi thêm người khác, buổi của bạn cũng được gắn tên cho nhất quán (không theo dõi ai thì vẫn không hiện tiền tố, tránh thừa).
-- Thêm `infer_self_name_from_khoa()`: suy luận tên hiển thị của tài khoản bằng cách đối chiếu mã lớp mình dạy (từ `ctrLichGiangDay`, chỉ có mã lớp) với danh sách lớp của khoa (`LopHPKH`, có tên giảng viên). Khoa của mình lấy từ 3 số đầu tài khoản theo quy ước mã của trường. Test dữ liệu thật: suy ra đúng "Lê Minh Tiến" từ 10 lớp.
+- Thêm `infer_self_name_from_khoa()`: suy luận tên hiển thị của tài khoản bằng cách đối chiếu mã lớp mình dạy (từ `ctrLichGiangDay`, chỉ có mã lớp) với danh sách lớp của khoa (`LopHPKH`, có tên giảng viên). Khoa của mình lấy từ 3 số đầu tài khoản theo quy ước mã của trường. Test dữ liệu thật: suy ra đúng "Nguyễn Văn A" từ 10 lớp.
 - Thêm cache theo (học kỳ, khoa) để không tải trùng danh sách lớp khoa (~170KB/lần).
 
 ## [1.20.1] - 2026-08-05
@@ -258,7 +266,7 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 ## [1.13.0] - 2026-08-04
 
 ### Thay đổi
-- **`dut_coithi` — tiêu đề sự kiện Calendar giờ luôn có tên + vai trò (GT1/GT2) + phòng thi**, áp dụng cho CẢ ca của chính bạn lẫn ca của giảng viên khác (trước đây chỉ ca giảng viên khác mới có tên trong tiêu đề). Vd `[103-Lê Minh Tiến · GT1] Coi thi: Kỹ thuật điện - điện tử — Phòng F108`.
+- **`dut_coithi` — tiêu đề sự kiện Calendar giờ luôn có tên + vai trò (GT1/GT2) + phòng thi**, áp dụng cho CẢ ca của chính bạn lẫn ca của giảng viên khác (trước đây chỉ ca giảng viên khác mới có tên trong tiêu đề). Vd `[103-Nguyễn Văn A · GT1] Coi thi: Kỹ thuật điện - điện tử — Phòng F108`.
 - Thêm `parser_exam.infer_self_name()`: suy luận tên hiển thị của tài khoản đăng nhập từ danh sách ca thi của chính mình — phát hiện quan trọng qua dữ liệu thật: cột "Cán bộ 1"/"Cán bộ 2" **không cố định vị trí** (có ca mình là CB1, có ca là CB2, tùy ai đăng ký trước), nên không thể giả định vị trí cố định như trước. Suy luận dựa trên tên duy nhất xuất hiện ở mọi ca — test đúng 100% với dữ liệu thật (11/11 ca).
 - Thêm `parser_exam.duty_role()`: xác định 1 người là Cán bộ 1 hay 2 trong 1 ca cụ thể — dùng chung cho cả ca của chính mình lẫn ca giảng viên khác (xác định đúng người nào trong danh sách nhiều người theo dõi khớp với từng dòng, thay vì lấy tên đầu tiên bất kỳ).
 - Sensor `Lịch coi thi` thêm attributes `ten`/`giam_thi_so`; thông báo ca thi mới cũng đồng bộ hiện tên+vai trò.
@@ -296,14 +304,14 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 ## [1.11.0] - 2026-08-04
 
 ### Thay đổi
-- **`dut_coithi` — chọn giảng viên khác qua UI thay vì gõ tay**: thêm 2 bước mới sau khi chọn học kỳ — chọn **Khoa** (rút gọn danh sách, hoặc bỏ qua/chọn tất cả) rồi chọn **tên** (nhiều lựa chọn, gõ để tìm kiếm). Tên lấy trực tiếp từ dữ liệu thật (`mã khoa-Tên`, vd `103-Lê Minh Tiến`), khớp **chính xác** thay vì kiểu chuỗi con như trước — tránh sai chính tả/khớp nhầm. Áp dụng cho cả khi thêm mới lẫn sửa qua Options. Vẫn đọc tương thích ngược cấu hình cũ (1 tên gõ tay) nếu entry chưa cấu hình lại theo cách mới.
+- **`dut_coithi` — chọn giảng viên khác qua UI thay vì gõ tay**: thêm 2 bước mới sau khi chọn học kỳ — chọn **Khoa** (rút gọn danh sách, hoặc bỏ qua/chọn tất cả) rồi chọn **tên** (nhiều lựa chọn, gõ để tìm kiếm). Tên lấy trực tiếp từ dữ liệu thật (`mã khoa-Tên`, vd `103-Nguyễn Văn A`), khớp **chính xác** thay vì kiểu chuỗi con như trước — tránh sai chính tả/khớp nhầm. Áp dụng cho cả khi thêm mới lẫn sửa qua Options. Vẫn đọc tương thích ngược cấu hình cũ (1 tên gõ tay) nếu entry chưa cấu hình lại theo cách mới.
 - `parser_exam.py`: thêm `build_lecturer_directory()` (gom tên theo mã khoa từ dữ liệu thật) và `filter_exam_duty_by_lecturers()` (lọc theo danh sách, khớp chính xác) — test bằng dữ liệu thật (724 ca, 265 tên, 32 khoa).
 
 ## [1.10.0] - 2026-08-04
 
 ### Thêm mới
 - **2 khoảng đếm mới: "Tuần này" và "Tuần sau"** (Thứ 2 → Chủ nhật) — áp dụng cho cả 3 loại (`dut_lichtuan`, `dut_coithi`, `dut_deadline_diem`), nâng tổng số khoảng đếm từ 3 lên 5 (Hôm nay/Ngày mai/Tuần này/Tuần sau/Tháng này).
-- **`dut_lichtuan` — bộ sensor đếm riêng cho TỪNG NHÓM từ khóa**: trước đây chỉ có 1 bộ đếm TỔNG (gộp mọi nhóm); giờ mỗi nhóm từ khóa có thêm 5 sensor đếm riêng (vd "Lê Minh Tiến: Hôm nay"), bên cạnh bộ tổng vẫn giữ nguyên.
+- **`dut_lichtuan` — bộ sensor đếm riêng cho TỪNG NHÓM từ khóa**: trước đây chỉ có 1 bộ đếm TỔNG (gộp mọi nhóm); giờ mỗi nhóm từ khóa có thêm 5 sensor đếm riêng (vd "Nguyễn Văn A: Hôm nay"), bên cạnh bộ tổng vẫn giữ nguyên.
 
 ## [1.9.0] - 2026-08-04
 
@@ -430,7 +438,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.27.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.27.2...HEAD
+[1.27.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.2
 [1.27.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.1
 [1.27.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.0
 [1.26.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.26.0

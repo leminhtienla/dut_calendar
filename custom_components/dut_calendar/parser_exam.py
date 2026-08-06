@@ -463,7 +463,7 @@ def filter_exam_duty_by_lecturers(
 def build_lecturer_directory(duties: list[dict[str, Any]]) -> dict[str, list[str]]:
     """Từ danh sách ca thi TOÀN BỘ (fetch_exam_duty_all_html), gom các
     tên "Cán bộ 1"/"Cán bộ 2" duy nhất, nhóm theo mã khoa (tiền tố
-    trước dấu '-', vd '103-Lê Minh Tiến' -> khoa '103'). Dùng để hiển
+    trước dấu '-', vd '103-Nguyễn Văn A' -> khoa '103'). Dùng để hiển
     thị UI chọn khoa -> chọn tên thay vì gõ tay.
     """
     names: set[str] = set()

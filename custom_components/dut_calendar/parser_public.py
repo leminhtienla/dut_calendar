@@ -236,11 +236,11 @@ def parse_keyword_groups(raw: str) -> list[dict[str, Any]]:
     duy nhất (tương thích ngược với cấu hình 1-từ-khóa-1-dòng).
 
     Ví dụ:
-        Lê Minh Tiến: Lê Minh Tiến, LMT, Tiến LM, Thầy Tiến
+        Tên nhóm: từ khóa đầy đủ, viết tắt, biến thể khác
         Khoa Cơ khí Giao thông: Khoa Cơ khí Giao thông, CKGT
         Bộ môn Kỹ thuật Ô tô: Kỹ thuật Ô tô, KTOT
 
-    Trả về: [{"label": "Lê Minh Tiến", "variants": ["Lê Minh Tiến", "LMT", ...]}, ...]
+    Trả về: [{"label": "Tên nhóm", "variants": ["từ khóa đầy đủ", "viết tắt", ...]}, ...]
     """
     groups: list[dict[str, Any]] = []
     raw = unicodedata.normalize("NFC", raw)
@@ -273,7 +273,7 @@ _ACRONYM_RE = re.compile(r"^[A-ZÀ-Ỹ0-9]{2,8}$")
 def _variant_matches(variant: str, haystack_original: str, haystack_lower: str) -> bool:
     """Kiểm tra 1 biến thể có khớp trong nội dung không.
 
-    - Biến thể dạng viết tắt toàn chữ HOA ngắn (vd 'CKGT', 'LMT'):
+    - Biến thể dạng viết tắt toàn chữ HOA ngắn (vd 'CKGT', 'KTOT'):
       so khớp CÓ phân biệt hoa/thường + ranh giới từ (word boundary),
       để tránh khớp nhầm vào giữa một từ khác.
     - Biến thể thông thường (tên đầy đủ, cụm từ dài...): so khớp
