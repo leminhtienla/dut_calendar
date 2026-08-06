@@ -12,7 +12,7 @@ import re
 import unicodedata
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from .parser_public import _variant_matches
@@ -200,14 +200,52 @@ def mail_stable_id(m: dict[str, Any]) -> str:
 # dưới, trong đó ghi giờ CŨ đã bị thay. Vì vậy luôn lấy lần xuất hiện
 # ĐẦU TIÊN (phần trên cùng = nội dung mới nhất), không quét cả bài rồi
 # lấy kết quả cuối.
-_RE_THOI_GIAN = re.compile(r"^\s*Th[ờo]i\s*gian\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
-_RE_DIA_DIEM = re.compile(r"^\s*[ĐD][ịi]a\s*[đd]i[ểe]m\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_RE_THOI_GIAN = re.compile(r"^\s*[•\-\*\t ]*Th[ờo]i\s*gian\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_RE_DIA_DIEM = re.compile(r"^\s*[•\-\*\t ]*[ĐD][ịi]a\s*[đd]i[ểe]m[^:\n]{0,20}:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 _RE_THANH_PHAN = re.compile(r"^\s*Th[àa]nh\s*ph[ầa]n\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 
 # 14h30 | 14h | 14:30 | 14 giờ 30
 _RE_GIO = re.compile(r"(\d{1,2})\s*(?:h|:|gi[ờo])\s*(\d{2})?", re.IGNORECASE)
 # ngày 4/8/2026 | 04/08/2026 | 4-8-2026
 _RE_NGAY = re.compile(r"(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})")
+# ngày kiểu ISO: 2026-07-26 (tạp chí, hệ thống tự sinh hay dùng)
+_RE_NGAY_ISO = re.compile(r"(\d{4})-(\d{1,2})-(\d{1,2})")
+
+
+# 22–23/10/2026 | 22-23/10/2026 : khoảng NGÀY trong cùng tháng
+_RE_KHOANG_NGAY = re.compile(
+    r"(\d{1,2})\s*[–—-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})"
+)
+
+
+def _tim_khoang_ngay(text: str) -> tuple[date, date] | None:
+    """'22–23/10/2026' -> (22/10/2026, 23/10/2026)."""
+    m = _RE_KHOANG_NGAY.search(text or "")
+    if not m:
+        return None
+    try:
+        d1 = date(int(m.group(4)), int(m.group(3)), int(m.group(1)))
+        d2 = date(int(m.group(4)), int(m.group(3)), int(m.group(2)))
+    except ValueError:
+        return None
+    return (d1, d2) if d2 >= d1 else (d2, d1)
+
+
+def _tim_ngay(text: str) -> date | None:
+    """Tìm ngày đầu tiên trong chuỗi, chấp nhận cả dd/mm/yyyy lẫn ISO."""
+    m = _RE_NGAY_ISO.search(text)
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    m = _RE_NGAY.search(text)
+    if m:
+        try:
+            return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+        except ValueError:
+            return None
+    return None
 
 
 def parse_meeting_info(
@@ -224,6 +262,9 @@ def parse_meeting_info(
         "dia_diem_raw": None,
         "thanh_phan_raw": None,
         "start": None,
+        # Sự kiện chỉ ghi NGÀY (hội thảo 2 ngày, không nêu giờ) -> cả ngày
+        "all_day_start": None,
+        "all_day_end": None,
         "location": None,
     }
     if not body:
@@ -245,9 +286,21 @@ def parse_meeting_info(
     raw = m_tg.group(1).strip()
     result["thoi_gian_raw"] = raw
 
-    m_ngay = _RE_NGAY.search(raw)
     m_gio = _RE_GIO.search(raw)
-    if not m_ngay or not m_gio:
+
+    # Không có giờ -> thử khoảng ngày, rồi tới ngày đơn (sự kiện cả ngày)
+    if not m_gio:
+        khoang = _tim_khoang_ngay(raw)
+        if khoang:
+            result["all_day_start"], result["all_day_end"] = khoang
+        else:
+            d = _tim_ngay(raw)
+            if d:
+                result["all_day_start"] = result["all_day_end"] = d
+        return result
+
+    m_ngay = _RE_NGAY.search(raw)
+    if not m_ngay:
         return result
 
     try:
@@ -295,3 +348,93 @@ def extract_original_sender(body: str) -> str | None:
         return None
     val = " ".join(m.group(1).split()).strip()
     return unicodedata.normalize("NFC", val) or None
+
+
+# Các cụm thường dùng để nêu HẠN CHÓT trong mail (không phải cuộc họp)
+_RE_HAN = re.compile(
+    r"(?:tr[ưu][ớo]c\s+ng[àa]y|h[ạa]n\s+ch[óo]t|h[ạa]n\s+cu[ốo]i|"
+    r"h[ạa]n\s+n[ộo]p|tr[ưu][ớo]c)\s*[:\s]\s*"
+    r"(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})",
+    re.IGNORECASE,
+)
+
+
+def parse_deadlines(body: str, max_items: int = 5) -> list[dict[str, Any]]:
+    """Tìm các mốc HẠN CHÓT trong mail (mail mời phản biện, mời nộp
+    hồ sơ... thường không có dòng "Thời gian:" mà chỉ nêu "trước ngày X").
+
+    Trả về danh sách {date, context} — `context` là câu chứa mốc đó, để
+    biết hạn này là hạn gì (xác nhận / nộp bài / ...). Khử trùng theo
+    ngày, giữ ngữ cảnh của lần xuất hiện đầu tiên.
+    """
+    if not body:
+        return []
+
+    ket_qua: list[dict[str, Any]] = []
+    da_co: set[date] = set()
+
+    for m in _RE_HAN.finditer(body):
+        d = _tim_ngay(m.group(1))
+        if d is None or d in da_co:
+            continue
+        da_co.add(d)
+
+        # Lấy câu chứa mốc hạn làm ngữ cảnh
+        dau = body.rfind(".", 0, m.start())
+        cuoi = body.find(".", m.end())
+        cau = body[(dau + 1 if dau != -1 else 0) : (cuoi if cuoi != -1 else len(body))]
+        cau = " ".join(cau.split()).strip()
+
+        ket_qua.append({"date": d, "context": cau[:200]})
+        if len(ket_qua) >= max_items:
+            break
+
+    return ket_qua
+
+
+# Dòng dạng "Nhãn: <ngày>" trong danh sách mốc thời gian, vd:
+#   • Hạn nộp tóm tắt (Abstract): 31/8/2026;
+_RE_MOC_THOI_GIAN = re.compile(
+    r"^[\s•\-\*\u2022\t]*([^:\n]{3,60}?)\s*:\s*"
+    r"(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4}|\d{4}-\d{1,2}-\d{1,2})\s*[;.,]?\s*$",
+    re.MULTILINE,
+)
+# Không coi các dòng này là "mốc" (đã xử lý riêng ở parse_meeting_info)
+_NHAN_BO_QUA = ("thời gian", "thoi gian", "địa điểm", "dia diem", "thành phần", "thanh phan")
+
+
+def parse_milestones(body: str, max_items: int = 10) -> list[dict[str, Any]]:
+    """Tách danh sách mốc thời gian dạng "Nhãn: ngày".
+
+    Mail thông báo hội thảo thường liệt kê nhiều mốc (hạn gửi bài, hạn
+    đăng ký, ngày thông báo kết quả...) — mỗi mốc là 1 dòng "Nhãn: ngày".
+    Khác với parse_deadlines (bắt cụm "trước ngày ..." nằm trong câu văn).
+    """
+    if not body:
+        return []
+
+    out: list[dict[str, Any]] = []
+    da_co: set[tuple[str, date]] = set()
+
+    for m in _RE_MOC_THOI_GIAN.finditer(body):
+        nhan = " ".join(m.group(1).split()).strip()
+        if not nhan:
+            continue
+        nhan_lower = unicodedata.normalize("NFC", nhan).lower()
+        if any(bo in nhan_lower for bo in _NHAN_BO_QUA):
+            continue
+
+        d = _tim_ngay(m.group(2))
+        if d is None:
+            continue
+
+        khoa = (nhan_lower, d)
+        if khoa in da_co:
+            continue
+        da_co.add(khoa)
+
+        out.append({"date": d, "context": nhan})
+        if len(out) >= max_items:
+            break
+
+    return out

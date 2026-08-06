@@ -40,6 +40,8 @@ from .mail_client import (
     extract_original_sender,
     mail_stable_id,
     normalize_subject,
+    parse_deadlines,
+    parse_milestones,
     parse_meeting_info,
 )
 from .parser_public import parse_keyword_groups
@@ -180,7 +182,22 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Tách thời gian/địa điểm cuộc họp bằng QUY TẮC (không dùng
             # AI, không gửi nội dung mail ra ngoài). Chỉ lưu phần đã
             # tách — KHÔNG lưu toàn văn nội dung mail vào .storage.
-            info = parse_meeting_info(m.get("body", ""))
+            body_text = m.get("body", "")
+            info = parse_meeting_info(body_text)
+            # Mail không có dòng "Thời gian:" (mời phản biện, nộp hồ sơ...)
+            # thường chỉ nêu "trước ngày X" -> lấy làm mốc hạn.
+            # Mốc dạng danh sách "Nhãn: ngày" (mail hội thảo) + hạn nêu
+            # trong câu văn "trước ngày X" (mail mời phản biện).
+            han_list = parse_milestones(body_text) + parse_deadlines(body_text)
+            # Khử trùng theo ngày, ưu tiên nhãn ngắn gọn của danh sách
+            da_co: set = set()
+            han_gom = []
+            for h in han_list:
+                if h["date"] in da_co:
+                    continue
+                da_co.add(h["date"])
+                han_gom.append(h)
+            han_list = han_gom
             item = {
                 "id": key,
                 "sender": m.get("sender"),
@@ -193,9 +210,19 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "matched_keywords": m.get("matched_keywords"),
                 "matched_variants": m.get("matched_variants"),
                 "meeting_start": info["start"].isoformat() if info.get("start") else None,
+                "meeting_all_day_start": (
+                    info["all_day_start"].isoformat() if info.get("all_day_start") else None
+                ),
+                "meeting_all_day_end": (
+                    info["all_day_end"].isoformat() if info.get("all_day_end") else None
+                ),
                 "meeting_location": info.get("location"),
                 "thoi_gian_raw": info.get("thoi_gian_raw"),
                 "thanh_phan_raw": info.get("thanh_phan_raw"),
+                "deadlines": [
+                    {"date": h["date"].isoformat(), "context": h["context"]}
+                    for h in han_list
+                ],
             }
             if key not in self._history:
                 new_matches.append(item)

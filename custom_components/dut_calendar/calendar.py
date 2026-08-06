@@ -1,7 +1,7 @@
 """Calendar cho DUT Calendar — nhánh theo loại coordinator (public/exam)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import homeassistant.util.dt as dt_util
@@ -406,7 +406,10 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
         # đính chính (gửi sau) tự thay giờ cũ thay vì tạo thêm sự kiện.
         newest: dict[str, dict[str, Any]] = {}
         for m in data.get("matches", []):
-            if not m.get("meeting_start"):
+            if not any(
+                m.get(x)
+                for x in ("meeting_start", "meeting_all_day_start", "deadlines")
+            ):
                 continue
             key = m.get("subject_key") or m.get("subject") or m.get("id")
             cu = newest.get(key)
@@ -415,6 +418,8 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
 
         for m in newest.values():
             raw = m.get("meeting_start")
+            if not raw:
+                continue
             try:
                 start = datetime.fromisoformat(raw)
             except (TypeError, ValueError):
@@ -444,6 +449,64 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                     uid=f"{self._entry.entry_id}_{m.get('id')}",
                 )
             )
+        # Sự kiện CẢ NGÀY (hội thảo nhiều ngày, chỉ ghi ngày không giờ)
+        for m in newest.values():
+            if m.get("meeting_start") or not m.get("meeting_all_day_start"):
+                continue
+            try:
+                d1 = date.fromisoformat(m["meeting_all_day_start"])
+                d2 = date.fromisoformat(m.get("meeting_all_day_end") or m["meeting_all_day_start"])
+            except (TypeError, ValueError):
+                continue
+            kw = ", ".join(m.get("matched_keywords") or [])
+            events.append(
+                CalendarEvent(
+                    start=d1,
+                    end=d2 + timedelta(days=1),  # HA dùng end không bao gồm
+                    summary=(
+                        (f"[{kw}] " if kw else "")
+                        + (m.get("subject_key") or m.get("subject") or "(không tiêu đề)")
+                    ),
+                    description=(
+                        f"Người gửi: {m.get('original_sender') or m.get('sender')}\n"
+                        + (f"Thời gian (nguyên văn): {m['thoi_gian_raw']}" if m.get("thoi_gian_raw") else "")
+                    ),
+                    location=m.get("meeting_location") or "",
+                    uid=f"{self._entry.entry_id}_{m.get('id')}_allday",
+                )
+            )
+
+        # Mốc HẠN CHÓT -> sự kiện CẢ NGÀY (mail chỉ nêu ngày, không giờ)
+        for m in newest.values():
+            for h in m.get("deadlines") or []:
+                try:
+                    ngay = date.fromisoformat(h["date"])
+                except (TypeError, ValueError, KeyError):
+                    continue
+                kw = ", ".join(m.get("matched_keywords") or [])
+                events.append(
+                    CalendarEvent(
+                        start=ngay,
+                        end=ngay + timedelta(days=1),
+                        summary=(
+                            (f"[{kw}] " if kw else "")
+                            # Nhãn ngắn (danh sách mốc) dùng làm tiêu đề;
+                            # ngữ cảnh dài (câu văn) thì chỉ ghi "Hạn".
+                            + (
+                                f"{h['context']}: "
+                                if h.get("context") and len(h["context"]) <= 45
+                                else "Hạn: "
+                            )
+                            + (m.get("subject_key") or m.get("subject") or "(không tiêu đề)")
+                        ),
+                        description=(
+                            f"Người gửi: {m.get('original_sender') or m.get('sender')}\n"
+                            f"{h.get('context', '')}"
+                        ),
+                        uid=f"{self._entry.entry_id}_{m.get('id')}_{h['date']}",
+                    )
+                )
+
         events.sort(key=lambda ev: _start_as_datetime(ev.start))
         return events
 

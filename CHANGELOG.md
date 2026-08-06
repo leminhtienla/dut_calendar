@@ -5,6 +5,18 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-08-06
+
+### Thêm mới (từ 2 mẫu mail thật của người dùng)
+- **Nhận ngày kiểu ISO** `2026-07-26` (mail hệ thống tạp chí tự sinh) bên cạnh `4/8/2026`.
+- **Mốc hạn trong câu văn**: `trước ngày X`, `hạn chót`, `hạn nộp`, `hạn cuối` — mail mời phản biện không có dòng `Thời gian:` nên trước đây không lên lịch được gì. Mỗi mốc thành 1 sự kiện cả ngày, mô tả kèm câu chứa mốc để biết hạn đó là hạn gì.
+- **Danh sách mốc dạng `Nhãn: ngày`** (mail thông báo hội thảo liệt kê `Mời gửi bài: 01/7/2026`, `Hạn nộp tóm tắt (Abstract): 31/8/2026`...) — tiêu đề sự kiện lấy đúng nhãn.
+- **Sự kiện cả ngày / nhiều ngày**: `Thời gian: ngày 22–23/10/2026` (hội thảo không nêu giờ) → sự kiện cả ngày trải đúng 2 ngày, thay vì bỏ qua như trước.
+- Nhận `Địa điểm tổ chức:` (trước chỉ nhận đúng `Địa điểm:`) và các dòng có dấu đầu mục `•`.
+
+### Kiểm chứng
+- Test lại cả 3 mẫu mail thật: họp chi bộ (có giờ), mời phản biện (2 mốc hạn ISO), hội thảo ISAT-25 (khoảng ngày + 5 mốc) — đều tách đúng, không hồi quy mẫu cũ.
+
 ## [1.26.0] - 2026-08-05
 
 ### Thay đổi
@@ -412,7 +424,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.26.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.27.0...HEAD
+[1.27.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.0
 [1.26.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.26.0
 [1.25.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.3
 [1.25.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.2

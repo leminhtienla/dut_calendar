@@ -287,8 +287,17 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
   - **Chỉ lấy lần xuất hiện ĐẦU TIÊN** trong thân mail. Mail đính chính
     thường trích lại mail cũ bên dưới với giờ CŨ — quét cả bài rồi lấy
     kết quả cuối sẽ ra giờ đã bị hủy.
-  - Mail nào không tách được đủ **ngày + giờ** thì **không** lên lịch
-    (vẫn báo bình thường) — thà thiếu còn hơn đặt sai giờ.
+  - Nhận **3 kiểu sự kiện**:
+    1. **Có giờ cụ thể** — `Thời gian: 14h30 ngày 4/8/2026` → sự kiện
+       theo giờ (60 phút).
+    2. **Cả ngày / nhiều ngày** — `Thời gian: ngày 22–23/10/2026` (hội
+       thảo, không nêu giờ) → sự kiện cả ngày trải đúng số ngày.
+    3. **Mốc hạn** — cả dạng danh sách `Hạn nộp tóm tắt: 31/8/2026` lẫn
+       dạng câu văn `trước ngày 2026-08-06`; mỗi mốc thành 1 sự kiện cả
+       ngày, tiêu đề lấy nhãn của mốc.
+  - Ngày nhận cả `4/8/2026`, `01/7/2026` và kiểu ISO `2026-07-26`.
+  - Mail nào không tách được ngày nào thì **không** lên lịch (vẫn báo
+    bình thường) — thà thiếu còn hơn đặt sai.
   - Mail không ghi giờ kết thúc nên sự kiện mặc định dài **60 phút**.
   - Chỉ lưu phần đã tách vào `.storage`, **không lưu toàn văn** mail.
   - **Tiêu đề sự kiện có tiền tố `[Nhóm từ khóa]`** như lịch tuần, và
