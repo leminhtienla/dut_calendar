@@ -46,10 +46,22 @@ async def async_setup_entry(
             async_add_entities([TeachingCalendar(coordinator, entry)])
 
 
+# Quy ước của Home Assistant: sự kiện thuộc khoảng [start_date, end_date)
+# khi  event.start < end_date  VÀ  event.end > start_date.
+# Dùng >= / <= sẽ khiến sự kiện CẢ NGÀY lọt sang ngày kế tiếp, vì HA đặt
+# end = ngày hôm sau lúc 00:00 (không bao gồm) — đúng bằng mốc bắt đầu
+# của khoảng ngày hôm sau.
 def _end_as_datetime(value: Any) -> datetime:
+    """Đổi `end` của sự kiện sang datetime để so sánh khoảng.
+
+    KHÔNG cộng thêm ngày: mọi CalendarEvent cả ngày trong integration
+    này đều đã truyền `end` là NGÀY KẾ TIẾP (không bao gồm) theo đúng
+    quy ước của HA. Cộng thêm lần nữa sẽ khiến sự kiện cả ngày lọt
+    sang ngày hôm sau — vd hạn ngày 06/08 lại hiện trong lịch 07/08.
+    """
     if isinstance(value, datetime):
         return value
-    return dt_util.start_of_local_day(value) + timedelta(days=1)
+    return dt_util.start_of_local_day(value)
 
 
 def _start_as_datetime(value: Any) -> datetime:
@@ -135,7 +147,7 @@ class PublicScheduleCalendar(CoordinatorEntity[LichTuanDutCoordinator], Calendar
         for e in self._build_events():
             e_start = _start_as_datetime(e.start)
             e_end = _end_as_datetime(e.end)
-            if e_end >= start_date and e_start <= end_date:
+            if e_end > start_date and e_start < end_date:
                 result.append(e)
         return result
 
@@ -215,13 +227,18 @@ class ExamDutyCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         now = dt_util.now()
-        upcoming = [e for e in self._build_events() if e.end >= now]
+        upcoming = [e for e in self._build_events() if _end_as_datetime(e.end) >= now]
         return upcoming[0] if upcoming else None
 
     async def async_get_events(
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
-        return [e for e in self._build_events() if e.end >= start_date and e.start <= end_date]
+        return [
+            e
+            for e in self._build_events()
+            if _end_as_datetime(e.end) > start_date
+            and _start_as_datetime(e.start) < end_date
+        ]
 
 
 # =====================================================================
@@ -278,7 +295,7 @@ class DeadlineCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
         for e in self._build_events():
             e_start = _start_as_datetime(e.start)
             e_end = _end_as_datetime(e.end)
-            if e_end >= start_date and e_start <= end_date:
+            if e_end > start_date and e_start < end_date:
                 result.append(e)
         return result
 
@@ -364,7 +381,7 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
     ) -> list[CalendarEvent]:
         result = []
         for e in self._build_events():
-            if _end_as_datetime(e.end) >= start_date and _start_as_datetime(e.start) <= end_date:
+            if _end_as_datetime(e.end) > start_date and _start_as_datetime(e.start) < end_date:
                 result.append(e)
         return result
 
@@ -522,5 +539,5 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
         return [
             e
             for e in self._build_events()
-            if _end_as_datetime(e.end) >= start_date and _start_as_datetime(e.start) <= end_date
+            if _end_as_datetime(e.end) > start_date and _start_as_datetime(e.start) < end_date
         ]

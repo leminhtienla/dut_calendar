@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.27.1] - 2026-08-06
+
+### Sửa lỗi
+- **Sự kiện cả ngày lọt sang ngày kế tiếp** (hạn phản biện 06/08 hiện cả ở danh sách 07/08). Nguyên nhân: cả **5 Calendar** đều lọc bằng `event.end >= start_date and event.start <= end_date`, trong khi Home Assistant đặt `end` của sự kiện cả ngày là **00:00 ngày hôm sau (không bao gồm)** — đúng bằng mốc bắt đầu của khoảng ngày kế tiếp, nên bị tính là "có giao nhau".
+- Đã đổi sang đúng quy ước `event.start < end_date and event.end > start_date` cho toàn bộ Calendar (Lịch tuần, Coi thi, Nhập điểm, Lịch dạy, Email). Calendar `Nhập điểm` còn được sửa thêm: trước đó so sánh trực tiếp `date` với `datetime` thay vì qua hàm chuyển đổi.
+
 ## [1.27.0] - 2026-08-06
 
 ### Thêm mới (từ 2 mẫu mail thật của người dùng)
@@ -424,7 +430,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.27.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.27.1...HEAD
+[1.27.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.1
 [1.27.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.0
 [1.26.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.26.0
 [1.25.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.25.3
