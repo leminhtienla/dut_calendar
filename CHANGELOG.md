@@ -5,6 +5,25 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-08-06
+
+### Thêm mới
+- **Xem nhanh ảnh sinh viên** cho `dut_lichgiangday`: 2 ô chọn `Lớp` → `Sinh viên`, thuộc tính `anh_url` trỏ tới ảnh trên máy chủ trường; hiển thị bằng thẻ Markdown trên dashboard.
+- `parse_student_list()` + `anh_sinh_vien_url()` (mã SV có 2 số năm ở vị trí 4-5, trùng tên thư mục ảnh: `103230219` -> `/ImageSV/23/`).
+
+### Về dữ liệu cá nhân (chủ ý thiết kế)
+- **Không tải, không lưu ảnh**: chỉ dựng đường dẫn, trình duyệt tải thẳng từ máy chủ trường. Tránh việc tạo kho ảnh sinh viên trong Home Assistant, đặc biệt tránh `/config/www/` vốn được phục vụ công khai không cần đăng nhập.
+- **Chỉ đọc mã số + họ tên**. Bảng gốc còn có số điện thoại sinh viên, số điện thoại người nhà và địa chỉ cư trú — các cột này không được đọc.
+- Danh sách chỉ nằm trong bộ nhớ, chỉ tải khi người dùng chủ động chọn lớp.
+
+## [1.27.3] - 2026-08-06
+
+### Thêm mới (từ mẫu mail thông báo đăng ký đề tài)
+- **Nhận dạng hạn có chữ đệm**: `Hạn nộp chậm nhất ngày 9/8/2026` — regex cũ đòi ngày phải đứng sát từ khóa nên trượt. Bổ sung cả từ khóa `chậm nhất`, `hạn đăng ký`, `hạn gửi`.
+- **Chỉ đọc phần MỚI NHẤT của mail chuyển tiếp** (cắt tại dòng `Từ:`/`From:` hoặc đường kẻ ngang) khi tìm mốc hạn. Cần thiết vì đơn vị trung gian thường đặt hạn sớm hơn hạn gốc: Khoa yêu cầu nộp trước **9/8**, thông báo gốc của Phòng ghi **10/8** — hạn áp dụng cho người nhận là 9/8. Trước đây tạo cả 2 sự kiện. Nếu phần mới không có mốc nào thì mới quét toàn bộ.
+- Kiểm chứng không nhầm **ngày văn bản** thành hạn: `Thông báo số 3641/TB-ĐHBK ngày 13/7/2026` bị bỏ qua đúng.
+- Test lại cả 4 mẫu mail thật (thông báo, họp có giờ, mời phản biện, hội thảo) — đều tách đúng, không hồi quy.
+
 ## [1.27.2] - 2026-08-06
 
 ### Riêng tư
@@ -438,7 +457,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.27.2...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.28.0...HEAD
+[1.28.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.0
+[1.27.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.3
 [1.27.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.2
 [1.27.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.1
 [1.27.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.0

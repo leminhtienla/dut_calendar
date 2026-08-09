@@ -209,5 +209,15 @@
       "cannot_connect": "Could not connect to cb.dut.udn.vn, try again later.",
       "cannot_fetch_directory": "Could not load the department/lecturer list (possibly slow network, ~1MB response) — auto-retried twice. You can press \"Retry\" or choose \"Don't track anyone\" to skip this feature."
     }
+  },
+  "entity": {
+    "select": {
+      "chon_lop": {
+        "name": "Class"
+      },
+      "chon_sinh_vien": {
+        "name": "Student"
+      }
+    }
   }
 }

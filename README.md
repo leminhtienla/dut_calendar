@@ -292,9 +292,18 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
        theo giờ (60 phút).
     2. **Cả ngày / nhiều ngày** — `Thời gian: ngày 22–23/10/2026` (hội
        thảo, không nêu giờ) → sự kiện cả ngày trải đúng số ngày.
-    3. **Mốc hạn** — cả dạng danh sách `Hạn nộp tóm tắt: 31/8/2026` lẫn
-       dạng câu văn `trước ngày 2026-08-06`; mỗi mốc thành 1 sự kiện cả
+    3. **Mốc hạn** — cả dạng danh sách `Hạn nộp tóm tắt: 31/8/2026`,
+       dạng câu văn `trước ngày 2026-08-06`, lẫn dạng có chữ đệm
+       `Hạn nộp chậm nhất ngày 9/8/2026`; mỗi mốc thành 1 sự kiện cả
        ngày, tiêu đề lấy nhãn của mốc.
+  - **Chỉ đọc phần MỚI NHẤT của mail chuyển tiếp** (cắt tại dòng
+    `Từ:`/`From:` hoặc đường kẻ ngang). Quan trọng vì đơn vị trung gian
+    thường đặt hạn SỚM HƠN hạn gốc — vd Khoa yêu cầu nộp trước 9/8
+    trong khi thông báo gốc của Phòng ghi 10/8; hạn áp dụng cho bạn là
+    9/8. Nếu phần mới không có mốc nào (mail chuyển tiếp thuần) thì
+    mới quét toàn bộ.
+  - **Không nhầm ngày văn bản thành hạn**: `Thông báo số 3641/TB-ĐHBK
+    ngày 13/7/2026` bị bỏ qua vì không có từ khóa báo hạn đứng trước.
   - Ngày nhận cả `4/8/2026`, `01/7/2026` và kiểu ISO `2026-07-26`.
   - Mail nào không tách được ngày nào thì **không** lên lịch (vẫn báo
     bình thường) — thà thiếu còn hơn đặt sai.
@@ -317,6 +326,33 @@ nhóm, `Nhãn: biến thể 1, biến thể 2`:
 Họp: họp, mời họp, hội nghị
 Đảng: chi bộ, đảng ủy, đảng viên
 ```
+
+### Xem nhanh ảnh sinh viên
+
+Hai ô chọn trong thiết bị **Lịch dạy**: `select.…_lop` (lớp đang dạy) →
+`select.…_sinh_vien` (sinh viên trong lớp đó). Chọn xong, thuộc tính
+`anh_url` chứa đường dẫn ảnh trên máy chủ trường.
+
+Thêm thẻ **Markdown** vào dashboard để hiện ảnh:
+
+```jinja
+{% set sv = 'select.dut_calendar_lich_day_sinh_vien' %}
+{% set u = state_attr(sv, 'anh_url') %}
+{% if u %}
+**{{ state_attr(sv, 'ho_ten') }}** — {{ state_attr(sv, 'ma_sv') }}
+
+![]({{ u }})
+{% else %}Chưa chọn sinh viên.{% endif %}
+```
+
+**Về dữ liệu cá nhân:**
+- Home Assistant **không tải và không lưu ảnh** — chỉ dựng đường dẫn,
+  trình duyệt của bạn tải thẳng từ máy chủ trường.
+- Danh sách sinh viên chỉ gồm **mã số + họ tên**, nằm trong bộ nhớ,
+  không ghi ra đĩa. Bảng gốc còn có **số điện thoại sinh viên, số điện
+  thoại người nhà, địa chỉ cư trú** — integration **không đọc** những
+  cột này.
+- Danh sách chỉ được tải khi bạn chủ động chọn một lớp.
 
 ## `dut_deadline_diem` — Hạn nộp điểm
 

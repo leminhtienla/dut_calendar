@@ -17,7 +17,7 @@ from .coordinator_exam import CBDutCoordinator
 from .coordinator_mail import DutMailCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 
-PLATFORMS = ["sensor", "calendar"]
+PLATFORMS = ["sensor", "calendar", "select"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

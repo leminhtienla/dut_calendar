@@ -352,11 +352,33 @@ def extract_original_sender(body: str) -> str | None:
 
 # Các cụm thường dùng để nêu HẠN CHÓT trong mail (không phải cuộc họp)
 _RE_HAN = re.compile(
-    r"(?:tr[ưu][ớo]c\s+ng[àa]y|h[ạa]n\s+ch[óo]t|h[ạa]n\s+cu[ốo]i|"
-    r"h[ạa]n\s+n[ộo]p|tr[ưu][ớo]c)\s*[:\s]\s*"
+    # Từ khóa báo hiệu HẠN, cho phép vài chữ đệm trước ngày
+    # ("Hạn nộp chậm nhất ngày 9/8/2026", "trước ngày 2026-08-06").
+    r"(?:tr[ưu][ớo]c\s+ng[àa]y|ch[ậa]m\s+nh[ấa]t|"
+    r"h[ạa]n\s+(?:ch[óo]t|cu[ốo]i|n[ộo]p|[đd][ăa]ng\s*k[ýy]|g[ửu]i))"
+    r"[^.\n]{0,25}?"
     r"(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})",
     re.IGNORECASE,
 )
+
+# Dấu hiệu bắt đầu phần TRÍCH DẪN mail cũ trong mail chuyển tiếp
+_RE_DAU_TRICH_DAN = re.compile(
+    r"^\s*(?:T[ừu]|From)\s*:|^\s*_{5,}\s*$|^\s*-{5,}\s*$", re.MULTILINE
+)
+
+
+def phan_moi_nhat(body: str) -> str:
+    """Cắt bỏ phần trích dẫn mail cũ, chỉ giữ nội dung MỚI NHẤT ở trên.
+
+    Mail chuyển tiếp thường kèm nguyên mail gốc bên dưới, trong đó có
+    mốc thời gian CŨ hoặc mốc của đơn vị khác — vd Khoa chuyển tiếp
+    thông báo của Phòng và đặt hạn nộp về Khoa (9/8) SỚM HƠN hạn của
+    Phòng (10/8). Hạn áp dụng cho người nhận là hạn ở phần trên.
+    """
+    if not body:
+        return body
+    m = _RE_DAU_TRICH_DAN.search(body)
+    return body[: m.start()] if m else body
 
 
 def parse_deadlines(body: str, max_items: int = 5) -> list[dict[str, Any]]:
@@ -373,16 +395,22 @@ def parse_deadlines(body: str, max_items: int = 5) -> list[dict[str, Any]]:
     ket_qua: list[dict[str, Any]] = []
     da_co: set[date] = set()
 
-    for m in _RE_HAN.finditer(body):
+    # Ưu tiên phần mới nhất; nếu phần đó không có mốc nào (mail thuần
+    # chuyển tiếp, không thêm chữ) thì mới quét toàn bộ.
+    pham_vi = phan_moi_nhat(body)
+    if not _RE_HAN.search(pham_vi):
+        pham_vi = body
+
+    for m in _RE_HAN.finditer(pham_vi):
         d = _tim_ngay(m.group(1))
         if d is None or d in da_co:
             continue
         da_co.add(d)
 
         # Lấy câu chứa mốc hạn làm ngữ cảnh
-        dau = body.rfind(".", 0, m.start())
-        cuoi = body.find(".", m.end())
-        cau = body[(dau + 1 if dau != -1 else 0) : (cuoi if cuoi != -1 else len(body))]
+        dau = pham_vi.rfind(".", 0, m.start())
+        cuoi = pham_vi.find(".", m.end())
+        cau = pham_vi[(dau + 1 if dau != -1 else 0) : (cuoi if cuoi != -1 else len(pham_vi))]
         cau = " ".join(cau.split()).strip()
 
         ket_qua.append({"date": d, "context": cau[:200]})
@@ -416,7 +444,11 @@ def parse_milestones(body: str, max_items: int = 10) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     da_co: set[tuple[str, date]] = set()
 
-    for m in _RE_MOC_THOI_GIAN.finditer(body):
+    pham_vi = phan_moi_nhat(body)
+    if not _RE_MOC_THOI_GIAN.search(pham_vi):
+        pham_vi = body
+
+    for m in _RE_MOC_THOI_GIAN.finditer(pham_vi):
         nhan = " ".join(m.group(1).split()).strip()
         if not nhan:
             continue

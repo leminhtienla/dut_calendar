@@ -368,3 +368,24 @@ class CBDutClient:
             GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=90
         ) as resp:
             return await resp.text()
+
+
+    async def fetch_student_list_html(self, ma_lop: str) -> str:
+        """Danh sách sinh viên của 1 lớp học phần."""
+        await self.ensure_logged_in()
+        text = await self._call_student_list(ma_lop)
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_student_list(ma_lop)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+        return text
+
+    async def _call_student_list(self, ma_lop: str) -> str:
+        params = {"E": "SVIFList", "ML": ma_lop, "AH": "false"}
+        headers = {"X-Requested-With": "XMLHttpRequest", "Referer": PAGE_LICHGIANGDAY_URL}
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
+        ) as resp:
+            return await resp.text()

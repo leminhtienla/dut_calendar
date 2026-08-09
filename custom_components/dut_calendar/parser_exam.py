@@ -1120,3 +1120,42 @@ def infer_self_name_from_khoa(
     if not dem:
         return None
     return max(dem.items(), key=lambda kv: kv[1])[0]
+
+
+def parse_student_list(html: str) -> list[dict[str, str]]:
+    """Danh sách sinh viên của 1 lớp học phần (E=SVIFList&ML=<mã lớp>).
+
+    CHỦ Ý chỉ lấy MÃ SỐ và HỌ TÊN. Bảng gốc còn có số điện thoại sinh
+    viên, số điện thoại người nhà và địa chỉ cư trú — những thông tin
+    này KHÔNG được đọc, không đưa vào Home Assistant.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="SVIFListGrid")
+    if table is None:
+        return []
+
+    out: list[dict[str, str]] = []
+    for tr in table.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 3:
+            continue
+        stt = tds[0].get_text(strip=True)
+        if not stt.isdigit():
+            continue
+        ma = unicodedata.normalize("NFC", tds[1].get_text(strip=True))
+        ten = unicodedata.normalize("NFC", tds[2].get_text(" ", strip=True))
+        if ma and ten:
+            out.append({"ma_sv": ma, "ho_ten": ten})
+    return out
+
+
+def anh_sinh_vien_url(ma_sv: str) -> str | None:
+    """Đường dẫn ảnh sinh viên trên hệ thống trường.
+
+    Cấu trúc mã SV: 3 số mã khoa + 2 số năm vào trường + số thứ tự,
+    còn thư mục ảnh chính là 2 số năm đó — vd 103230219 -> /ImageSV/23/.
+    """
+    ma = (ma_sv or "").strip()
+    if not re.fullmatch(r"\d{9,12}", ma):
+        return None
+    return f"https://cb.dut.udn.vn/ImageSV/{ma[3:5]}/{ma}.jpg"

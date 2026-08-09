@@ -132,6 +132,11 @@ class CBDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self.entry.data.get(CONF_TYPE) == TYPE_DEADLINE_DIEM
 
     @property
+    def client(self) -> CBDutClient:
+        """Client đã đăng nhập — dùng chung cho các entity khác (vd select)."""
+        return self._client
+
+    @property
     def username(self) -> str:
         return str(
             self.entry.options.get(CONF_USERNAME, self.entry.data.get(CONF_USERNAME, ""))
