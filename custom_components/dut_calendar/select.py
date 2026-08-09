@@ -132,7 +132,10 @@ class SinhVienSelect(SelectEntity):
         self._attr_device_info = _device_info(entry)
 
     def _nhan(self, sv: dict[str, str]) -> str:
-        return f"{sv['ho_ten']} ({sv['ma_sv']})"
+        """Nhãn trong ô chọn — có số thứ tự để khớp danh sách lớp in ra."""
+        stt = sv.get("stt")
+        dau = f"{stt}. " if stt else ""
+        return f"{dau}{sv['ho_ten']} ({sv['ma_sv']})"
 
     async def nap_danh_sach(self, ma_lop: str | None) -> None:
         """Tải danh sách sinh viên của lớp vừa chọn (chỉ mã + họ tên)."""
@@ -190,8 +193,10 @@ class SinhVienSelect(SelectEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         sv = self._sv_dang_chon()
         return {
+            "stt": sv.get("stt") if sv else None,
             "ma_sv": sv["ma_sv"] if sv else None,
             "ho_ten": sv["ho_ten"] if sv else None,
+            "dien_thoai": sv.get("dien_thoai") or None if sv else None,
             # Chỉ là ĐƯỜNG DẪN tới ảnh trên máy chủ trường — HA không tải về.
             "anh_url": anh_sinh_vien_url(sv["ma_sv"]) if sv else None,
             "so_sinh_vien": len(self._danh_sach),

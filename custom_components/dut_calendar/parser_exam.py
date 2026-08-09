@@ -1125,9 +1125,13 @@ def infer_self_name_from_khoa(
 def parse_student_list(html: str) -> list[dict[str, str]]:
     """Danh sách sinh viên của 1 lớp học phần (E=SVIFList&ML=<mã lớp>).
 
-    CHỦ Ý chỉ lấy MÃ SỐ và HỌ TÊN. Bảng gốc còn có số điện thoại sinh
-    viên, số điện thoại người nhà và địa chỉ cư trú — những thông tin
-    này KHÔNG được đọc, không đưa vào Home Assistant.
+    Lấy MÃ SỐ, HỌ TÊN và SỐ ĐIỆN THOẠI CỦA SINH VIÊN.
+
+    CHỦ Ý KHÔNG đọc "SĐT Người nhà" và "Địa chỉ cư trú" — hai cột này
+    nhạy cảm hơn và không cần cho việc nhận diện sinh viên.
+
+    Lưu ý khi dùng: Home Assistant không phân quyền theo entity, nên
+    mọi tài khoản trong hệ thống đều xem được số điện thoại này.
     """
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table", id="SVIFListGrid")
@@ -1144,8 +1148,15 @@ def parse_student_list(html: str) -> list[dict[str, str]]:
             continue
         ma = unicodedata.normalize("NFC", tds[1].get_text(strip=True))
         ten = unicodedata.normalize("NFC", tds[2].get_text(" ", strip=True))
+        # Cột 4 = SĐT sinh viên. Cột 5 (SĐT người nhà) và cột 6 (địa chỉ)
+        # cố ý bỏ qua.
+        sdt = tds[3].get_text(strip=True) if len(tds) > 3 else ""
         if ma and ten:
-            out.append({"ma_sv": ma, "ho_ten": ten})
+            # `stt` là số thứ tự trong lớp do hệ thống trường đánh, giữ
+            # nguyên để đối chiếu với danh sách in ra giấy.
+            out.append(
+                {"stt": stt, "ma_sv": ma, "ho_ten": ten, "dien_thoai": sdt or ""}
+            )
     return out
 
 

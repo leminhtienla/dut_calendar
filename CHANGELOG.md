@@ -5,6 +5,20 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.29.1] - 2026-08-09
+
+### Thêm mới
+- **Số thứ tự sinh viên trong lớp** (`stt`): hiện ngay trong ô chọn (`12. Nguyễn Văn A (103…)`) và có trong thuộc tính entity — tiện đối chiếu với danh sách lớp in ra giấy.
+
+## [1.29.0] - 2026-08-09
+
+### Thêm mới
+- Ô chọn **Sinh viên** có thêm thuộc tính `dien_thoai` (số của sinh viên).
+
+### Vẫn giữ nguyên giới hạn
+- **SĐT người nhà** và **địa chỉ cư trú** trong bảng gốc vẫn KHÔNG được đọc.
+- Lưu ý trong tài liệu: Home Assistant không phân quyền theo entity nên mọi tài khoản HA đều xem được số điện thoại này.
+
 ## [1.28.2] - 2026-08-09
 
 ### Sửa lỗi
@@ -474,7 +488,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.28.2...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.29.1...HEAD
+[1.29.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.1
+[1.29.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.0
 [1.28.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.2
 [1.28.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.1
 [1.28.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.0
