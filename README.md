@@ -330,10 +330,11 @@ Họp: họp, mời họp, hội nghị
 ### Xem nhanh ảnh sinh viên
 
 Hai ô chọn trong thiết bị **Lịch dạy**: `select.…_lop` (lớp đang dạy) →
-`select.…_sinh_vien` (sinh viên trong lớp đó). Chọn xong, thuộc tính
-`anh_url` chứa đường dẫn ảnh trên máy chủ trường.
+`select.…_sinh_vien` (sinh viên trong lớp đó).
 
-Thêm thẻ **Markdown** vào dashboard để hiện ảnh:
+Ảnh được đưa ra qua `entity_picture` và thuộc tính `anh_url`. **Cách
+chắc chắn hiển thị là thêm thẻ Markdown** (một số thẻ không vẽ
+`entity_picture` cho entity kiểu `select`):
 
 ```jinja
 {% set sv = 'select.dut_calendar_lich_day_sinh_vien' %}
@@ -344,6 +345,11 @@ Thêm thẻ **Markdown** vào dashboard để hiện ảnh:
 ![]({{ u }})
 {% else %}Chưa chọn sinh viên.{% endif %}
 ```
+
+Nếu ô **Sinh viên** trống sau khi chọn lớp, mở more-info của
+`select.…_sinh_vien` và xem 2 thuộc tính chẩn đoán: `ma_lop_da_goi`
+(mã đã gửi lên hệ thống) và `trang_thai` (`đang tải…`, `đã tải N sinh
+viên`, `tải được nhưng không đọc ra sinh viên nào`, hoặc `lỗi: …`).
 
 **Về dữ liệu cá nhân:**
 - Home Assistant **không tải và không lưu ảnh** — chỉ dựng đường dẫn,

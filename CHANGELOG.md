@@ -5,6 +5,23 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.28.2] - 2026-08-09
+
+### Sửa lỗi
+- **Lớp có nhóm con (hậu tố A/B) không lấy được sinh viên**: mã lớp dạng `1033910.2610.23.20A` bị hàm chuẩn hoá xoá mất chữ cái cuối thành `103391026102320`, sai với mã hệ thống yêu cầu. Nay chỉ bỏ dấu chấm/khoảng trắng, giữ nguyên hậu tố chữ.
+
+### Chẩn đoán
+- Ô chọn **Sinh viên** có thêm thuộc tính `ma_lop_da_goi` và `trang_thai` (`đang tải…` / `đã tải N sinh viên` / `tải được nhưng không đọc ra sinh viên nào` / `lỗi: …`) — xem ngay trong more-info, không phải đào log.
+
+## [1.28.1] - 2026-08-06
+
+### Sửa lỗi
+- **Chọn lớp xong nhưng danh sách sinh viên rỗng.** Bảng lịch giảng dạy hiển thị mã lớp có dấu chấm (`1033580.2610.24.21`), trong khi endpoint danh sách sinh viên chỉ nhận dạng liền 15 chữ số (`103358026102421`) — truyền sai định dạng nên trả về rỗng. Đã chuẩn hoá mã lớp trước khi gọi.
+- Thêm cảnh báo trong log khi tải được nhưng không đọc được sinh viên nào, để lần sau khoanh vùng nhanh.
+
+### Thêm mới
+- **Ảnh hiện ngay trên entity** qua `entity_picture`: bấm vào ô chọn sinh viên là thấy ảnh, không bắt buộc phải tự thêm thẻ Markdown. Vẫn chỉ là đường dẫn — HA không tải, không lưu ảnh.
+
 ## [1.28.0] - 2026-08-06
 
 ### Thêm mới
@@ -457,7 +474,9 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.28.0...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.28.2...HEAD
+[1.28.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.2
+[1.28.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.1
 [1.28.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.0
 [1.27.3]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.3
 [1.27.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.27.2
