@@ -1170,3 +1170,25 @@ def anh_sinh_vien_url(ma_sv: str) -> str | None:
     if not re.fullmatch(r"\d{9,12}", ma):
         return None
     return f"https://cb.dut.udn.vn/ImageSV/{ma[3:5]}/{ma}.jpg"
+
+
+def parse_student_class_info(html: str) -> dict[str, str]:
+    """Lấy LỚP SINH HOẠT của từng sinh viên từ chế độ xem ảnh
+    (E=SVIFList&ML=<mã lớp>&AH=true) -> {mã SV: lớp sinh hoạt}.
+
+    Bảng này còn có NGÀY SINH — cố ý KHÔNG đọc, vì chỉ cần lớp sinh
+    hoạt để phân biệt sinh viên trùng tên.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="SVIFListGridAnh")
+    if table is None:
+        return {}
+
+    out: dict[str, str] = {}
+    for td in table.find_all("td"):
+        text = unicodedata.normalize("NFC", td.get_text(" ", strip=True))
+        m_ma = re.search(r"S[ốo]\s*th[ẻe]\s*:?\s*(\d{9,12})", text)
+        m_lop = re.search(r"L[ớo]p\s*sinh\s*ho[ạa]t\s*:?\s*([^\s]+)", text)
+        if m_ma and m_lop:
+            out[m_ma.group(1)] = m_lop.group(1).strip()
+    return out

@@ -5,6 +5,12 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.29.2] - 2026-08-09
+
+### Thêm mới
+- **Lớp sinh hoạt** (`lop_sinh_hoat`) cho ô chọn Sinh viên. Thông tin này không có trong bảng danh sách thường mà nằm ở chế độ xem ảnh (`AH=true`), nên khi chọn lớp sẽ gọi thêm 1 request và ghép theo mã sinh viên.
+- Dữ liệu gốc ở chế độ đó còn có **ngày sinh** — cố ý KHÔNG đọc, vì chỉ cần lớp sinh hoạt để phân biệt sinh viên trùng tên.
+
 ## [1.29.1] - 2026-08-09
 
 ### Thêm mới
@@ -488,7 +494,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.29.1...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.29.2...HEAD
+[1.29.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.2
 [1.29.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.1
 [1.29.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.0
 [1.28.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.28.2

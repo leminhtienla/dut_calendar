@@ -21,7 +21,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_TYPE, DOMAIN, TYPE_LICHGIANGDAY
 from .coordinator_exam import CBDutCoordinator
-from .parser_exam import anh_sinh_vien_url, parse_student_list
+from .parser_exam import (
+    anh_sinh_vien_url,
+    parse_student_class_info,
+    parse_student_list,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -150,6 +154,19 @@ class SinhVienSelect(SelectEntity):
                 self._danh_sach = await self.hass.async_add_executor_job(
                     parse_student_list, raw
                 )
+                # Gọi thêm chế độ xem ảnh để lấy LỚP SINH HOẠT
+                try:
+                    raw_anh = await self._coordinator.client.fetch_student_list_html(
+                        ma_lop, anh=True
+                    )
+                    lop_sh = await self.hass.async_add_executor_job(
+                        parse_student_class_info, raw_anh
+                    )
+                    for sv in self._danh_sach:
+                        sv["lop_sinh_hoat"] = lop_sh.get(sv["ma_sv"], "")
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Không lấy được lớp sinh hoạt lớp %s: %s", ma_lop, err)
+
                 self._trang_thai = (
                     f"đã tải {len(self._danh_sach)} sinh viên"
                     if self._danh_sach
@@ -197,6 +214,7 @@ class SinhVienSelect(SelectEntity):
             "ma_sv": sv["ma_sv"] if sv else None,
             "ho_ten": sv["ho_ten"] if sv else None,
             "dien_thoai": sv.get("dien_thoai") or None if sv else None,
+            "lop_sinh_hoat": sv.get("lop_sinh_hoat") or None if sv else None,
             # Chỉ là ĐƯỜNG DẪN tới ảnh trên máy chủ trường — HA không tải về.
             "anh_url": anh_sinh_vien_url(sv["ma_sv"]) if sv else None,
             "so_sinh_vien": len(self._danh_sach),

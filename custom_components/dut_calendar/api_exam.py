@@ -370,20 +370,24 @@ class CBDutClient:
             return await resp.text()
 
 
-    async def fetch_student_list_html(self, ma_lop: str) -> str:
-        """Danh sách sinh viên của 1 lớp học phần."""
+    async def fetch_student_list_html(self, ma_lop: str, anh: bool = False) -> str:
+        """Danh sách sinh viên của 1 lớp học phần.
+
+        `anh=False` -> bảng có STT, mã, họ tên, SĐT.
+        `anh=True`  -> lưới ảnh, có thêm LỚP SINH HOẠT.
+        """
         await self.ensure_logged_in()
-        text = await self._call_student_list(ma_lop)
+        text = await self._call_student_list(ma_lop, anh)
         if is_login_page(text):
             self._logged_in = False
             await self.ensure_logged_in()
-            text = await self._call_student_list(ma_lop)
+            text = await self._call_student_list(ma_lop, anh)
             if is_login_page(text):
                 raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
         return text
 
-    async def _call_student_list(self, ma_lop: str) -> str:
-        params = {"E": "SVIFList", "ML": ma_lop, "AH": "false"}
+    async def _call_student_list(self, ma_lop: str, anh: bool = False) -> str:
+        params = {"E": "SVIFList", "ML": ma_lop, "AH": "true" if anh else "false"}
         headers = {"X-Requested-With": "XMLHttpRequest", "Referer": PAGE_LICHGIANGDAY_URL}
         async with self._session.post(
             GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60

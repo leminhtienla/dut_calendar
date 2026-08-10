@@ -354,9 +354,10 @@ viên`, `tải được nhưng không đọc ra sinh viên nào`, hoặc `lỗi:
 **Về dữ liệu cá nhân:**
 - Home Assistant **không tải và không lưu ảnh** — chỉ dựng đường dẫn,
   trình duyệt của bạn tải thẳng từ máy chủ trường.
-- Danh sách sinh viên gồm **mã số + họ tên + SĐT sinh viên**, nằm
-  trong bộ nhớ, không ghi ra đĩa. **SĐT người nhà** và **địa chỉ cư
-  trú** trong bảng gốc **không được đọc**.
+- Danh sách sinh viên gồm **STT + mã số + họ tên + SĐT sinh viên +
+  lớp sinh hoạt**, nằm trong bộ nhớ, không ghi ra đĩa. **SĐT người
+  nhà**, **địa chỉ cư trú** và **ngày sinh** trong dữ liệu gốc **không
+  được đọc**.
 - ⚠️ Home Assistant **không phân quyền theo entity**: mọi tài khoản HA
   (kể cả tài khoản khách) đều xem được số điện thoại này trên dashboard
   và trong thuộc tính entity. Cân nhắc trước khi thêm thẻ vào dashboard
