@@ -292,10 +292,11 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
        theo giờ (60 phút).
     2. **Cả ngày / nhiều ngày** — `Thời gian: ngày 22–23/10/2026` (hội
        thảo, không nêu giờ) → sự kiện cả ngày trải đúng số ngày.
-    3. **Mốc hạn** — cả dạng danh sách `Hạn nộp tóm tắt: 31/8/2026`,
-       dạng câu văn `trước ngày 2026-08-06`, lẫn dạng có chữ đệm
-       `Hạn nộp chậm nhất ngày 9/8/2026`; mỗi mốc thành 1 sự kiện cả
-       ngày, tiêu đề lấy nhãn của mốc.
+    3. **Mốc hạn** — dạng danh sách `Hạn nộp tóm tắt: 31/8/2026`, dạng
+       câu văn `trước ngày 2026-08-06`, dạng có chữ đệm `Hạn nộp chậm
+       nhất ngày 9/8/2026`, và dạng **kèm giờ** `trước 11h00 ngày
+       12/8/2026`. Hạn không có giờ → sự kiện cả ngày; hạn **có giờ** →
+       sự kiện đúng giờ đó (30 phút) để nhắc sát hạn.
   - **Chỉ đọc phần MỚI NHẤT của mail chuyển tiếp** (cắt tại dòng
     `Từ:`/`From:` hoặc đường kẻ ngang). Quan trọng vì đơn vị trung gian
     thường đặt hạn SỚM HƠN hạn gốc — vd Khoa yêu cầu nộp trước 9/8

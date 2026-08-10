@@ -5,6 +5,14 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-08-09
+
+### Thêm mới (từ mẫu mail góp ý dự thảo)
+- **Hạn kèm GIỜ**: `trước 11h00 ngày 12/8/2026`. Trước đây regex đòi cụm `trước ngày` nên bỏ sót hoàn toàn dạng có giờ xen giữa. Nay `trước` đứng một mình cũng tính (vẫn an toàn vì bắt buộc có ngày trong vòng 25 ký tự).
+- Hạn có giờ tạo **sự kiện đúng giờ đó (30 phút)** thay vì cả ngày — nhắc sát hạn hơn; tiêu đề dạng `Hạn 11:00: <tiêu đề mail>`.
+- Kiểm chứng không nhầm **ngày công văn** (`Công văn số 3115/ĐHĐN-CTSVDNTT ngày 07/8/2026`) thành hạn.
+- Test lại cả 5 mẫu mail thật (góp ý dự thảo, đăng ký đề tài, họp chi bộ, mời phản biện, hội thảo) — không hồi quy.
+
 ## [1.29.2] - 2026-08-09
 
 ### Thêm mới
@@ -494,7 +502,8 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
   `dut_calendar_new_exam_duty`, `cb_dut_grade_deadline_changed` →
   `dut_calendar_grade_deadline_changed`.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.29.2...HEAD
+[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/compare/v1.30.0...HEAD
+[1.30.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.30.0
 [1.29.2]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.2
 [1.29.1]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.1
 [1.29.0]: https://github.com/YOUR_GITHUB_USERNAME/dut_calendar/releases/tag/v1.29.0

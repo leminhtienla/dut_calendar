@@ -501,6 +501,36 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                 except (TypeError, ValueError, KeyError):
                     continue
                 kw = ", ".join(m.get("matched_keywords") or [])
+
+                # Hạn có GIỜ cụ thể ("trước 11h00 ngày 12/8") -> sự kiện
+                # đúng giờ đó (30 phút) thay vì cả ngày, để nhắc sát hạn.
+                gio = h.get("gio")
+                if gio:
+                    try:
+                        gh, gp = (int(x) for x in gio.split(":"))
+                        bd = datetime(ngay.year, ngay.month, ngay.day, gh, gp, tzinfo=tzinfo)
+                        events.append(
+                            CalendarEvent(
+                                start=bd,
+                                end=bd + timedelta(minutes=30),
+                                summary=(
+                                    (f"[{kw}] " if kw else "")
+                                    + "Hạn "
+                                    + gio
+                                    + ": "
+                                    + (m.get("subject_key") or m.get("subject") or "")
+                                ),
+                                description=(
+                                    f"Người gửi: {m.get('original_sender') or m.get('sender')}\n"
+                                    f"{h.get('context', '')}"
+                                ),
+                                uid=f"{self._entry.entry_id}_{m.get('id')}_{h['date']}_{gio}",
+                            )
+                        )
+                        continue
+                    except (TypeError, ValueError):
+                        pass
+
                 events.append(
                     CalendarEvent(
                         start=ngay,

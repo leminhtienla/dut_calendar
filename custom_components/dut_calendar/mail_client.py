@@ -354,7 +354,9 @@ def extract_original_sender(body: str) -> str | None:
 _RE_HAN = re.compile(
     # Từ khóa báo hiệu HẠN, cho phép vài chữ đệm trước ngày
     # ("Hạn nộp chậm nhất ngày 9/8/2026", "trước ngày 2026-08-06").
-    r"(?:tr[ưu][ớo]c\s+ng[àa]y|ch[ậa]m\s+nh[ấa]t|"
+    # "trước" đứng một mình cũng tính, để bắt "trước 11h00 ngày 12/8/2026";
+    # vẫn an toàn vì bắt buộc phải có NGÀY trong vòng 25 ký tự sau đó.
+    r"(?:tr[ưu][ớo]c|ch[ậa]m\s+nh[ấa]t|"
     r"h[ạa]n\s+(?:ch[óo]t|cu[ốo]i|n[ộo]p|[đd][ăa]ng\s*k[ýy]|g[ửu]i))"
     r"[^.\n]{0,25}?"
     r"(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})",
@@ -413,7 +415,15 @@ def parse_deadlines(body: str, max_items: int = 5) -> list[dict[str, Any]]:
         cau = pham_vi[(dau + 1 if dau != -1 else 0) : (cuoi if cuoi != -1 else len(pham_vi))]
         cau = " ".join(cau.split()).strip()
 
-        ket_qua.append({"date": d, "context": cau[:200]})
+        # Hạn có thể kèm GIỜ: "trước 11h00 ngày 12/8/2026" -> 11:00
+        gio = None
+        m_gio = _RE_GIO.search(m.group(0))
+        if m_gio:
+            h, p = int(m_gio.group(1)), int(m_gio.group(2) or 0)
+            if 0 <= h <= 23 and 0 <= p <= 59:
+                gio = f"{h:02d}:{p:02d}"
+
+        ket_qua.append({"date": d, "gio": gio, "context": cau[:200]})
         if len(ket_qua) >= max_items:
             break
 

@@ -220,7 +220,11 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "thoi_gian_raw": info.get("thoi_gian_raw"),
                 "thanh_phan_raw": info.get("thanh_phan_raw"),
                 "deadlines": [
-                    {"date": h["date"].isoformat(), "context": h["context"]}
+                    {
+                        "date": h["date"].isoformat(),
+                        "gio": h.get("gio"),
+                        "context": h["context"],
+                    }
                     for h in han_list
                 ],
             }
