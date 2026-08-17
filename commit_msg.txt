@@ -1,6 +1,0 @@
-v1.36.0: sua loi bat nham cau van mo ta thanh khoang ngay
-
-- Nguyen nhan: regex khoang ngay dung * cho ky hieu liet ke, khong bat buoc phai co bullet
-- Email bi xuong dong tu nhien theo do rong cot khien cau van de dinh bay
-- Sua: bat buoc phai co bullet DAU dong VA dau hai cham sau nhan moi khop
-- Test hoi quy sinh hoat lop + case prose bi wrap + case bien deu dung
