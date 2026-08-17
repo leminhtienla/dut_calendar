@@ -235,12 +235,24 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Lỗi đọc hộp thư: {err}") from err
 
-        matches = await self.hass.async_add_executor_job(
-            exclude_mails_by_subject, mails, self.exclude_subjects
-        )
-        matches = await self.hass.async_add_executor_job(
-            filter_mails_by_keywords, matches, groups
-        )
+        matches = mails
+        try:
+            matches = await self.hass.async_add_executor_job(
+                exclude_mails_by_subject, mails, self.exclude_subjects
+            )
+        except Exception as err:  # noqa: BLE001
+            # Lỗi loại trừ KHÔNG được làm gãy cả lần quét mail — coi như
+            # bước loại trừ thất bại, dùng nguyên danh sách chưa lọc,
+            # đúng nguyên tắc "thà trống còn hơn sai" áp cho chính nó.
+            _LOGGER.warning("Lỗi khi loại trừ mail theo tiêu đề, bỏ qua bước này: %s", err)
+            matches = mails
+
+        try:
+            matches = await self.hass.async_add_executor_job(
+                filter_mails_by_keywords, matches, groups
+            )
+        except Exception as err:  # noqa: BLE001
+            raise UpdateFailed(f"Lỗi lọc từ khóa mail: {err}") from err
 
         new_matches: list[dict[str, Any]] = []
         for m in matches:

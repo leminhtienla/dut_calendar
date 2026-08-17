@@ -142,18 +142,31 @@ def exclude_mails_by_subject(
     """Bỏ các mail có TIÊU ĐỀ chứa 1 trong `exclude_phrases` (khớp chuỗi
     con, không phân biệt hoa/thường, chuẩn hóa NFC) — áp dụng TRƯỚC khi
     lọc từ khóa, để mail loại trừ không tính vào bất kỳ nhóm nào.
+
+    KHÔNG bao giờ raise — 1 mail có dữ liệu bất thường (subject None,
+    kiểu lạ...) chỉ bị bỏ qua bước loại trừ cho riêng nó (coi như
+    không loại), không được làm hỏng cả danh sách còn lại.
     """
     if not exclude_phrases:
         return mails
-    phrases_lower = [unicodedata.normalize("NFC", p).lower() for p in exclude_phrases if p]
+    try:
+        phrases_lower = [
+            unicodedata.normalize("NFC", str(p)).lower() for p in exclude_phrases if p
+        ]
+    except Exception:  # noqa: BLE001
+        return mails
     if not phrases_lower:
         return mails
 
     out: list[dict[str, Any]] = []
     for m in mails:
-        subject = unicodedata.normalize("NFC", m.get("subject", "")).lower()
-        if any(p in subject for p in phrases_lower):
-            continue
+        try:
+            subject_raw = m.get("subject") or ""
+            subject = unicodedata.normalize("NFC", str(subject_raw)).lower()
+            if any(p in subject for p in phrases_lower):
+                continue
+        except Exception:  # noqa: BLE001
+            pass  # lỗi riêng mail này -> coi như không loại, vẫn giữ lại
         out.append(m)
     return out
 

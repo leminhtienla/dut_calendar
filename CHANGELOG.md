@@ -5,6 +5,35 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-08-17
+
+### Sửa lỗi nghiêm trọng — bật `mail_exclude_subjects` làm gãy cả lần quét mail
+- **Nguyên nhân**: `exclude_mails_by_subject()` không có try/except, và
+  `m.get("subject", "")` chỉ trả về mặc định `""` khi THIẾU key —
+  không xử lý trường hợp key tồn tại nhưng **giá trị chính là `None`**
+  (mail hệ thống tiêu đề hỏng/rỗng). Gặp trường hợp này,
+  `unicodedata.normalize("NFC", None)` ném `TypeError`, làm gãy toàn
+  bộ `_async_update_data` -> coordinator giữ nguyên **dữ liệu cache
+  cũ** (giải thích đúng hiện tượng "bật exclude thì chỉ còn 1 mail cũ,
+  tắt thì đầy đủ" — không phải do sai logic loại trừ, mà do crash toàn
+  bộ lần quét).
+- **Sửa 2 lớp phòng thủ**:
+  1. `exclude_mails_by_subject()`: mỗi mail xử lý trong try/except
+     riêng — 1 mail dữ liệu lạ chỉ bị bỏ qua bước loại trừ CHO RIÊNG
+     NÓ (coi như không loại, vẫn giữ), không ảnh hưởng mail khác.
+  2. `coordinator_mail.py`: gọi `exclude_mails_by_subject` trong
+     try/except ở tầng coordinator — nếu vẫn lỗi vì lý do khác, log
+     cảnh báo và dùng nguyên danh sách CHƯA lọc loại trừ, không crash
+     cả lần quét.
+- Log cảnh báo mới: `"Lỗi khi loại trừ mail theo tiêu đề, bỏ qua bước
+  này: ..."` — nếu còn lỗi tái diễn, log này sẽ chỉ đúng nguyên nhân
+  thật để vá tiếp.
+
+### Kiểm tra
+- Test lại case bình thường (không đổi kết quả so với 1.33.0) + case
+  `subject: None` (mail dữ liệu lạ) — không còn crash, vẫn lọc đúng
+  các mail hợp lệ khác trong cùng đợt quét.
+
 ## [1.33.0] - 2026-08-17
 
 ### Thêm mới — loại trừ mail theo tiêu đề
