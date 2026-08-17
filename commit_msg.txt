@@ -1,6 +1,0 @@
-v1.34.0: sua loi crash khi bat mail_exclude_subjects
-
-- exclude_mails_by_subject: xu ly tung mail trong try/except rieng, khong de 1 mail loi lam hong ca danh sach
-- coordinator: boc try/except khi goi exclude, log canh bao thay vi crash toan bo lan quet
-- Nguyen nhan that: subject co gia tri None (khong phai thieu key), unicodedata.normalize crash voi None
-- Test lai case binh thuong + case subject=None, khong con crash
