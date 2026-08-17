@@ -5,6 +5,30 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-08-17
+
+### Sửa lỗi — khoảng ngày bắt nhầm câu văn mô tả (false positive)
+- **Nguyên nhân**: `_RE_KHOANG_TU_NGAY` (thêm ở bản 1.31) dùng `*` (0
+  lần trở lên) cho ký hiệu liệt kê đứng đầu dòng — nghĩa là KHÔNG bắt
+  buộc phải có `+`/`-`/`•` mới khớp. Vì email thường bị xuống dòng tự
+  nhiên theo độ rộng cột (~76 ký tự), câu văn mô tả bối cảnh (vd "Đợt
+  xét học vụ 1 diễn ra từ ngày X đến Y tại...") dễ vô tình có "từ
+  ngày..." rơi đúng đầu 1 dòng bị wrap, dù không phải mục liệt kê thật
+  → bị bắt nhầm thành sự kiện Calendar dù chỉ là mô tả, không phải
+  nhiệm vụ cần làm.
+- **Sửa**: bắt buộc phải có (1) ký hiệu liệt kê đứng đầu dòng
+  (`+`/`-`/`•`/`*`) VÀ (2) dấu hai chấm sau nhãn mới khớp — chỉ còn
+  bắt đúng khuôn liệt kê thật như `+ Đợt 1: từ ngày ... - ...`, loại
+  hoàn toàn câu văn xuôi dù nó có tình cờ nằm đầu dòng do wrap.
+
+### Kiểm tra
+- Hồi quy: mail sinh hoạt lớp chủ nhiệm (Đợt 1/Đợt 2) vẫn ra đúng 2
+  khoảng ngày như trước, không bị ảnh hưởng.
+- Case mới: mô phỏng câu văn "Đợt xét học vụ 1 diễn ra từ ngày X đến
+  Y" bị xuống dòng tự nhiên — không còn khớp, trả về rỗng.
+- Case biên: có ký hiệu liệt kê nhưng thiếu nhãn + dấu hai chấm — cũng
+  không khớp, đúng nguyên tắc "thà trống còn hơn sai".
+
 ## [1.35.0] - 2026-08-17
 
 ### Sửa lỗi thật — mail đã lưu lịch sử TỪ TRƯỚC không bị exclude hồi tố

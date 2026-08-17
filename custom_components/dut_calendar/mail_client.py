@@ -274,8 +274,14 @@ _RE_KHOANG_NGAY = re.compile(
 # đứng trước — mail thông báo lịch (sinh hoạt lớp, tập huấn...) hay ghi
 # kiểu liệt kê "Đợt X: từ ngày ... - ...:" chứ không dùng khuôn
 # "Thời gian:" chuẩn.
+#
+# BẮT BUỘC có ký hiệu liệt kê (+/-/•/*) đứng đầu dòng VÀ dấu hai chấm
+# sau nhãn — nếu không, câu văn mô tả bối cảnh (vd "Đợt xét học vụ 1
+# diễn ra từ ngày X đến Y sẽ...") dễ bị bắt nhầm do email bị xuống
+# dòng tự nhiên theo độ rộng cột, khiến "từ ngày..." vô tình rơi vào
+# đầu 1 dòng dù không phải mục liệt kê thật.
 _RE_KHOANG_TU_NGAY = re.compile(
-    r"^[\s+•\-\*\u2022\t]*([^:\n]{0,40}?):?\s*t[ừu]\s+ngày\s+"
+    r"^[ \t]*[+\-•\*\u2022]\s*([^:\n]{1,40}?):\s*t[ừu]\s+ngày\s+"
     r"(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})\s*(?:[–—-]|đến|den)\s*(?:ngày\s*)?"
     r"(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})",
     re.IGNORECASE | re.MULTILINE,
