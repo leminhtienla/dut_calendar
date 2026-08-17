@@ -114,3 +114,10 @@ MAIL_HISTORY_RETENTION_DAYS = 30
 EVENT_MAIL_MATCH = f"{DOMAIN}_mail_match"
 # Mail mời họp thường không ghi giờ KẾT THÚC -> mặc định 60 phút
 DEFAULT_MEETING_DURATION = 60
+
+# --- AI hỗ trợ (chỉ dùng khi rule-based KHÔNG tách được thông tin gì
+# từ mail đã khớp từ khóa) ---
+CONF_AI_ENABLED = "ai_enabled"
+DEFAULT_AI_ENABLED = True  # mặc định BẬT theo yêu cầu, chỉ kích hoạt khi rule-based thất bại
+CONF_AI_ENTITY_ID = "ai_entity_id"  # entity_id của 1 "conversation" agent đã cấu hình sẵn trong HA
+DEFAULT_AI_ENTITY_ID = ""

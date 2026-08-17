@@ -425,7 +425,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
         for m in data.get("matches", []):
             if not any(
                 m.get(x)
-                for x in ("meeting_start", "meeting_all_day_start", "deadlines")
+                for x in ("meeting_start", "meeting_all_day_start", "deadlines", "date_ranges")
             ):
                 continue
             key = m.get("subject_key") or m.get("subject") or m.get("id")
@@ -442,6 +442,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
             except (TypeError, ValueError):
                 continue
             end = start + timedelta(minutes=DEFAULT_MEETING_DURATION)
+            ai = m.get("ai_used")
 
             desc = [f"Người gửi: {m.get('original_sender') or m.get('sender')}"]
             if m.get("original_sender") and m.get("sender"):
@@ -452,13 +453,16 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                 desc.append(f"Thành phần: {m['thanh_phan_raw']}")
             if m.get("matched_keywords"):
                 desc.append(f"Từ khóa khớp: {', '.join(m['matched_keywords'])}")
+            if ai:
+                desc.append("⚠️ Nguồn: AI hỗ trợ tìm (rule-based không tách được) — kiểm tra lại trước khi tin tưởng hoàn toàn.")
 
             events.append(
                 CalendarEvent(
                     start=start.replace(tzinfo=tzinfo),
                     end=end.replace(tzinfo=tzinfo),
                     summary=(
-                        (f"[{', '.join(m['matched_keywords'])}] " if m.get("matched_keywords") else "")
+                        ("🤖 " if ai else "")
+                        + (f"[{', '.join(m['matched_keywords'])}] " if m.get("matched_keywords") else "")
                         + (m.get("subject_key") or m.get("subject") or "(không có tiêu đề)")
                     ),
                     description="\n".join(desc),
@@ -476,25 +480,61 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
             except (TypeError, ValueError):
                 continue
             kw = ", ".join(m.get("matched_keywords") or [])
+            ai = m.get("ai_used")
             events.append(
                 CalendarEvent(
                     start=d1,
                     end=d2 + timedelta(days=1),  # HA dùng end không bao gồm
                     summary=(
-                        (f"[{kw}] " if kw else "")
+                        ("🤖 " if ai else "")
+                        + (f"[{kw}] " if kw else "")
                         + (m.get("subject_key") or m.get("subject") or "(không tiêu đề)")
                     ),
                     description=(
                         f"Người gửi: {m.get('original_sender') or m.get('sender')}\n"
                         + (f"Thời gian (nguyên văn): {m['thoi_gian_raw']}" if m.get("thoi_gian_raw") else "")
+                        + ("\n⚠️ Nguồn: AI hỗ trợ tìm (rule-based không tách được) — kiểm tra lại." if ai else "")
                     ),
                     location=m.get("meeting_location") or "",
                     uid=f"{self._entry.entry_id}_{m.get('id')}_allday",
                 )
             )
 
+        # Khoảng "từ ngày X - Y" liệt kê nhiều đợt (vd sinh hoạt lớp chủ
+        # nhiệm Đợt 1/Đợt 2) -> mỗi khoảng 1 sự kiện CẢ NGÀY riêng.
+        for m in newest.values():
+            ai = m.get("ai_used")
+            for r in m.get("date_ranges") or []:
+                try:
+                    d1 = date.fromisoformat(r["start"])
+                    d2 = date.fromisoformat(r["end"])
+                except (TypeError, ValueError, KeyError):
+                    continue
+                kw = ", ".join(m.get("matched_keywords") or [])
+                nhan = r.get("context") or ""
+                events.append(
+                    CalendarEvent(
+                        start=d1,
+                        end=d2 + timedelta(days=1),  # HA dùng end không bao gồm
+                        summary=(
+                            ("🤖 " if ai else "")
+                            + (f"[{kw}] " if kw else "")
+                            + (f"{nhan}: " if nhan else "")
+                            + (m.get("subject_key") or m.get("subject") or "(không tiêu đề)")
+                        ),
+                        description=(
+                            f"Người gửi: {m.get('original_sender') or m.get('sender')}"
+                            + ("\n⚠️ Nguồn: AI hỗ trợ tìm (rule-based không tách được) — kiểm tra lại." if ai else "")
+                        ),
+                        location=m.get("meeting_location") or "",
+                        uid=f"{self._entry.entry_id}_{m.get('id')}_range_{r['start']}",
+                    )
+                )
+
         # Mốc HẠN CHÓT -> sự kiện CẢ NGÀY (mail chỉ nêu ngày, không giờ)
         for m in newest.values():
+            ai = m.get("ai_used")
+            ai_note = "\n⚠️ Nguồn: AI hỗ trợ tìm (rule-based không tách được) — kiểm tra lại." if ai else ""
             for h in m.get("deadlines") or []:
                 try:
                     ngay = date.fromisoformat(h["date"])
@@ -514,7 +554,8 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                                 start=bd,
                                 end=bd + timedelta(minutes=30),
                                 summary=(
-                                    (f"[{kw}] " if kw else "")
+                                    ("🤖 " if ai else "")
+                                    + (f"[{kw}] " if kw else "")
                                     + "Hạn "
                                     + gio
                                     + ": "
@@ -522,7 +563,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                                 ),
                                 description=(
                                     f"Người gửi: {m.get('original_sender') or m.get('sender')}\n"
-                                    f"{h.get('context', '')}"
+                                    f"{h.get('context', '')}{ai_note}"
                                 ),
                                 uid=f"{self._entry.entry_id}_{m.get('id')}_{h['date']}_{gio}",
                             )
@@ -536,7 +577,8 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                         start=ngay,
                         end=ngay + timedelta(days=1),
                         summary=(
-                            (f"[{kw}] " if kw else "")
+                            ("🤖 " if ai else "")
+                            + (f"[{kw}] " if kw else "")
                             # Nhãn ngắn (danh sách mốc) dùng làm tiêu đề;
                             # ngữ cảnh dài (câu văn) thì chỉ ghi "Hạn".
                             + (
@@ -548,7 +590,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                         ),
                         description=(
                             f"Người gửi: {m.get('original_sender') or m.get('sender')}\n"
-                            f"{h.get('context', '')}"
+                            f"{h.get('context', '')}{ai_note}"
                         ),
                         uid=f"{self._entry.entry_id}_{m.get('id')}_{h['date']}",
                     )

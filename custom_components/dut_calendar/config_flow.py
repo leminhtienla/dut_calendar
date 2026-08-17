@@ -11,6 +11,8 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -25,6 +27,8 @@ from homeassistant.helpers.selector import (
 
 from .api_exam import CBDutAuthError, CBDutClient
 from .const import (
+    CONF_AI_ENABLED,
+    CONF_AI_ENTITY_ID,
     CONF_CLEAR_HISTORY,
     CONF_CONFIGURE_EXTRA_LECTURER,
     CONF_EXAM_DURATION,
@@ -44,6 +48,8 @@ from .const import (
     CONF_UPDATE_MODE,
     CONF_USERNAME,
     CONF_WEEKS_AHEAD,
+    DEFAULT_AI_ENABLED,
+    DEFAULT_AI_ENTITY_ID,
     DEFAULT_EXAM_DURATION,
     DEFAULT_SCAN_INTERVAL_EXAM,
     DEFAULT_SCAN_INTERVAL_PUBLIC,
@@ -299,6 +305,14 @@ def _schema_mail(defaults: dict[str, Any], require_password: bool) -> vol.Schema
             vol.Optional(
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_AI_ENABLED,
+                default=defaults.get(CONF_AI_ENABLED, DEFAULT_AI_ENABLED),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_AI_ENTITY_ID,
+                default=defaults.get(CONF_AI_ENTITY_ID, DEFAULT_AI_ENTITY_ID),
+            ): EntitySelector(EntitySelectorConfig(domain=["conversation"])),
         }
     )
 

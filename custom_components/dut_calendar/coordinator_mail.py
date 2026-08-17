@@ -12,6 +12,8 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_AI_ENABLED,
+    CONF_AI_ENTITY_ID,
     CONF_KEYWORDS,
     CONF_MAIL_FOLDER,
     CONF_MAIL_HOST,
@@ -22,6 +24,8 @@ from .const import (
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
     CONF_USERNAME,
+    DEFAULT_AI_ENABLED,
+    DEFAULT_AI_ENTITY_ID,
     DEFAULT_MAIL_FOLDER,
     DEFAULT_MAIL_HOST,
     DEFAULT_MAIL_LIMIT,
@@ -37,9 +41,12 @@ from .const import (
 from .mail_client import (
     fetch_recent_mails,
     filter_mails_by_keywords,
+    build_ai_prompt,
     extract_original_sender,
     mail_stable_id,
     normalize_subject,
+    parse_ai_response,
+    parse_date_ranges,
     parse_deadlines,
     parse_milestones,
     parse_meeting_info,
@@ -98,6 +105,15 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return v.strip() if v and v.strip() else None
 
     @property
+    def ai_enabled(self) -> bool:
+        return bool(self._opt(CONF_AI_ENABLED, DEFAULT_AI_ENABLED))
+
+    @property
+    def ai_entity_id(self) -> str | None:
+        v = self._opt(CONF_AI_ENTITY_ID, DEFAULT_AI_ENTITY_ID)
+        return v.strip() if v and v.strip() else None
+
+    @property
     def _current_keywords_signature(self) -> str:
         raw = str(self._opt(CONF_KEYWORDS, ""))
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()
@@ -142,6 +158,44 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 kept[key] = m
         self._history = kept
 
+    async def _async_ask_ai(self, subject: str, body: str) -> dict[str, Any] | None:
+        """Gọi AI conversation agent đã cấu hình để tìm thông tin mà
+        rule-based KHÔNG tách được. Không bao giờ raise ra ngoài — lỗi
+        gì cũng coi như AI không giúp được gì, giữ nguyên hành vi cũ.
+
+        CHỈ gửi tiêu đề + phần thân mail MỚI NHẤT (đã cắt trích dẫn cũ),
+        không gửi toàn văn, không lưu lại prompt/kết quả thô vào .storage.
+        """
+        entity_id = self.ai_entity_id
+        if not entity_id:
+            return None
+        try:
+            prompt = build_ai_prompt(subject, body)
+            resp = await self.hass.services.async_call(
+                "conversation",
+                "process",
+                {"text": prompt, "agent_id": entity_id, "language": "vi"},
+                blocking=True,
+                return_response=True,
+            )
+            speech = (
+                resp.get("response", {})
+                .get("speech", {})
+                .get("plain", {})
+                .get("speech", "")
+            )
+            if not speech:
+                return None
+            parsed = parse_ai_response(speech)
+            if not any(
+                parsed.get(k) for k in ("start", "all_day_start", "deadlines", "date_ranges")
+            ):
+                return None
+            return parsed
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Không hỏi được AI (%s) cho mail '%s': %s", entity_id, subject, err)
+            return None
+
     # ---------------- cập nhật ----------------
     async def _async_update_data(self) -> dict[str, Any]:
         await self._async_load_storage()
@@ -179,9 +233,10 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         new_matches: list[dict[str, Any]] = []
         for m in matches:
             key = mail_stable_id(m)
-            # Tách thời gian/địa điểm cuộc họp bằng QUY TẮC (không dùng
-            # AI, không gửi nội dung mail ra ngoài). Chỉ lưu phần đã
-            # tách — KHÔNG lưu toàn văn nội dung mail vào .storage.
+            # Tách thời gian/địa điểm cuộc họp bằng QUY TẮC trước (không
+            # dùng AI, không gửi nội dung mail ra ngoài); chỉ khi rule
+            # thất bại hoàn toàn mới nhờ AI (xem bên dưới). Chỉ lưu phần
+            # đã tách — KHÔNG lưu toàn văn nội dung mail vào .storage.
             body_text = m.get("body", "")
             info = parse_meeting_info(body_text)
             # Mail không có dòng "Thời gian:" (mời phản biện, nộp hồ sơ...)
@@ -198,6 +253,36 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 da_co.add(h["date"])
                 han_gom.append(h)
             han_list = han_gom
+
+            # Khoảng "từ ngày X - Y" KHÔNG cần nhãn "Thời gian:" (mail
+            # liệt kê nhiều đợt, vd sinh hoạt lớp chủ nhiệm) -> mỗi
+            # khoảng thành 1 sự kiện CẢ NGÀY riêng.
+            date_ranges = parse_date_ranges(body_text)
+
+            # Rule-based KHÔNG tách được gì cả (mail đã khớp từ khóa
+            # nhưng không đúng khuôn nào) -> nhờ AI thử tìm giúp, CHỈ
+            # khi tính năng bật và có cấu hình entity. AI không được ưu
+            # tiên hơn rule; chỉ chạy khi rule đã thất bại hoàn toàn.
+            ai_used = False
+            rule_trong = not (
+                info.get("start")
+                or info.get("all_day_start")
+                or han_list
+                or date_ranges
+            )
+            if rule_trong and self.ai_enabled and self.ai_entity_id:
+                ai_result = await self._async_ask_ai(m.get("subject", ""), body_text)
+                if ai_result:
+                    ai_used = True
+                    if ai_result.get("start"):
+                        info["start"] = ai_result["start"]
+                        info["location"] = ai_result.get("location") or info.get("location")
+                    elif ai_result.get("all_day_start"):
+                        info["all_day_start"] = ai_result["all_day_start"]
+                        info["all_day_end"] = ai_result["all_day_end"]
+                        info["location"] = ai_result.get("location") or info.get("location")
+                    han_list = ai_result.get("deadlines") or []
+                    date_ranges = ai_result.get("date_ranges") or []
             item = {
                 "id": key,
                 "sender": m.get("sender"),
@@ -227,6 +312,15 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     }
                     for h in han_list
                 ],
+                "date_ranges": [
+                    {
+                        "start": r["start"].isoformat(),
+                        "end": r["end"].isoformat(),
+                        "context": r.get("context") or "",
+                    }
+                    for r in date_ranges
+                ],
+                "ai_used": ai_used,
             }
             if key not in self._history:
                 new_matches.append(item)

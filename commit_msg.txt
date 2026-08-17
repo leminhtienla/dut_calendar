@@ -1,0 +1,10 @@
+v1.32.0: cai thien parser dut_mail + them AI ho tro khi rule-based that bai
+
+- Them parse_date_ranges: bat khoang "tu ngay X - Y" khong can nhan "Thoi gian:" (vd sinh hoat lop chu nhiem)
+- parse_deadlines: nhan them moc "va ngay Z" ke thua gio tu moc han dung truoc cung cau
+- Them AI ho tro qua conversation.process, CHI chay khi rule-based khong tach duoc gi ca
+- Prompt ep AI cung nguyen tac "tha trong con hon sai"; khong luu API key rieng
+- Su kien do AI tao danh dau bot + ghi chu nguon trong mo ta
+- Options moi: ai_enabled (mac dinh bat), ai_entity_id (de trong = tat tinh nang)
+- Loi AI deu nuot an toan, khong crash coordinator
+- Test du 3 mail mau that + hoi quy cac case cu, khong doi ket qua

@@ -5,6 +5,71 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-08-17
+
+### Thêm mới — AI hỗ trợ đọc email (chỉ khi rule-based thất bại)
+- **Chỉ kích hoạt khi mail đã khớp từ khóa NHƯNG rule-based không tách
+  được gì cả** (không giờ họp, không sự kiện cả ngày, không hạn, không
+  khoảng ngày) — AI không bao giờ ghi đè lên kết quả rule-based đã có,
+  chỉ lấp khoảng trống mà `dut_mail` vốn để trống theo đúng nguyên tắc
+  "thà trống còn hơn sai".
+- **Dùng entity `conversation` có sẵn trong Home Assistant** (Options
+  → chọn 1 agent đã cấu hình sẵn, vd Anthropic/OpenAI/Google) — không
+  tự lưu API key riêng trong `dut_calendar`, không hardcode 1 hãng cụ
+  thể. Gọi qua service chuẩn `conversation.process`.
+- **Prompt ép AI cùng nguyên tắc "thà trống còn hơn sai"**: yêu cầu trả
+  JSON đúng khuôn, để `null`/mảng rỗng khi không chắc, không được suy
+  luận hay tự bịa ngày/giờ/địa điểm.
+- **Phạm vi gửi cho AI**: tiêu đề + phần thân mail MỚI NHẤT (đã cắt bỏ
+  trích dẫn mail cũ — cùng phạm vi rule-based dùng), KHÔNG gửi toàn
+  văn, KHÔNG lưu lại prompt/kết quả thô vào `.storage` (chỉ lưu các
+  trường đã tách, giống hệt cách rule-based lưu).
+- **Minh bạch nguồn gốc**: sự kiện Calendar do AI tìm ra có tiền tố
+  `🤖` trong tiêu đề và ghi chú "Nguồn: AI hỗ trợ tìm — kiểm tra lại"
+  trong mô tả, để phân biệt rõ với kết quả rule-based (vốn đáng tin hơn
+  vì đã kiểm chứng bằng dữ liệu thật).
+- **An toàn khi lỗi**: mọi lỗi gọi AI (agent lỗi, JSON hỏng, ngày sai
+  định dạng...) đều bị nuốt và coi như AI cũng không tìm thấy gì — mail
+  vẫn báo bình thường qua sensor, chỉ là không lên Calendar, không bao
+  giờ làm crash coordinator.
+- **Cấu hình mới trong Options `dut_mail`**:
+  - `ai_enabled` (bật/tắt) — mặc định **BẬT**.
+  - `ai_entity_id` (chọn entity `conversation`) — để trống thì tính
+    năng AI không chạy dù `ai_enabled` bật.
+
+### Kiểm tra
+- Test `build_ai_prompt` / `parse_ai_response` với JSON hợp lệ, phản
+  hồi rác không parse được, và ngày sai định dạng (`32/13/2026`,
+  `"tuần sau"`) — đều trả kết quả rỗng an toàn, không raise lỗi.
+
+## [1.31.0] - 2026-08-17
+
+### Thêm mới (từ mẫu mail thông báo sinh hoạt lớp chủ nhiệm)
+- **Khoảng "từ ngày X - Y" không cần nhãn "Thời gian:"**: mail liệt kê
+  nhiều đợt kiểu `+ Đợt 1: từ ngày 20/04/2026 - 23/04/2026 (...)` giờ
+  tách được thành sự kiện CẢ NGÀY riêng cho từng đợt (hàm mới
+  `parse_date_ranges`), không còn bị bỏ sót vì thiếu khuôn "Thời gian:"
+  chuẩn.
+- **Hạn kế thừa giờ khi tỉnh lược**: `trước 17h00 ngày 29/04/2026 (đợt
+  1) và 22/05/2026 (đợt 2)` — mốc thứ 2 (`22/05/2026`) giờ được nhận ra
+  là hạn riêng, **kế thừa giờ 17:00** từ mốc đứng trước trong cùng câu,
+  thay vì bị bỏ qua vì không có từ khóa báo hạn đứng ngay trước nó.
+
+### Xác nhận không cần sửa (đối chiếu mẫu mail thật)
+- Mail có dấu phẩy xen giữa giờ và "ngày" (`07h30, ngày 22/8/2026`) đã
+  hoạt động đúng từ trước — `_RE_GIO` và `_RE_NGAY` tìm độc lập trong
+  cùng chuỗi, không đòi hỏi 2 cụm phải liền kề nhau.
+- Mail thông báo hành chính chung không có mốc ngày theo khuôn nào
+  (vd "chuyển phòng học ngày 17.8.2026" — ngày viết dấu chấm) **cố ý
+  không lên Calendar**, đúng nguyên tắc "thà trống còn hơn sai"; ngày
+  dạng chấm không được thêm vào bộ nhận dạng vì rủi ro khớp nhầm số
+  công văn/văn bản cao hơn lợi ích.
+
+### Kiểm tra không hồi quy
+- Test lại đủ khoảng ngày qua nhãn "Thời gian:" (`ngày 22–23/10/2026`),
+  hạn đơn giản (`trước ngày 2026-08-06`), và mail seminar 2 NCS chung
+  giờ/phòng — không đổi kết quả so với 1.30.0.
+
 ## [1.30.0] - 2026-08-09
 
 ### Thêm mới (từ mẫu mail góp ý dự thảo)

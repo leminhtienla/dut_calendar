@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import email
 import imaplib
+import json
 import re
 import unicodedata
 from email.header import decode_header, make_header
@@ -217,6 +218,26 @@ _RE_KHOANG_NGAY = re.compile(
     r"(\d{1,2})\s*[–—-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})"
 )
 
+# "+ Đợt 1: từ ngày 20/04/2026 - 23/04/2026 (...)" — khoảng ngày ĐẦY ĐỦ
+# ở cả 2 đầu (khác tháng/năm cũng bắt được), KHÔNG cần nhãn "Thời gian:"
+# đứng trước — mail thông báo lịch (sinh hoạt lớp, tập huấn...) hay ghi
+# kiểu liệt kê "Đợt X: từ ngày ... - ...:" chứ không dùng khuôn
+# "Thời gian:" chuẩn.
+_RE_KHOANG_TU_NGAY = re.compile(
+    r"^[\s+•\-\*\u2022\t]*([^:\n]{0,40}?):?\s*t[ừu]\s+ngày\s+"
+    r"(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})\s*(?:[–—-]|đến|den)\s*(?:ngày\s*)?"
+    r"(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# "... trước 17h00 ngày 29/04/2026 (đợt 1) VÀ 22/05/2026 (đợt 2)." — mốc
+# hạn thứ 2 KẾ THỪA giờ của mốc hạn đứng trước trong cùng câu (mail chỉ
+# nêu giờ 1 lần dùng chung cho nhiều đợt).
+_RE_VA_NGAY = re.compile(
+    r"v[àa]\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})",
+    re.IGNORECASE,
+)
+
 
 def _tim_khoang_ngay(text: str) -> tuple[date, date] | None:
     """'22–23/10/2026' -> (22/10/2026, 23/10/2026)."""
@@ -390,6 +411,11 @@ def parse_deadlines(body: str, max_items: int = 5) -> list[dict[str, Any]]:
     Trả về danh sách {date, context} — `context` là câu chứa mốc đó, để
     biết hạn này là hạn gì (xác nhận / nộp bài / ...). Khử trùng theo
     ngày, giữ ngữ cảnh của lần xuất hiện đầu tiên.
+
+    Mốc "và ngày Y (đợt 2)" đứng ngay sau 1 mốc "trước GIỜ ngày X" trong
+    CÙNG câu được coi là hạn thứ 2, KẾ THỪA giờ của mốc đứng trước (mail
+    chỉ nêu giờ một lần dùng chung cho nhiều đợt) — không phải suy đoán,
+    chỉ áp dụng khi nằm chung câu với 1 hạn đã xác nhận.
     """
     if not body:
         return []
@@ -424,6 +450,55 @@ def parse_deadlines(body: str, max_items: int = 5) -> list[dict[str, Any]]:
                 gio = f"{h:02d}:{p:02d}"
 
         ket_qua.append({"date": d, "gio": gio, "context": cau[:200]})
+        if len(ket_qua) >= max_items:
+            break
+
+        # Mốc phụ "... và ngày Y (...)" trong CÙNG câu -> hạn thứ 2, kế
+        # thừa giờ của mốc vừa tìm ở trên.
+        for m_va in _RE_VA_NGAY.finditer(cau):
+            d_va = _tim_ngay(m_va.group(1))
+            if d_va is None or d_va in da_co:
+                continue
+            da_co.add(d_va)
+            ket_qua.append({"date": d_va, "gio": gio, "context": cau[:200]})
+            if len(ket_qua) >= max_items:
+                break
+
+    return ket_qua[:max_items]
+
+
+def parse_date_ranges(body: str, max_items: int = 5) -> list[dict[str, Any]]:
+    """Tìm các khoảng "từ ngày X - Y" KHÔNG cần nhãn "Thời gian:" đứng
+    trước — mail thông báo dạng liệt kê (sinh hoạt lớp, tập huấn nhiều
+    đợt...) hay ghi "Đợt N: từ ngày ... - ..." thay vì khuôn chuẩn.
+
+    Trả về danh sách {start, end, context} — mỗi khoảng thành 1 sự kiện
+    CẢ NGÀY riêng (khác _tim_khoang_ngay chỉ lấy 1 khoảng duy nhất theo
+    sau nhãn "Thời gian:").
+    """
+    if not body:
+        return []
+
+    ket_qua: list[dict[str, Any]] = []
+    da_co: set[tuple[date, date]] = set()
+
+    pham_vi = phan_moi_nhat(body)
+    if not _RE_KHOANG_TU_NGAY.search(pham_vi):
+        pham_vi = body
+
+    for m in _RE_KHOANG_TU_NGAY.finditer(pham_vi):
+        d1 = _tim_ngay(m.group(2))
+        d2 = _tim_ngay(m.group(3))
+        if d1 is None or d2 is None:
+            continue
+        if d2 < d1:
+            d1, d2 = d2, d1
+        if (d1, d2) in da_co:
+            continue
+        da_co.add((d1, d2))
+
+        nhan = " ".join((m.group(1) or "").split()).strip()
+        ket_qua.append({"start": d1, "end": d2, "context": nhan[:60]})
         if len(ket_qua) >= max_items:
             break
 
@@ -480,3 +555,138 @@ def parse_milestones(body: str, max_items: int = 10) -> list[dict[str, Any]]:
             break
 
     return out
+
+
+# =====================================================================
+# AI hỗ trợ (chỉ gọi khi rule-based KHÔNG tách được gì từ mail đã khớp
+# từ khóa) — dùng entity "conversation" có sẵn trong HA, KHÔNG tự gọi
+# API/lưu API key riêng trong dut_calendar.
+# =====================================================================
+
+_AI_PROMPT_TEMPLATE = """Bạn là bộ trích xuất dữ liệu, KHÔNG phải trợ lý trò chuyện. Đọc email tiếng Việt dưới đây và trả lời DUY NHẤT một khối JSON hợp lệ, không thêm chữ nào khác, không dùng markdown code fence.
+
+Nguyên tắc quan trọng nhất: THÀ ĐỂ TRỐNG (null / mảng rỗng) CÒN HƠN ĐOÁN SAI. Chỉ điền giá trị khi thông tin có ghi RÕ RÀNG trong email. Không suy luận, không tự bịa ngày/giờ/địa điểm.
+
+Cấu trúc JSON cần trả về:
+{{
+  "start": "YYYY-MM-DDTHH:MM" hoặc null,   // thời điểm CUỘC HỌP/SỰ KIỆN có giờ cụ thể (không phải hạn nộp)
+  "location": "chuỗi" hoặc null,             // địa điểm cuộc họp/sự kiện
+  "all_day_start": "YYYY-MM-DD" hoặc null,   // nếu sự kiện CẢ NGÀY hoặc nhiều ngày, không ghi giờ
+  "all_day_end": "YYYY-MM-DD" hoặc null,
+  "deadlines": [                              // các mốc HẠN CHÓT (nộp bài, đăng ký, xác nhận...)
+    {{"date": "YYYY-MM-DD", "gio": "HH:MM hoặc null", "context": "mô tả ngắn hạn này là hạn gì"}}
+  ],
+  "date_ranges": [                            // các khoảng "từ ngày X đến ngày Y" không phải cuộc họp 1 giờ cụ thể
+    {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "context": "mô tả ngắn (vd Đợt 1)"}}
+  ]
+}}
+
+Tiêu đề email: {subject}
+
+Nội dung email (đã cắt bỏ phần trích dẫn cũ nếu có):
+{body}
+"""
+
+
+def build_ai_prompt(subject: str, body: str, max_body_chars: int = 4000) -> str:
+    """Dựng prompt gửi cho AI conversation agent khi rule-based thất bại.
+
+    Chỉ gửi phần thân mail MỚI NHẤT (đã cắt bỏ trích dẫn mail cũ, giống
+    hệt phạm vi rule-based dùng) — không gửi toàn văn nếu có phần cắt.
+    """
+    phan_moi = phan_moi_nhat(body or "")
+    phan_moi = phan_moi[:max_body_chars]
+    return _AI_PROMPT_TEMPLATE.format(subject=(subject or "").strip(), body=phan_moi.strip())
+
+
+_RE_JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def parse_ai_response(text: str) -> dict[str, Any]:
+    """Parse JSON trả về từ AI thành cùng cấu trúc dữ liệu như rule-based
+    (start/all_day_start/all_day_end/location/deadlines/date_ranges).
+
+    KHÔNG bao giờ raise — parse lỗi hoặc thiếu field thì trả kết quả
+    rỗng, coi như AI cũng không tìm thấy gì (đúng nguyên tắc "thà trống
+    còn hơn sai": AI cũng phải tuân thủ, không được ưu tiên hơn rule).
+    """
+    result: dict[str, Any] = {
+        "start": None,
+        "location": None,
+        "all_day_start": None,
+        "all_day_end": None,
+        "deadlines": [],
+        "date_ranges": [],
+    }
+    if not text:
+        return result
+
+    m = _RE_JSON_BLOCK.search(text)
+    raw = m.group(0) if m else text
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return result
+    if not isinstance(data, dict):
+        return result
+
+    def _valid_date(s: Any) -> date | None:
+        if not isinstance(s, str):
+            return None
+        try:
+            return date.fromisoformat(s[:10])
+        except ValueError:
+            return None
+
+    def _valid_datetime(s: Any) -> datetime | None:
+        if not isinstance(s, str):
+            return None
+        try:
+            return datetime.fromisoformat(s[:16])
+        except ValueError:
+            return None
+
+    dt = _valid_datetime(data.get("start"))
+    if dt:
+        result["start"] = dt
+        loc = data.get("location")
+        if isinstance(loc, str) and loc.strip():
+            result["location"] = loc.strip()[:200]
+
+    d1 = _valid_date(data.get("all_day_start"))
+    d2 = _valid_date(data.get("all_day_end")) or d1
+    if d1 and d2:
+        result["all_day_start"], result["all_day_end"] = (d1, d2) if d2 >= d1 else (d2, d1)
+        if not result["location"]:
+            loc = data.get("location")
+            if isinstance(loc, str) and loc.strip():
+                result["location"] = loc.strip()[:200]
+
+    for h in (data.get("deadlines") or [])[:5]:
+        if not isinstance(h, dict):
+            continue
+        d = _valid_date(h.get("date"))
+        if not d:
+            continue
+        gio = h.get("gio")
+        gio = gio.strip()[:5] if isinstance(gio, str) and re.match(r"^\d{1,2}:\d{2}$", gio.strip()) else None
+        ctx = h.get("context")
+        result["deadlines"].append(
+            {"date": d, "gio": gio, "context": (ctx.strip()[:200] if isinstance(ctx, str) else "")}
+        )
+
+    for r in (data.get("date_ranges") or [])[:5]:
+        if not isinstance(r, dict):
+            continue
+        rs = _valid_date(r.get("start"))
+        re_ = _valid_date(r.get("end")) or rs
+        if not rs or not re_:
+            continue
+        if re_ < rs:
+            rs, re_ = re_, rs
+        ctx = r.get("context")
+        result["date_ranges"].append(
+            {"start": rs, "end": re_, "context": (ctx.strip()[:60] if isinstance(ctx, str) else "")}
+        )
+
+    return result
