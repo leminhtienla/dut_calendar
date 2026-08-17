@@ -1,0 +1,6 @@
+v1.35.0: sua loi that - mail cu trong lich su khong bi exclude hoi to
+
+- Nguyen nhan that: exclude chi chan mail MOI, mail da luu vao .storage tu truoc khi bat exclude khong tu dong bi don, hien mai toi 30 ngay
+- Them buoc don lich su cu khop cum loai tru O DAU moi lan cap nhat, luu lai storage ngay
+- Them log ro rang: "dut_mail loai tru theo tieu de: cum=... truoc=... sau=... loai=..." de tu kiem chung
+- Test mo phong don lich su voi du lieu that, dung 2 mail lich tuan, giu nguyen mail khac

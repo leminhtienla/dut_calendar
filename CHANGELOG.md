@@ -5,6 +5,31 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.35.0] - 2026-08-17
+
+### Sửa lỗi thật — mail đã lưu lịch sử TỪ TRƯỚC không bị exclude hồi tố
+- **Nguyên nhân đúng**: `exclude_mails_by_subject()` chỉ chặn mail MỚI
+  quét được ở mỗi lần cập nhật — mail đã lỡ được lưu vào lịch sử
+  (`.storage`, giữ tối đa `MAIL_HISTORY_RETENTION_DAYS` = 30 ngày) TỪ
+  TRƯỚC khi cấu hình/bật cụm loại trừ vẫn nằm nguyên trong lịch sử,
+  không tự động bị dọn — nên vẫn hiện mãi trên Calendar/sensor dù cấu
+  hình exclude đã đúng 100%. Đây là nguyên nhân THẬT của việc "Lịch
+  công tác tuần" vẫn xuất hiện dù đã bật exclude từ các bản 1.33/1.34.
+- **Sửa**: mỗi lần cập nhật, dọn NGAY các mục trong lịch sử có tiêu đề
+  khớp cụm loại trừ hiện tại, TRƯỚC khi build danh sách sự kiện — dọn
+  xong lưu lại `.storage` ngay để không tái xuất hiện ở lần chạy sau.
+- **Log rõ ràng để kiểm chứng**: mỗi lần cập nhật ghi log
+  `"dut_mail loại trừ theo tiêu đề: cụm=... | trước=... | sau=... |
+  loại=..."` — nếu dòng này KHÔNG xuất hiện trong log, tức là code
+  chưa thực sự chạy trên máy đó (chưa deploy/restart đúng bản); nếu có
+  dòng `"đã dọn N mail cũ trong lịch sử khớp cụm loại trừ"` xuất hiện
+  1 lần rồi hết, nghĩa là đã dọn sạch lịch sử cũ thành công.
+
+### Kiểm tra
+- Test mô phỏng dọn lịch sử với 3 mục lưu sẵn (2 mail lịch tuần cũ +
+  1 mail Elsevier không liên quan) — dọn đúng 2 mail lịch tuần, giữ
+  nguyên mail Elsevier.
+
 ## [1.34.0] - 2026-08-17
 
 ### Sửa lỗi nghiêm trọng — bật `mail_exclude_subjects` làm gãy cả lần quét mail

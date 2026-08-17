@@ -221,6 +221,30 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not groups:
             return {"matches": [], "total_mails": 0, "new_matches": []}
 
+        # Dọn NGAY các mail đã lỡ lưu vào lịch sử TỪ TRƯỚC khi khớp
+        # cụm loại trừ hiện tại — nếu không dọn, mail cũ vẫn hiện mãi
+        # (tối đa MAIL_HISTORY_RETENTION_DAYS ngày) dù exclude đã đúng,
+        # vì exclude chỉ chặn mail MỚI, không hồi tố xóa lịch sử cũ.
+        exclude_list = self.exclude_subjects
+        if exclude_list and self._history:
+            try:
+                kept = await self.hass.async_add_executor_job(
+                    exclude_mails_by_subject, list(self._history.values()), exclude_list
+                )
+                kept_ids = {it.get("id") for it in kept}
+                so_luong_xoa = len(self._history) - len(kept_ids)
+                if so_luong_xoa > 0:
+                    self._history = {
+                        k: v for k, v in self._history.items() if k in kept_ids
+                    }
+                    _LOGGER.info(
+                        "dut_mail: đã dọn %d mail cũ trong lịch sử khớp cụm loại trừ %s",
+                        so_luong_xoa,
+                        exclude_list,
+                    )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("Lỗi khi dọn lịch sử theo cụm loại trừ: %s", err)
+
         try:
             mails = await self.hass.async_add_executor_job(
                 fetch_recent_mails,
@@ -238,7 +262,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         matches = mails
         try:
             matches = await self.hass.async_add_executor_job(
-                exclude_mails_by_subject, mails, self.exclude_subjects
+                exclude_mails_by_subject, mails, exclude_list
             )
         except Exception as err:  # noqa: BLE001
             # Lỗi loại trừ KHÔNG được làm gãy cả lần quét mail — coi như
@@ -246,6 +270,18 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # đúng nguyên tắc "thà trống còn hơn sai" áp cho chính nó.
             _LOGGER.warning("Lỗi khi loại trừ mail theo tiêu đề, bỏ qua bước này: %s", err)
             matches = mails
+        # Log rõ ràng để kiểm tra: cấu hình đang dùng, số mail trước/sau.
+        # Nếu dòng này KHÔNG xuất hiện trong log -> code exclude chưa
+        # thực sự chạy (chưa deploy/restart đúng bản); nếu xuất hiện mà
+        # "loại: 0" trong khi lẽ ra phải loại -> đúng là lỗi logic thật,
+        # cần xem tiếp phần "mail còn lại" để biết vì sao không khớp.
+        _LOGGER.info(
+            "dut_mail loại trừ theo tiêu đề: cụm=%s | trước=%d | sau=%d | loại=%d",
+            exclude_list,
+            len(mails),
+            len(matches),
+            len(mails) - len(matches),
+        )
 
         try:
             matches = await self.hass.async_add_executor_job(
