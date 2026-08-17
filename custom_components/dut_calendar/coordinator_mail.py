@@ -15,6 +15,7 @@ from .const import (
     CONF_AI_ENABLED,
     CONF_AI_ENTITY_ID,
     CONF_KEYWORDS,
+    CONF_MAIL_EXCLUDE_SUBJECTS,
     CONF_MAIL_FOLDER,
     CONF_MAIL_HOST,
     CONF_MAIL_LIMIT,
@@ -26,6 +27,7 @@ from .const import (
     CONF_USERNAME,
     DEFAULT_AI_ENABLED,
     DEFAULT_AI_ENTITY_ID,
+    DEFAULT_MAIL_EXCLUDE_SUBJECTS,
     DEFAULT_MAIL_FOLDER,
     DEFAULT_MAIL_HOST,
     DEFAULT_MAIL_LIMIT,
@@ -42,12 +44,14 @@ from .mail_client import (
     fetch_recent_mails,
     filter_mails_by_keywords,
     build_ai_prompt,
+    exclude_mails_by_subject,
     extract_original_sender,
     mail_stable_id,
     normalize_subject,
     parse_ai_response,
     parse_date_ranges,
     parse_deadlines,
+    parse_exclude_subjects,
     parse_milestones,
     parse_meeting_info,
 )
@@ -112,6 +116,11 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def ai_entity_id(self) -> str | None:
         v = self._opt(CONF_AI_ENTITY_ID, DEFAULT_AI_ENTITY_ID)
         return v.strip() if v and v.strip() else None
+
+    @property
+    def exclude_subjects(self) -> list[str]:
+        raw = str(self._opt(CONF_MAIL_EXCLUDE_SUBJECTS, DEFAULT_MAIL_EXCLUDE_SUBJECTS))
+        return parse_exclude_subjects(raw)
 
     @property
     def _current_keywords_signature(self) -> str:
@@ -227,7 +236,10 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"Lỗi đọc hộp thư: {err}") from err
 
         matches = await self.hass.async_add_executor_job(
-            filter_mails_by_keywords, mails, groups
+            exclude_mails_by_subject, mails, self.exclude_subjects
+        )
+        matches = await self.hass.async_add_executor_job(
+            filter_mails_by_keywords, matches, groups
         )
 
         new_matches: list[dict[str, Any]] = []

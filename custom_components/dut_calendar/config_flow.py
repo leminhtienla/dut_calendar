@@ -36,6 +36,7 @@ from .const import (
     CONF_EXTRA_LECTURERS,
     CONF_HOC_KY,
     CONF_KEYWORDS,
+    CONF_MAIL_EXCLUDE_SUBJECTS,
     CONF_MAIL_FOLDER,
     CONF_MAIL_HOST,
     CONF_MAIL_LIMIT,
@@ -53,6 +54,7 @@ from .const import (
     DEFAULT_EXAM_DURATION,
     DEFAULT_SCAN_INTERVAL_EXAM,
     DEFAULT_SCAN_INTERVAL_PUBLIC,
+    DEFAULT_MAIL_EXCLUDE_SUBJECTS,
     DEFAULT_MAIL_FOLDER,
     DEFAULT_MAIL_HOST,
     DEFAULT_MAIL_LIMIT,
@@ -273,6 +275,10 @@ def _schema_mail(defaults: dict[str, Any], require_password: bool) -> vol.Schema
             pw_key: TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Required(
                 CONF_KEYWORDS, default=defaults.get(CONF_KEYWORDS, "")
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT, multiline=True)),
+            vol.Optional(
+                CONF_MAIL_EXCLUDE_SUBJECTS,
+                default=defaults.get(CONF_MAIL_EXCLUDE_SUBJECTS, DEFAULT_MAIL_EXCLUDE_SUBJECTS),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT, multiline=True)),
             vol.Required(
                 CONF_MAIL_HOST, default=defaults.get(CONF_MAIL_HOST, DEFAULT_MAIL_HOST)

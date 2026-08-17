@@ -5,6 +5,27 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-08-17
+
+### Thêm mới — loại trừ mail theo tiêu đề
+- **Mail "Lịch công tác tuần"** (nội dung trùng với `dut_lichtuan`, ra
+  đều đặn mỗi tuần) giờ bị **bỏ qua hoàn toàn** trong `dut_mail`, không
+  tính khớp với bất kỳ nhóm từ khóa nào nữa — tránh nhiễu sensor/
+  Calendar mail vì loại mail này gần như tuần nào cũng dính nhiều nhóm
+  (họp, hội nghị...).
+- Hàm mới `parse_exclude_subjects()` + `exclude_mails_by_subject()` —
+  loại trừ áp dụng TRƯỚC bước lọc từ khóa, chỉ xét TIÊU ĐỀ (khớp chuỗi
+  con, không phân biệt hoa/thường, chuẩn hóa NFC), không đụng tới thân
+  mail.
+- **Cấu hình mới trong Options `dut_mail`**: ô `mail_exclude_subjects`
+  (nhiều dòng, mỗi dòng 1 cụm) — mặc định điền sẵn `Lịch công tác
+  tuần`, có thể xóa hoặc thêm cụm khác (vd tên các thông báo lặp lại
+  đều đặn khác của trường).
+
+### Kiểm tra
+- Test loại đúng cả bản gốc lẫn bản `FW:` của "Lịch công tác tuần",
+  giữ nguyên mail khác không khớp cụm loại trừ.
+
 ## [1.32.0] - 2026-08-17
 
 ### Thêm mới — AI hỗ trợ đọc email (chỉ khi rule-based thất bại)

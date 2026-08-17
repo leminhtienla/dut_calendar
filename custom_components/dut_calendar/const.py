@@ -107,6 +107,10 @@ DEFAULT_MAIL_FOLDER = "INBOX"
 DEFAULT_MAIL_LIMIT = 50
 CONF_MAIL_UNSEEN_ONLY = "mail_unseen_only"
 DEFAULT_MAIL_UNSEEN_ONLY = False
+CONF_MAIL_EXCLUDE_SUBJECTS = "mail_exclude_subjects"
+# Mail lặp lại đều đặn, nội dung đã có sẵn ở nguồn khác (dut_lichtuan)
+# -> loại trừ mặc định để tránh nhiễu sensor/Calendar mail mỗi tuần.
+DEFAULT_MAIL_EXCLUDE_SUBJECTS = "Lịch công tác tuần"
 DEFAULT_SCAN_INTERVAL_MAIL = 15
 MIN_SCAN_INTERVAL_MAIL = 5
 MAX_SCAN_INTERVAL_MAIL = 1440

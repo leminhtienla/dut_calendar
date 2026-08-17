@@ -120,6 +120,44 @@ def filter_mails_by_keywords(
     return result
 
 
+def parse_exclude_subjects(raw: str) -> list[str]:
+    """Phân tích cấu hình "tiêu đề loại trừ" nhiều dòng — mỗi dòng 1
+    cụm. Mail có TIÊU ĐỀ chứa 1 trong các cụm này sẽ bị bỏ qua HOÀN
+    TOÀN, không xét khớp từ khóa nữa — dùng cho mail lặp lại đều đặn,
+    đã có sẵn ở nguồn khác (vd "Lịch công tác tuần" đã có trong
+    `dut_lichtuan`) nên không cần báo lại qua `dut_mail`.
+    """
+    out: list[str] = []
+    raw = unicodedata.normalize("NFC", raw or "")
+    for line in raw.replace(";", "\n").splitlines():
+        cum = line.strip()
+        if cum:
+            out.append(cum)
+    return out
+
+
+def exclude_mails_by_subject(
+    mails: list[dict[str, Any]], exclude_phrases: list[str]
+) -> list[dict[str, Any]]:
+    """Bỏ các mail có TIÊU ĐỀ chứa 1 trong `exclude_phrases` (khớp chuỗi
+    con, không phân biệt hoa/thường, chuẩn hóa NFC) — áp dụng TRƯỚC khi
+    lọc từ khóa, để mail loại trừ không tính vào bất kỳ nhóm nào.
+    """
+    if not exclude_phrases:
+        return mails
+    phrases_lower = [unicodedata.normalize("NFC", p).lower() for p in exclude_phrases if p]
+    if not phrases_lower:
+        return mails
+
+    out: list[dict[str, Any]] = []
+    for m in mails:
+        subject = unicodedata.normalize("NFC", m.get("subject", "")).lower()
+        if any(p in subject for p in phrases_lower):
+            continue
+        out.append(m)
+    return out
+
+
 def fetch_recent_mails(
     host: str,
     port: int,
