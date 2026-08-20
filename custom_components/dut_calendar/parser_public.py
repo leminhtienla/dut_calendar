@@ -103,7 +103,9 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
-def parse_schedule(html: str, week_label: str = "") -> list[dict[str, Any]]:
+def parse_schedule(
+    html: str, week_label: str = "", monday: date | None = None
+) -> list[dict[str, Any]]:
     """Phân tích HTML trang lịch tuần, trả về danh sách các mục.
 
     Trang có thể có NHIỀU bảng (bảng "Lịch Công Tác Tuần" chính, và
@@ -112,11 +114,30 @@ def parse_schedule(html: str, week_label: str = "") -> list[dict[str, Any]]:
 
     Mỗi mục gồm: day (Thứ), date (ngày), time, content, participants,
     location, host, extra, week_label, phu_luc (bool).
+
+    Web đổi giao diện (8/2026): ô ngày trong bảng chỉ còn "dd/mm",
+    KHÔNG còn năm — `monday` (ngày Thứ Hai thật của tuần đang xét, đã
+    biết chính xác từ dropdown tuần) dùng để tra cứu đúng năm cho từng
+    ngày trong tuần đó, KHÔNG suy luận công thức năm học.
     """
     soup = BeautifulSoup(html, "html.parser")
-    tables = soup.find_all("table", class_="table")
+    # Web đổi giao diện (khoảng 8/2026): class bảng đổi từ "table"
+    # thành "schedule-table" — giữ lại "table" trong danh sách tìm để
+    # tương thích ngược nếu trường revert hoặc còn trang cũ ở đâu đó.
+    tables = soup.find_all("table", class_="schedule-table") or soup.find_all(
+        "table", class_="table"
+    )
     if not tables:
         return []
+
+    # Map "dd/mm" -> ngày đầy đủ, dựng từ đúng 7 ngày CỦA TUẦN ĐANG
+    # XÉT (monday..monday+6) — tra cứu trực tiếp, không suy luận công
+    # thức năm học (đúng nguyên tắc "chỉ tin dữ liệu thật").
+    ngay_trong_tuan: dict[str, date] = {}
+    if monday:
+        for i in range(7):
+            d = monday + timedelta(days=i)
+            ngay_trong_tuan[d.strftime("%d/%m")] = d
 
     entries: list[dict[str, Any]] = []
 
@@ -129,39 +150,49 @@ def parse_schedule(html: str, week_label: str = "") -> list[dict[str, Any]]:
         current_date = ""
 
         for tr in tbody.find_all("tr", recursive=False):
-            tds = tr.find_all("td", recursive=False)
-            if not tds:
+            # Dòng đầu của mỗi Thứ có <td class="day-cell" rowspan=N>
+            # chứa 2 span riêng (day-name/day-date); các dòng sau cùng
+            # Thứ không có ô này nữa (đã gộp bằng rowspan).
+            day_cell = tr.find("td", class_="day-cell")
+            if day_cell:
+                day_name_el = day_cell.find("span", class_="day-name")
+                day_date_el = day_cell.find("span", class_="day-date")
+                current_day = (
+                    _clean_text(day_name_el.get_text(strip=True)) if day_name_el else ""
+                )
+                dd_mm = (
+                    _clean_text(day_date_el.get_text(strip=True)) if day_date_el else ""
+                )
+                full_date = ngay_trong_tuan.get(dd_mm)
+                current_date = full_date.strftime("%d/%m/%Y") if full_date else ""
+
+            content_cell = tr.find("td", class_="content-cell")
+            if content_cell is None:
+                # Dòng "table-empty" (chưa có lịch) hoặc dòng lạ không
+                # đủ cấu trúc -> bỏ qua, thà trống còn hơn sai.
                 continue
 
-            first_classes = tds[0].get("class", []) or []
-            if "week" in first_classes:
-                combined = _clean_text(tds[0].get_text(separator=" ", strip=True))
-                # Trang nguồn không đồng nhất khoảng trắng giữa tên Thứ và
-                # ngày (có thứ tách đúng qua "\n", có thứ dính liền thành
-                # 1 chuỗi, vd "Thứ tư05/08/2026") -> tách bằng regex theo
-                # đúng định dạng ngày dd/mm/yyyy thay vì dựa vào separator.
-                date_match = re.search(r"(\d{2}/\d{2}/\d{4})", combined)
-                if date_match:
-                    current_date = date_match.group(1)
-                    current_day = _clean_text(combined[: date_match.start()])
-                else:
-                    current_day = combined
-                    current_date = ""
-                rest = tds[1:]
-            else:
-                rest = tds
+            time_cell = tr.find("td", class_="time-cell")
+            participants_cell = tr.find("td", class_="participants-cell")
+            location_cell = tr.find("td", class_="location-cell")
+            host_cell = tr.find("td", class_="host-cell")
 
-            if len(rest) < 5:
-                # Dòng không đủ cột dữ liệu (thời gian/nội dung/thành phần/địa điểm/chủ trì)
-                continue
-
-            time_txt = _clean_text(rest[0].get_text(separator=" ", strip=True))
-            content_txt = _clean_text(rest[1].get_text(separator=" ", strip=True))
-            participants_txt = _clean_text(rest[2].get_text(separator=" ", strip=True))
-            location_txt = _clean_text(rest[3].get_text(separator=" ", strip=True))
-            host_txt = _clean_text(rest[4].get_text(separator=" ", strip=True))
-            extra_txt = (
-                _clean_text(rest[5].get_text(separator=" ", strip=True)) if len(rest) > 5 else ""
+            time_txt = (
+                _clean_text(time_cell.get_text(separator=" ", strip=True)) if time_cell else ""
+            )
+            content_txt = _clean_text(content_cell.get_text(separator=" ", strip=True))
+            participants_txt = (
+                _clean_text(participants_cell.get_text(separator=" ", strip=True))
+                if participants_cell
+                else ""
+            )
+            location_txt = (
+                _clean_text(location_cell.get_text(separator=" ", strip=True))
+                if location_cell
+                else ""
+            )
+            host_txt = (
+                _clean_text(host_cell.get_text(separator=" ", strip=True)) if host_cell else ""
             )
 
             if not any([time_txt, content_txt, participants_txt, location_txt, host_txt]):
@@ -176,7 +207,7 @@ def parse_schedule(html: str, week_label: str = "") -> list[dict[str, Any]]:
                     "participants": participants_txt,
                     "location": location_txt,
                     "host": host_txt,
-                    "extra": extra_txt,
+                    "extra": "",
                     "week_label": week_label,
                     "phu_luc": is_phu_luc,
                 }

@@ -273,7 +273,9 @@ class LichTuanDutCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             week_label = (
                 f"{monday.strftime('%d/%m/%Y')} - {(monday + timedelta(days=6)).strftime('%d/%m/%Y')}"
             )
-            entries = await self.hass.async_add_executor_job(parse_schedule, html, week_label)
+            entries = await self.hass.async_add_executor_job(
+                parse_schedule, html, week_label, monday
+            )
             all_entries.extend(entries)
 
         matches = await self.hass.async_add_executor_job(

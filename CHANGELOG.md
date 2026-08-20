@@ -5,6 +5,51 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.37.0] - 2026-08-17
+
+### Sửa lỗi nghiêm trọng — trang lichtuan.dut.udn.vn đổi giao diện hoàn toàn (8/2026)
+Đối chiếu HAR mới (`/home` — vẫn công khai, không cần đăng nhập, xác
+nhận qua HAR riêng của phiên ẩn danh) với 1 tuần THẬT có dữ liệu.
+
+- **Class bảng đổi**: `"table"` → `"schedule-table"` — `parse_schedule`
+  cũ tìm `class_="table"`, không còn tìm thấy gì, trả về rỗng hoàn
+  toàn. Sửa: tìm `"schedule-table"` trước, dự phòng `"table"` nếu
+  trường revert.
+- **Cấu trúc gộp dòng theo Thứ đổi hẳn cách làm**: không còn
+  `<td class="week">` gộp text "Thứ + ngày" chung 1 ô — giờ dùng
+  `<td class="day-cell" rowspan="N">` chứa 2 `<span>` riêng
+  (`day-name`, `day-date`). Viết lại logic đọc theo `rowspan`/class
+  mới thay vì regex tách chuỗi dính liền như trước.
+- **Ô ngày CHỈ CÒN "dd/mm", KHÔNG CÒN NĂM** (trước là "dd/mm/yyyy")
+  — đây là thay đổi rủi ro nhất, vì component cần năm để tạo sự kiện
+  Calendar đúng. Sửa: dựng bảng tra "dd/mm → ngày đầy đủ" từ chính 7
+  ngày thật của tuần đang xét (Thứ Hai đã biết chính xác từ dropdown),
+  tra cứu trực tiếp — KHÔNG suy luận công thức năm học, giữ đúng
+  nguyên tắc "chỉ tin dữ liệu thật".
+- **Các cột còn lại** (Thời gian/Nội dung/Thành phần/Địa điểm/Chủ trì)
+  đổi sang class riêng từng cột (`time-cell`, `content-cell`,
+  `participants-cell`, `location-cell`, `host-cell`) thay vì dựa vào
+  vị trí `<td>` thứ mấy — đọc trực tiếp theo class, không còn phụ
+  thuộc thứ tự cột (an toàn hơn nếu trường đổi thứ tự cột sau này).
+- `coordinator_public.py`: truyền thêm `monday` (đã có sẵn trong vòng
+  lặp quét tuần) vào `parse_schedule` để tra cứu năm.
+
+### Không đổi (đã đối chiếu, giữ nguyên)
+- `id="week-container"`, `id="year-select"`, thuộc tính `selected` —
+  không đổi.
+- Giá trị `value` dropdown tuần vẫn là ngày ISO (`2026-08-24`), khớp
+  đúng `build_week_url()` hiện có — không cần sửa.
+- `parse_event_datetime` xử lý đúng cả 2 dạng giờ mới ("10:00 - 11:30"
+  và chỉ "08:00") mà không cần sửa.
+- Heading "Phụ lục" (chữ thường mới) vẫn khớp logic `.upper()` so
+  sánh "PHỤ LỤC" có sẵn.
+
+### Kiểm tra
+- Test với HTML thật 1 tuần có 38 mục lịch (18 mục chính + 20 mục phụ
+  lục) — toàn bộ ngày/giờ/nội dung khớp đúng, không mục nào bị rỗng
+  ngày (map "dd/mm" thất bại).
+- Xác nhận cả 6 ngày trong tuần (Thứ Hai → Thứ Bảy) map đúng năm.
+
 ## [1.36.0] - 2026-08-17
 
 ### Sửa lỗi — khoảng ngày bắt nhầm câu văn mô tả (false positive)
