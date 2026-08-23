@@ -293,16 +293,18 @@ class SinhVienSelect(SelectEntity):
         được gọi tường minh (qua service), không tự động kèm theo bất
         kỳ luồng nào khác.
 
-        Tự lùi dần học kỳ (theo `hoc_ky_lien_truoc`, dựa đúng quy ước
-        mã học kỳ chính thức, không đoán công thức mới) cho tới khi
-        LỚP SINH HOẠT có dữ liệu (bảng không rỗng) — KHÔNG bắt buộc
-        đúng sinh viên đang xem phải có điểm trong đó (SV có thể
-        chuyển vào muộn, được miễn học phần...). Tối đa lùi
-        `SO_LAN_LUI_HOC_KY_TOI_DA` lần.
+        2 tầng dò lùi học kỳ:
+        1. Dò CHUNG cho cả lớp sinh hoạt — dừng ngay khi lớp có dữ liệu
+           (không cần đúng SV đang xem), rồi CHỐT dùng kỳ đó cho mọi SV
+           khác cùng lớp (không dò lại theo từng người).
+        2. Nếu ĐÚNG SV đang xem lại không có trong kỳ đã chốt (vd bảo
+           lưu/nghỉ học đúng kỳ đó nên không đăng ký), dò lùi THÊM
+           riêng cho SV này — không đổi kỳ chốt chung của lớp, để SV
+           khác không bị ảnh hưởng.
 
-        Học kỳ xác định được cho 1 lớp sinh hoạt sẽ dùng CHUNG cho mọi
-        sinh viên khác cùng lớp — chỉ cần dò 1 lần/lớp, không dò lại
-        theo từng người.
+        Dùng `hoc_ky_lien_truoc` (quy ước mã học kỳ chính thức, không
+        đoán công thức mới). Mỗi tầng tối đa `SO_LAN_LUI_HOC_KY_TOI_DA`
+        lần lùi.
         """
         sv = self._sv_dang_chon()
         if sv is None:
@@ -382,12 +384,44 @@ class SinhVienSelect(SelectEntity):
 
             gpa_map = self._gpa_cache.get((mlsh, hoc_ky), {})
             gia_tri = gpa_map.get(sv["ma_sv"])
+            hoc_ky_tim_thay = hoc_ky
+
+            if gia_tri is None:
+                # SV này KHÔNG có trong kỳ chốt của lớp — có thể do bảo
+                # lưu/nghỉ học đúng kỳ đó nên không đăng ký, chứ không
+                # hẳn là "chưa có điểm". Dò lùi THÊM, riêng cho SV này,
+                # KHÔNG đổi kỳ chốt chung của lớp (để SV khác vẫn dùng
+                # đúng cache cũ, không bị ảnh hưởng).
+                thu = hoc_ky_lien_truoc(hoc_ky)
+                so_lan_them = 0
+                while thu and so_lan_them < SO_LAN_LUI_HOC_KY_TOI_DA:
+                    cache_key = (mlsh, thu)
+                    gpa_map_thu = self._gpa_cache.get(cache_key)
+                    if gpa_map_thu is None:
+                        raw_gpa = await self._coordinator.client.fetch_class_gpa_html(
+                            mlsh, thu
+                        )
+                        gpa_map_thu = await self.hass.async_add_executor_job(
+                            parse_class_gpa, raw_gpa
+                        )
+                        self._gpa_cache[cache_key] = gpa_map_thu
+                    gia_tri_thu = gpa_map_thu.get(sv["ma_sv"])
+                    if gia_tri_thu:
+                        gia_tri = gia_tri_thu
+                        hoc_ky_tim_thay = thu
+                        break
+                    thu = hoc_ky_lien_truoc(thu)
+                    so_lan_them += 1
+
             self._gpa = gia_tri
-            self._hoc_ky_gpa = hoc_ky if gia_tri else None
+            self._hoc_ky_gpa = hoc_ky_tim_thay if gia_tri else None
             self._trang_thai_gpa = (
                 "đã nạp"
                 if gia_tri
-                else f"lớp có dữ liệu học kỳ {hoc_ky} nhưng sinh viên này chưa có điểm"
+                else (
+                    f"lớp có dữ liệu học kỳ {hoc_ky} nhưng sinh viên này không có "
+                    f"điểm ở kỳ đó lẫn các kỳ trước đã thử (có thể bảo lưu/nghỉ học)"
+                )
             )
             self.async_write_ha_state()
         except Exception as err:  # noqa: BLE001

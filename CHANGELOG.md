@@ -5,6 +5,27 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.38.4] - 2026-08-20
+
+### Sửa lỗi — SV bảo lưu 1 học kỳ không hiện GPA dù bạn cùng lớp có đủ
+- **Nguyên nhân**: v1.38.2 chốt "học kỳ dùng chung" cho cả lớp sinh
+  hoạt chỉ cần LỚP có dữ liệu, không cần đúng SV đang xem có điểm ở
+  đó. Sinh viên bảo lưu/nghỉ học ĐÚNG kỳ được chốt sẽ không đăng ký
+  môn nào -> không có tên trong bảng kỳ đó -> báo "chưa có điểm", dù
+  thực ra họ có điểm tích lũy từ các kỳ TRƯỚC đó.
+- **Sửa**: thêm tầng dò lùi thứ 2, CHỈ áp dụng khi đúng sinh viên đang
+  xem không có trong kỳ đã chốt của lớp — dò lùi thêm RIÊNG cho SV
+  này, không đổi kỳ chốt chung (SV khác cùng lớp không bị ảnh hưởng,
+  vẫn dùng cache cũ bình thường).
+- Kỳ tìm thấy cho SV bảo lưu có thể KHÁC kỳ chốt chung của lớp —
+  phản ánh đúng thực tế, hiển thị qua `gpa_hoc_ky` như bình thường.
+
+### Kiểm tra
+- Mô phỏng đúng kịch bản: kỳ chốt của lớp thiếu 1 SV (giả lập bảo
+  lưu) — SV đó tự dò lùi thêm, tìm đúng điểm ở kỳ trước; SV khác cùng
+  lớp không bị ảnh hưởng, không tốn thêm lần gọi mạng nào ngoài dự
+  kiến (dữ liệu đã cache sẵn từ bước dò kỳ chốt).
+
 ## [1.38.3] - 2026-08-20
 
 ### Thêm mới — service ẩn GPA (đối xứng với nạp GPA)
