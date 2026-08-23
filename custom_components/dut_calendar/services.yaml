@@ -1,0 +1,38 @@
+nap_gpa_sinh_vien:
+  name: Nạp điểm TBC tích lũy sinh viên
+  description: >-
+    Tra điểm trung bình chung (GPA) tích lũy của sinh viên ĐANG ĐƯỢC
+    CHỌN trong entity "Sinh viên" (dut_lichgiangday). Đây là hành động
+    phải gọi tường minh — GPA không tự động tải kèm khi chọn lớp/chọn
+    sinh viên, để hạn chế tối đa việc chạm vào dữ liệu học tập của
+    sinh viên khi không thực sự cần xem.
+  fields:
+    entity_id:
+      name: Entity Sinh viên
+      description: >-
+        Bỏ trống để áp dụng cho mọi entity "Sinh viên" đang có sẵn 1
+        sinh viên được chọn (đủ dùng nếu chỉ có 1 lớp đang theo dõi).
+      required: false
+      selector:
+        entity:
+          integration: dut_calendar
+          domain: select
+
+an_gpa_sinh_vien:
+  name: Ẩn điểm TBC tích lũy sinh viên
+  description: >-
+    Ẩn lại GPA đang hiển thị trên entity "Sinh viên" — chỉ xóa giá trị
+    đang hiện, KHÔNG xóa dữ liệu đã tải trong bộ nhớ. Gọi lại
+    "Nạp điểm TBC tích lũy sinh viên" sau đó sẽ hiện lại gần như tức
+    thì, không cần tải lại từ trường.
+  fields:
+    entity_id:
+      name: Entity Sinh viên
+      description: >-
+        Bỏ trống để áp dụng cho mọi entity "Sinh viên" đang có GPA
+        hiển thị.
+      required: false
+      selector:
+        entity:
+          integration: dut_calendar
+          domain: select

@@ -5,6 +5,90 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.38.3] - 2026-08-20
+
+### Thêm mới — service ẩn GPA (đối xứng với nạp GPA)
+- Trước đây chỉ có cơ chế NẠP GPA, chưa có cách chủ động ẩn lại khi
+  đang xem cùng 1 sinh viên (GPA chỉ mất khi đổi SV/đổi lớp/restart).
+- Thêm service `dut_calendar.an_gpa_sinh_vien` — chỉ xóa GIÁ TRỊ đang
+  hiển thị trên attribute, KHÔNG đụng tới cache đã tải
+  (`_gpa_cache`, `_mlsh_hoc_ky_da_biet`). Gọi lại `nap_gpa_sinh_vien`
+  sau đó hiện lại gần như tức thì, không gọi mạng lại.
+- Tương tự `nap_gpa_sinh_vien`, không truyền `entity_id` sẽ áp dụng
+  cho mọi entity "Sinh viên" đang có GPA hiển thị.
+
+### Kiểm tra
+- Mô phỏng chu trình nạp → ẩn → nạp lại — xác nhận chỉ tốn đúng 1 lần
+  gọi mạng cho cả chu trình, giá trị hiện đúng ở cả 2 lần nạp.
+
+## [1.38.2] - 2026-08-20
+
+### Cải thiện — tiêu chí lùi học kỳ đổi từ "đúng SV" sang "lớp có dữ liệu"
+- Trước đây mỗi SINH VIÊN tự dò lùi học kỳ cho tới khi CHÍNH MÌNH có
+  điểm — nếu 1 SV trong lớp bị thiếu điểm ở kỳ mà cả lớp đã có dữ
+  liệu (chuyển vào muộn, được miễn học phần...), vẫn tiếp tục lùi
+  thêm, gây gọi mạng thừa không cần thiết.
+- Đổi tiêu chí dừng: chỉ cần LỚP SINH HOẠT có dữ liệu (bảng trả về
+  không rỗng) là chốt dùng học kỳ đó — không đòi hỏi đúng sinh viên
+  đang xem phải có điểm trong đó.
+- Học kỳ chốt được cho 1 lớp sinh hoạt giờ CACHE LẠI theo lớp
+  (`_mlsh_hoc_ky_da_biet`) — sinh viên khác cùng lớp dùng thẳng, kể cả
+  khi bản thân không có điểm (trả về rỗng đúng ý, không dò lại từ
+  đầu). Giảm đáng kể số lần gọi mạng khi duyệt qua nhiều SV của cùng 1
+  lớp sinh hoạt.
+
+### Kiểm tra
+- Mô phỏng 2 SV cùng lớp sinh hoạt: SV1 có điểm (dò lùi 3 lần tới khi
+  lớp có dữ liệu), SV2 mã không tồn tại trong bảng — xác nhận SV2
+  dùng thẳng học kỳ đã chốt, 0 lần gọi mạng thêm, trả về rỗng đúng ý.
+
+## [1.38.1] - 2026-08-20
+
+### Cải thiện — cache thêm GPA theo (lớp sinh hoạt, học kỳ)
+- 1 lớp học phần thường trộn sinh viên từ NHIỀU lớp sinh hoạt khác
+  nhau (khác khóa/lớp) — trước đây mỗi lần bấm nạp GPA cho 1 sinh
+  viên, dù 2 sinh viên liên tiếp CÙNG lớp sinh hoạt vẫn gọi lại mạng
+  (API vốn trả về cả lớp, chỉ giữ lại đúng 1 dòng cần rồi vứt phần
+  còn lại). Giờ cache toàn bộ kết quả theo `(MLSH, học kỳ)`, sinh
+  viên khác cùng lớp/cùng kỳ dùng lại ngay, không gọi mạng thêm.
+- Cache cả trường hợp rỗng (kỳ đó không có ai có điểm) để tránh gọi
+  lặp vô ích khi thử nhiều sinh viên cùng rơi vào 1 kỳ trống.
+
+### Kiểm tra
+- Mô phỏng 2 sinh viên cùng lớp sinh hoạt, cùng học kỳ — xác nhận chỉ
+  gọi mạng đúng 1 lần, cả 2 vẫn lấy đúng GPA riêng của mình.
+
+## [1.38.0] - 2026-08-20
+
+### Thêm mới — GPA tích lũy sinh viên (lazy-load, mặc định không tải)
+- Thêm tra cứu **Điểm TBC tích lũy** cho sinh viên đang chọn trong
+  entity "Sinh viên" (`dut_lichgiangday`) — **CHỦ Ý KHÔNG tự động tải
+  kèm** khi chọn lớp/chọn sinh viên, chỉ nạp khi gọi tường minh qua
+  service mới `dut_calendar.nap_gpa_sinh_vien`, đúng nguyên tắc hạn
+  chế tối đa tiếp xúc dữ liệu học tập của sinh viên.
+- Nguồn dữ liệu: API "lớp sinh hoạt" (`ctrQL3LopSH_SinhVien`) — khác
+  với API "lớp học phần" (`SVIFList`) đang dùng cho danh sách SV, nên
+  cần map tên lớp sinh hoạt (đã có sẵn từ `parse_student_class_info`)
+  sang mã lớp nội bộ (MLSH) qua danh sách lớp sinh hoạt của khoa
+  (`ctrQL3LopSH_DS`), cache lại để không tải lại mỗi lần bấm.
+- **Tự lùi học kỳ khi kỳ gần nhất chưa có điểm** (`hoc_ky_lien_truoc`)
+  — dùng đúng quy ước mã học kỳ 4 ký tự YYSK đã có sẵn trong
+  `format_hoc_ky` (tài liệu chính thức Phòng Đào tạo), không suy đoán
+  công thức mới; kiểm chứng khớp đúng chuỗi request thật quan sát được
+  trên web trường (`2610 → 2521 → 2520`). Tối đa lùi 4 học kỳ.
+- Chỉ đọc đúng cột "Điểm TBC tích lũy" — các cột khác trong cùng bảng
+  (Điểm TBC học kỳ, học bổng, Điểm RL, Số TC...) không đọc.
+- Trạng thái tra cứu hiển thị qua attribute `gpa_trang_thai` (vd
+  "chưa nạp", "đang tra…", "đã nạp", hoặc lý do thất bại cụ thể) — dễ
+  chẩn đoán ngay trên dashboard, không cần đào log.
+
+### Kiểm tra
+- Test `hoc_ky_lien_truoc` khớp đúng chuỗi lùi thật quan sát được từ
+  HAR (2610→2521→2520→2510→2421).
+- Test `parse_lop_sinh_hoat_map` + `parse_class_gpa` với dữ liệu thật:
+  map đúng "24KTOTO1" → mã lớp nội bộ khớp chính xác với MLSH trong
+  URL request thật; đọc đúng 54/54 sinh viên có điểm trong 1 lớp.
+
 ## [1.37.0] - 2026-08-17
 
 ### Sửa lỗi nghiêm trọng — trang lichtuan.dut.udn.vn đổi giao diện hoàn toàn (8/2026)

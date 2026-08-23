@@ -1172,6 +1172,88 @@ def anh_sinh_vien_url(ma_sv: str) -> str | None:
     return f"https://cb.dut.udn.vn/ImageSV/{ma[3:5]}/{ma}.jpg"
 
 
+def hoc_ky_lien_truoc(code: str) -> str | None:
+    """Mã học kỳ LIỀN TRƯỚC theo trình tự thời gian thật, dùng đúng quy
+    ước 4 ký tự YYSK đã xác nhận ở `format_hoc_ky` (không suy đoán mới).
+
+    Kiểm chứng bằng chuỗi request THẬT quan sát được khi tra GPA trên
+    web trường (trang tự lùi khi kỳ chưa có điểm): 2610 -> 2521 -> 2520.
+
+    Trả về None nếu mã không đúng định dạng 4 chữ số YYSK.
+    """
+    code = (code or "").strip()
+    if not re.fullmatch(r"\d{4}", code):
+        return None
+    yy, s_ky, k_phu = int(code[:2]), code[2], code[3]
+    if s_ky not in ("1", "2") or k_phu not in ("0", "1"):
+        return None
+
+    if k_phu == "1":
+        # Đang ở kỳ PHỤ (hè) -> lùi về kỳ CHÍNH cùng học kỳ, cùng năm học.
+        return f"{yy:02d}{s_ky}0"
+    if s_ky == "2":
+        # HK2 chính -> lùi về HK1 chính cùng năm học.
+        return f"{yy:02d}10"
+    # HK1 chính -> lùi về kỳ Hè (phụ) của năm học TRƯỚC.
+    return f"{yy - 1:02d}21"
+
+
+def parse_lop_sinh_hoat_map(html: str) -> dict[str, str]:
+    """Map TÊN lớp sinh hoạt -> MÃ LỚP (MLSH), từ bảng danh sách lớp
+    sinh hoạt của khoa (E=ctrQL3LopSH_DS&KHOA=<mã khoa>&CAP=ALL).
+
+    Cần map này vì API tra GPA (ctrQL3LopSH_SinhVien) đòi MLSH, còn
+    `parse_student_class_info` chỉ cho TÊN lớp sinh hoạt (vd
+    "24KTOTO1") chứ không có mã nội bộ.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="QL3LopSH_GridLop")
+    if table is None:
+        return {}
+
+    out: dict[str, str] = {}
+    for tr in table.find_all("tr", class_="GridRow"):
+        tds = tr.find_all("td")
+        if len(tds) < 3:
+            continue
+        mlsh = tds[1].get_text(strip=True)
+        ten = unicodedata.normalize("NFC", tds[2].get_text(strip=True))
+        if mlsh and ten:
+            out[ten] = mlsh
+    return out
+
+
+def parse_class_gpa(html: str) -> dict[str, str]:
+    """Điểm TBC TÍCH LŨY của từng sinh viên trong 1 lớp sinh hoạt, từ
+    E=ctrQL3LopSH_SinhVien&MLSH=<mã lớp>&MHK=<mã học kỳ>.
+
+    CHỦ Ý CHỈ lấy đúng cột "Điểm TBC tích lũy" — bảng gốc còn có Điểm
+    TBC học kỳ, Điểm TBC học bổng, Điểm RL, Số TC... đều KHÔNG đọc, vì
+    mục đích chỉ là 1 con số tham khảo, không phải bảng điểm chi tiết.
+
+    Trả về {} nếu không đọc được sinh viên nào có điểm (thà trống còn
+    hơn sai) — coordinator gọi hàm này sẽ tự lùi thêm 1 học kỳ nếu rỗng.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="QL3LopSH_GridSinhVien")
+    if table is None:
+        return {}
+
+    out: dict[str, str] = {}
+    for tr in table.find_all("tr", class_="GridRow"):
+        tds = tr.find_all("td")
+        # Thứ tự cột (xem header thật): TT,Số thẻ,Họ tên,Lớp,Ngành,
+        # Điện thoại,Email,Điện thoại GĐ,Ngừng học,Số TC,TC học lại,
+        # TC tích lũy,Điểm TBC học kỳ,Điểm TBC tích lũy,... (index 13)
+        if len(tds) < 14:
+            continue
+        ma_sv = tds[1].get_text(strip=True)
+        gpa = tds[13].get_text(strip=True)
+        if ma_sv and gpa:
+            out[ma_sv] = gpa
+    return out
+
+
 def parse_student_class_info(html: str) -> dict[str, str]:
     """Lấy LỚP SINH HOẠT của từng sinh viên từ chế độ xem ảnh
     (E=SVIFList&ML=<mã lớp>&AH=true) -> {mã SV: lớp sinh hoạt}.

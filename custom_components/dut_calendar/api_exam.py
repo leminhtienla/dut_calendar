@@ -393,3 +393,49 @@ class CBDutClient:
             GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
         ) as resp:
             return await resp.text()
+
+    async def fetch_lop_sinh_hoat_list_html(self, khoa: str) -> str:
+        """Danh sách TẤT CẢ lớp sinh hoạt của khoa — dùng để map TÊN
+        lớp (vd "24KTOTO1") sang MÃ LỚP nội bộ (MLSH) cần cho việc tra
+        GPA. Không phụ thuộc học kỳ, danh sách lớp gần như cố định
+        trong năm nên có thể cache lâu ở tầng gọi.
+        """
+        await self.ensure_logged_in()
+        text = await self._call_lop_sinh_hoat_list(khoa)
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_lop_sinh_hoat_list(khoa)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+        return text
+
+    async def _call_lop_sinh_hoat_list(self, khoa: str) -> str:
+        params = {"E": "ctrQL3LopSH_DS", "KHOA": khoa, "CAP": "ALL"}
+        headers = {"X-Requested-With": "XMLHttpRequest", "Referer": PAGE_LICHGIANGDAY_URL}
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
+        ) as resp:
+            return await resp.text()
+
+    async def fetch_class_gpa_html(self, mlsh: str, hoc_ky: str) -> str:
+        """Điểm TBC tích lũy của sinh viên trong 1 lớp sinh hoạt, ở 1
+        học kỳ cụ thể (E=ctrQL3LopSH_SinhVien&MLSH=...&MHK=...).
+        """
+        await self.ensure_logged_in()
+        text = await self._call_class_gpa(mlsh, hoc_ky)
+        if is_login_page(text):
+            self._logged_in = False
+            await self.ensure_logged_in()
+            text = await self._call_class_gpa(mlsh, hoc_ky)
+            if is_login_page(text):
+                raise CBDutAuthError("Đăng nhập lại vẫn không truy cập được dữ liệu")
+        return text
+
+    async def _call_class_gpa(self, mlsh: str, hoc_ky: str) -> str:
+        params = {"E": "ctrQL3LopSH_SinhVien", "MLSH": mlsh, "MHK": hoc_ky}
+        headers = {"X-Requested-With": "XMLHttpRequest", "Referer": PAGE_LICHGIANGDAY_URL}
+        async with self._session.post(
+            GRADE_DEADLINE_AJAX_URL, params=params, headers=headers, timeout=60
+        ) as resp:
+            return await resp.text()
