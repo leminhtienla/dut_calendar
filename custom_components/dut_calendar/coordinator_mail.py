@@ -324,6 +324,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # khi tính năng bật và có cấu hình entity. AI không được ưu
             # tiên hơn rule; chỉ chạy khi rule đã thất bại hoàn toàn.
             ai_used = False
+            ai_nhan_phan_loai = None
             rule_trong = not (
                 info.get("start")
                 or info.get("all_day_start")
@@ -343,6 +344,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         info["location"] = ai_result.get("location") or info.get("location")
                     han_list = ai_result.get("deadlines") or []
                     date_ranges = ai_result.get("date_ranges") or []
+                    ai_nhan_phan_loai = ai_result.get("nhan_phan_loai")
             item = {
                 "id": key,
                 "sender": m.get("sender"),
@@ -381,6 +383,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     for r in date_ranges
                 ],
                 "ai_used": ai_used,
+                "ai_nhan_phan_loai": ai_nhan_phan_loai,
             }
             if key not in self._history:
                 new_matches.append(item)

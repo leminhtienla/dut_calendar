@@ -5,6 +5,29 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-09-03
+
+### Thay đổi — mail do AI xử lý dùng 1 nhãn gọn thay vì liệt kê đủ nhóm
+- **CHỈ áp dụng cho mail có `ai_used=True`** (rule-based không tách
+  được ngày/giờ, phải nhờ AI) — mail rule-based tự xử lý được vẫn giữ
+  nguyên hành vi cũ, liệt kê đủ mọi nhóm từ khóa đã khớp.
+- Prompt AI thêm field `nhan_phan_loai`: yêu cầu AI tự chọn ĐÚNG 1 nhãn
+  ngắn gọn (dưới 20 ký tự) mô tả loại email — KHÔNG bắt buộc trùng với
+  nhóm từ khóa đã cấu hình sẵn, AI có thể đặt tên khác phù hợp hơn nếu
+  cần (vd "Bảo vệ luận án" thay vì liệt kê cả "Đề tài, Seminar").
+- Nếu AI không đề xuất được nhãn (null), tự lùi về nhóm từ khóa ĐẦU
+  TIÊN đã khớp — vẫn đảm bảo chỉ 1 nhãn, không rơi về rỗng nếu tránh
+  được.
+- Hàm dùng chung `_nhan_hien_thi()` áp dụng thống nhất cho cả 3 loại
+  sự kiện Calendar mail (có giờ cụ thể, cả ngày, khoảng ngày, mốc hạn).
+
+### Kiểm tra
+- Test 4 case: rule-based (giữ đủ nhóm), AI có đề xuất (dùng nhãn AI),
+  AI không đề xuất (lùi về từ khóa đầu), và trường hợp rỗng hoàn toàn
+  — đều đúng như thiết kế.
+- Test `parse_ai_response` với field mới: giá trị hợp lệ, giá trị
+  null, và giá trị quá dài (tự cắt đúng 20 ký tự).
+
 ## [1.38.4] - 2026-08-20
 
 ### Sửa lỗi — SV bảo lưu 1 học kỳ không hiện GPA dù bạn cùng lớp có đủ

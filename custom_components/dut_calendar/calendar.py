@@ -390,6 +390,28 @@ class TeachingCalendar(CoordinatorEntity[CBDutCoordinator], CalendarEntity):
 # =====================================================================
 # Nguồn: Email — cuộc họp tách được từ mail (chỉ mail có đủ ngày+giờ)
 # =====================================================================
+def _nhan_hien_thi(m: dict[str, Any]) -> str:
+    """Nhãn hiển thị trong ngoặc vuông [Nhãn] của tiêu đề sự kiện mail.
+
+    Mail được AI hỗ trợ xử lý (`ai_used=True`, tức rule-based không
+    tách được ngày/giờ): dùng ĐÚNG 1 nhãn AI tự đề xuất
+    (`ai_nhan_phan_loai`) — gọn hơn nhiều so với liệt kê hết mọi nhóm
+    từ khóa đã khớp, và AI có thể đặt tên phù hợp hơn, không bắt buộc
+    trùng với nhóm từ khóa đã cấu hình sẵn. Nếu AI không đề xuất được
+    (null), lùi về nhóm từ khóa ĐẦU TIÊN đã khớp (vẫn chỉ 1 nhãn).
+
+    Mail rule-based tự xử lý được (không cần AI): GIỮ NGUYÊN hành vi
+    cũ — liệt kê ĐỦ mọi nhóm từ khóa đã khớp, phân tách bằng dấu phẩy.
+    """
+    if m.get("ai_used"):
+        nhan = m.get("ai_nhan_phan_loai")
+        if nhan:
+            return nhan
+        kw_list = m.get("matched_keywords") or []
+        return kw_list[0] if kw_list else ""
+    return ", ".join(m.get("matched_keywords") or [])
+
+
 class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity):
     """Lịch các cuộc họp lấy từ email khớp từ khóa.
 
@@ -479,7 +501,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                 d2 = date.fromisoformat(m.get("meeting_all_day_end") or m["meeting_all_day_start"])
             except (TypeError, ValueError):
                 continue
-            kw = ", ".join(m.get("matched_keywords") or [])
+            kw = _nhan_hien_thi(m)
             ai = m.get("ai_used")
             events.append(
                 CalendarEvent(
@@ -510,7 +532,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                     d2 = date.fromisoformat(r["end"])
                 except (TypeError, ValueError, KeyError):
                     continue
-                kw = ", ".join(m.get("matched_keywords") or [])
+                kw = _nhan_hien_thi(m)
                 nhan = r.get("context") or ""
                 events.append(
                     CalendarEvent(
@@ -540,7 +562,7 @@ class MailMeetingCalendar(CoordinatorEntity[DutMailCoordinator], CalendarEntity)
                     ngay = date.fromisoformat(h["date"])
                 except (TypeError, ValueError, KeyError):
                     continue
-                kw = ", ".join(m.get("matched_keywords") or [])
+                kw = _nhan_hien_thi(m)
 
                 # Hạn có GIỜ cụ thể ("trước 11h00 ngày 12/8") -> sự kiện
                 # đúng giờ đó (30 phút) thay vì cả ngày, để nhắc sát hạn.

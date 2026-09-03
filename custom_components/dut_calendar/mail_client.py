@@ -635,7 +635,8 @@ Cấu trúc JSON cần trả về:
   ],
   "date_ranges": [                            // các khoảng "từ ngày X đến ngày Y" không phải cuộc họp 1 giờ cụ thể
     {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "context": "mô tả ngắn (vd Đợt 1)"}}
-  ]
+  ],
+  "nhan_phan_loai": "chuỗi ngắn hoặc null"   // 1 CỤM TỪ NGẮN GỌN (dưới 20 ký tự) mô tả loại email này để hiện trong ngoặc vuông trên lịch, vd "Họp", "Hội thảo", "Seminar", "Đào tạo", "Sinh hoạt lớp"... KHÔNG bắt buộc trùng với nhóm từ khóa đã cấu hình sẵn — nếu có tên phù hợp hơn thì đặt tên đó. CHỈ chọn ĐÚNG 1 nhãn tốt nhất, không liệt kê nhiều nhãn. Để null nếu không xác định được loại phù hợp.
 }}
 
 Tiêu đề email: {subject}
@@ -674,6 +675,7 @@ def parse_ai_response(text: str) -> dict[str, Any]:
         "all_day_end": None,
         "deadlines": [],
         "date_ranges": [],
+        "nhan_phan_loai": None,
     }
     if not text:
         return result
@@ -745,5 +747,9 @@ def parse_ai_response(text: str) -> dict[str, Any]:
         result["date_ranges"].append(
             {"start": rs, "end": re_, "context": (ctx.strip()[:60] if isinstance(ctx, str) else "")}
         )
+
+    nhan = data.get("nhan_phan_loai")
+    if isinstance(nhan, str) and nhan.strip():
+        result["nhan_phan_loai"] = nhan.strip()[:20]
 
     return result
