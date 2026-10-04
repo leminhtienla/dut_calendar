@@ -1,6 +1,7 @@
 """Coordinator: đọc hộp thư IMAP định kỳ, lọc từ khóa, cảnh báo mail mới."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
@@ -58,6 +59,13 @@ from .mail_client import (
 from .parser_public import parse_keyword_groups
 
 _LOGGER = logging.getLogger(__name__)
+
+# Giới hạn gọi AI — AI chậm/treo không được kéo theo cả setup/lần quét.
+# Mỗi lần gọi tối đa AI_TIMEOUT_SECONDS; mỗi lần quét tối đa
+# AI_MAX_CALLS_PER_REFRESH mail (phần còn lại để dành lần quét sau, vì
+# mail chưa hỏi AI sẽ tự được thử lại).
+AI_TIMEOUT_SECONDS = 25
+AI_MAX_CALLS_PER_REFRESH = 3
 
 
 class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -167,26 +175,39 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 kept[key] = m
         self._history = kept
 
-    async def _async_ask_ai(self, subject: str, body: str) -> dict[str, Any] | None:
+    async def _async_ask_ai(
+        self, subject: str, body: str
+    ) -> tuple[bool, dict[str, Any] | None]:
         """Gọi AI conversation agent đã cấu hình để tìm thông tin mà
-        rule-based KHÔNG tách được. Không bao giờ raise ra ngoài — lỗi
-        gì cũng coi như AI không giúp được gì, giữ nguyên hành vi cũ.
+        rule-based KHÔNG tách được. Không bao giờ raise ra ngoài.
+
+        Trả về `(da_tra_loi, ket_qua)`:
+        - `da_tra_loi=True`: AI thật sự đã phản hồi (kể cả khi không tìm
+          thấy gì, `ket_qua=None`) -> coordinator ghi nhớ đã hỏi, KHÔNG
+          gửi lại mail này cho AI ở các lần quét sau.
+        - `da_tra_loi=False`: lỗi/timeout/agent không phản hồi -> không
+          ghi nhớ, lần quét sau được thử lại.
+
+        CÓ TIMEOUT (`AI_TIMEOUT_SECONDS`): AI chậm/treo không được kéo
+        theo cả setup entry (từng gây "Global task timeout: Bootstrap
+        stage 2 timeout" khi agent Gemini phản hồi quá lâu lúc khởi động).
 
         CHỈ gửi tiêu đề + phần thân mail MỚI NHẤT (đã cắt trích dẫn cũ),
         không gửi toàn văn, không lưu lại prompt/kết quả thô vào .storage.
         """
         entity_id = self.ai_entity_id
         if not entity_id:
-            return None
+            return False, None
         try:
             prompt = build_ai_prompt(subject, body)
-            resp = await self.hass.services.async_call(
-                "conversation",
-                "process",
-                {"text": prompt, "agent_id": entity_id, "language": "vi"},
-                blocking=True,
-                return_response=True,
-            )
+            async with asyncio.timeout(AI_TIMEOUT_SECONDS):
+                resp = await self.hass.services.async_call(
+                    "conversation",
+                    "process",
+                    {"text": prompt, "agent_id": entity_id, "language": "vi"},
+                    blocking=True,
+                    return_response=True,
+                )
             speech = (
                 resp.get("response", {})
                 .get("speech", {})
@@ -194,16 +215,24 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 .get("speech", "")
             )
             if not speech:
-                return None
+                return True, None
             parsed = parse_ai_response(speech)
             if not any(
                 parsed.get(k) for k in ("start", "all_day_start", "deadlines", "date_ranges")
             ):
-                return None
-            return parsed
+                return True, None
+            return True, parsed
+        except TimeoutError:
+            _LOGGER.warning(
+                "AI (%s) không phản hồi trong %ds cho mail '%s', bỏ qua, sẽ thử lại lần quét sau",
+                entity_id,
+                AI_TIMEOUT_SECONDS,
+                subject,
+            )
+            return False, None
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Không hỏi được AI (%s) cho mail '%s': %s", entity_id, subject, err)
-            return None
+            return False, None
 
     # ---------------- cập nhật ----------------
     async def _async_update_data(self) -> dict[str, Any]:
@@ -291,8 +320,20 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"Lỗi lọc từ khóa mail: {err}") from err
 
         new_matches: list[dict[str, Any]] = []
+        # Chỉ hỏi AI khi HA đã khởi động xong — lúc đang bootstrap, gọi AI
+        # (mạng ngoài) có thể kéo dài làm gãy cả setup entry (Global task
+        # timeout). Mail chưa hỏi sẽ được hỏi ở lần quét đầu sau khởi động.
+        so_lan_goi_ai = 0
+        duoc_phep_hoi_ai = self.hass.is_running
         for m in matches:
             key = mail_stable_id(m)
+            # Mail ĐÃ được AI trả lời ở lần quét trước (kể cả trả lời
+            # "không tìm thấy gì") -> giữ nguyên kết quả cũ, KHÔNG gửi
+            # lại nội dung mail cho AI mỗi lần quét (lãng phí + đi ngược
+            # nguyên tắc hạn chế đưa nội dung mail ra ngoài).
+            truoc = self._history.get(key)
+            if truoc is not None and (truoc.get("ai_tried") or truoc.get("ai_used")):
+                continue
             # Tách thời gian/địa điểm cuộc họp bằng QUY TẮC trước (không
             # dùng AI, không gửi nội dung mail ra ngoài); chỉ khi rule
             # thất bại hoàn toàn mới nhờ AI (xem bên dưới). Chỉ lưu phần
@@ -331,8 +372,18 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 or han_list
                 or date_ranges
             )
-            if rule_trong and self.ai_enabled and self.ai_entity_id:
-                ai_result = await self._async_ask_ai(m.get("subject", ""), body_text)
+            ai_da_tra_loi = False
+            if (
+                rule_trong
+                and self.ai_enabled
+                and self.ai_entity_id
+                and duoc_phep_hoi_ai
+                and so_lan_goi_ai < AI_MAX_CALLS_PER_REFRESH
+            ):
+                so_lan_goi_ai += 1
+                ai_da_tra_loi, ai_result = await self._async_ask_ai(
+                    m.get("subject", ""), body_text
+                )
                 if ai_result:
                     ai_used = True
                     if ai_result.get("start"):
@@ -384,6 +435,9 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ],
                 "ai_used": ai_used,
                 "ai_nhan_phan_loai": ai_nhan_phan_loai,
+                # True = AI đã phản hồi cho mail này (dù rỗng) -> lần quét
+                # sau bỏ qua, không hỏi lại.
+                "ai_tried": ai_da_tra_loi,
             }
             if key not in self._history:
                 new_matches.append(item)

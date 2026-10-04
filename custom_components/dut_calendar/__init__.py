@@ -4,7 +4,8 @@ from __future__ import annotations
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
@@ -88,6 +89,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     elif entry_type == TYPE_MAIL:
         coordinator = DutMailCoordinator(hass, entry)
         await coordinator.async_config_entry_first_refresh()
+
+        if not hass.is_running:
+            # Lúc HA đang khởi động, coordinator CHƯA hỏi AI (tránh treo
+            # bootstrap). Ngay khi HA khởi động xong, làm mới 1 lần để
+            # xử lý các mail cần AI, khỏi phải đợi tới chu kỳ quét kế tiếp.
+            async def _lam_moi_sau_khoi_dong(_event: Event) -> None:
+                await coordinator.async_request_refresh()
+
+            entry.async_on_unload(
+                hass.bus.async_listen_once(
+                    EVENT_HOMEASSISTANT_STARTED, _lam_moi_sau_khoi_dong
+                )
+            )
     elif entry_type in (TYPE_COITHI, TYPE_DEADLINE_DIEM, TYPE_LICHGIANGDAY):
         coordinator = CBDutCoordinator(hass, entry)
         await coordinator.async_config_entry_first_refresh()

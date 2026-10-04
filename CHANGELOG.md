@@ -5,6 +5,27 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.39.2] - 2026-10-03
+
+### Sửa lỗi — gọi AI làm treo setup `dut_mail` lúc khởi động HA
+Log mới cho thấy sau khi IMAP đã có timeout (1.39.1), setup vẫn bị cắt bởi
+"Global task timeout: Bootstrap stage 2 timeout", lần này kẹt ở bước gọi
+AI (`conversation.process` tới Gemini) trong lần quét đầu tiên.
+- **Timeout cho mỗi lần gọi AI** (25 giây): AI chậm/treo bị cắt, mail đó
+  được thử lại ở lần quét sau.
+- **Không hỏi AI khi HA đang khởi động** (`hass.is_running`); entry mail
+  tự làm mới 1 lần ngay khi HA khởi động xong để xử lý các mail cần AI.
+- **Tối đa 3 mail/lần quét gọi AI** — phần còn lại dồn sang lần sau.
+- **Ghi nhớ mail đã hỏi AI** (`ai_tried`): trước đây mail rule-based
+  không xử lý được bị gửi lại cho AI ở MỌI lần quét. Giờ mỗi mail chỉ
+  hỏi đúng 1 lần (chỉ ghi nhớ khi AI thật sự phản hồi, lỗi/timeout thì
+  thử lại). Mail cũ đã có `ai_used` cũng được coi là đã hỏi.
+
+### Kiểm tra
+- Giả lập coordinator: AI treo 30s bị cắt sau 1s; 8 mail cần AI được
+  xử lý 3+3+2 qua 3 lần quét, tổng đúng 8 lần gọi (mỗi mail 1 lần), lần
+  quét thứ 4 gọi 0 lần; HA đang khởi động gọi AI 0 lần.
+
 ## [1.39.1] - 2026-10-03
 
 ### Sửa lỗi nghiêm trọng — setup `dut_mail` treo vô thời hạn, gãy khởi động HA
