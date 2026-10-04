@@ -115,6 +115,12 @@ DEFAULT_SCAN_INTERVAL_MAIL = 15
 MIN_SCAN_INTERVAL_MAIL = 5
 MAX_SCAN_INTERVAL_MAIL = 1440
 MAIL_HISTORY_RETENTION_DAYS = 30
+# Phiên bản LOGIC TÁCH THÔNG TIN từ mail (parse_meeting_info/deadlines/
+# date_ranges/milestones, prompt AI...). TĂNG SỐ NÀY mỗi khi sửa logic
+# tách — để bộ nhớ "mail đã xử lý" của các bản cũ bị hủy và mail được
+# phân tích lại một lần bằng luật mới (nếu quên tăng, mail cũ sẽ giữ
+# kết quả của luật cũ cho tới khi bấm "Quét lại toàn bộ mail").
+MAIL_PARSER_REVISION = 1
 EVENT_MAIL_MATCH = f"{DOMAIN}_mail_match"
 # Mail mời họp thường không ghi giờ KẾT THÚC -> mặc định 60 phút
 DEFAULT_MEETING_DURATION = 60

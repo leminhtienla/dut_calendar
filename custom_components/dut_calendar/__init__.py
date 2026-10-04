@@ -21,7 +21,7 @@ from .coordinator_exam import CBDutCoordinator
 from .coordinator_mail import DutMailCoordinator
 from .coordinator_public import LichTuanDutCoordinator
 
-PLATFORMS = ["sensor", "calendar", "select"]
+PLATFORMS = ["sensor", "calendar", "select", "button"]
 
 SERVICE_NAP_GPA = "nap_gpa_sinh_vien"
 SERVICE_AN_GPA = "an_gpa_sinh_vien"
@@ -127,6 +127,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator = hass.data[DOMAIN].pop(entry.entry_id)
         if isinstance(coordinator, CBDutCoordinator):
             await coordinator.async_close()
+        if isinstance(coordinator, DutMailCoordinator):
+            coordinator.huy_quet_bu()  # hủy lượt quét bù đang chờ (nếu có)
         # Dọn registry service nap_gpa_sinh_vien khỏi entity thuộc entry vừa gỡ.
         registry = hass.data.get(DOMAIN, {}).get("_sv_select_entities")
         if registry:

@@ -4,11 +4,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -38,6 +40,7 @@ from .const import (
     DOMAIN,
     EVENT_MAIL_MATCH,
     MAIL_HISTORY_RETENTION_DAYS,
+    MAIL_PARSER_REVISION,
     STORAGE_KEY_TEMPLATE,
     STORAGE_VERSION,
 )
@@ -66,6 +69,40 @@ _LOGGER = logging.getLogger(__name__)
 # mail chưa hỏi AI sẽ tự được thử lại).
 AI_TIMEOUT_SECONDS = 25
 AI_MAX_CALLS_PER_REFRESH = 3
+# Còn mail chờ AI sau 1 lượt quét -> tự quét bù sau QUET_BU_SAU_GIAY giây
+# (không đợi hết chu kỳ quét thường), tối đa QUET_BU_TOI_DA lần liên tiếp
+# để không lặp mãi nếu AI cứ lỗi.
+QUET_BU_SAU_GIAY = 60
+QUET_BU_TOI_DA = 5
+
+
+def _phan_tich_luat(body_text: str) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Tách thông tin từ thân mail bằng QUY TẮC (không dùng AI).
+
+    Trả về `(info, han_list, date_ranges)`:
+    - `info`: giờ họp / sự kiện cả ngày / địa điểm (parse_meeting_info)
+    - `han_list`: các mốc hạn (mốc dạng "Nhãn: ngày" + hạn trong câu văn),
+      đã khử trùng theo ngày
+    - `date_ranges`: các khoảng "từ ngày X - Y" dạng liệt kê
+    """
+    info = parse_meeting_info(body_text)
+    # Mail không có dòng "Thời gian:" (mời phản biện, nộp hồ sơ...)
+    # thường chỉ nêu "trước ngày X" -> lấy làm mốc hạn.
+    # Mốc dạng danh sách "Nhãn: ngày" (mail hội thảo) + hạn nêu
+    # trong câu văn "trước ngày X" (mail mời phản biện).
+    han_list = parse_milestones(body_text) + parse_deadlines(body_text)
+    # Khử trùng theo ngày, ưu tiên nhãn ngắn gọn của danh sách
+    da_co: set = set()
+    han_gom = []
+    for h in han_list:
+        if h["date"] in da_co:
+            continue
+        da_co.add(h["date"])
+        han_gom.append(h)
+    # Khoảng "từ ngày X - Y" KHÔNG cần nhãn "Thời gian:" (mail liệt kê
+    # nhiều đợt, vd sinh hoạt lớp chủ nhiệm) -> mỗi khoảng thành 1 sự
+    # kiện CẢ NGÀY riêng.
+    return info, han_gom, parse_date_ranges(body_text)
 
 
 class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -89,6 +126,15 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # báo — nếu không sẽ bắn hàng loạt cảnh báo cho mail cũ ngay
         # khi vừa cài đặt.
         self._first_run = True
+        # Bộ nhớ "mail đã xử lý xong" theo UID IMAP (lưu bền .storage —
+        # CHỈ số UID, không lưu tiêu đề/nội dung) để mỗi lượt quét, kể cả
+        # sau khi khởi động lại HA, chỉ tải mail MỚI thay vì cả cửa sổ.
+        self._seen_uids: set[int] = set()
+        self._uidvalidity: int | None = None
+        self._scan_signature: str | None = None
+        # Quét bù khi còn mail chờ AI
+        self._cancel_followup = None
+        self._so_lan_quet_bu = 0
 
     # ---------------- cấu hình ----------------
     def _opt(self, key: str, default: Any) -> Any:
@@ -135,6 +181,27 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         raw = str(self._opt(CONF_KEYWORDS, ""))
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
+    @property
+    def _scan_signature_now(self) -> str:
+        """Chữ ký của mọi thứ ảnh hưởng tới VIỆC MAIL NÀO ĐƯỢC COI LÀ
+        "đã xử lý xong". Đổi bất kỳ thứ nào dưới đây thì bộ nhớ UID mất
+        giá trị: mail trước đó bị loại/không khớp/chưa hỏi AI có thể cần
+        xử lý khác đi, nên phải tải lại cửa sổ mail một lần.
+        """
+        thanh_phan = [
+            str(self._opt(CONF_KEYWORDS, "")),
+            "\n".join(self.exclude_subjects),
+            f"ai={int(self.ai_enabled and bool(self.ai_entity_id))}",
+            f"unseen={int(bool(self._opt(CONF_MAIL_UNSEEN_ONLY, DEFAULT_MAIL_UNSEEN_ONLY)))}",
+            "{}|{}|{}".format(
+                self._opt(CONF_MAIL_HOST, DEFAULT_MAIL_HOST),
+                self._opt(CONF_USERNAME, ""),
+                self._opt(CONF_MAIL_FOLDER, DEFAULT_MAIL_FOLDER),
+            ),
+            f"rev={MAIL_PARSER_REVISION}",
+        ]
+        return hashlib.sha1("\x1f".join(thanh_phan).encode("utf-8")).hexdigest()
+
     # ---------------- lưu trữ ----------------
     async def _async_load_storage(self) -> None:
         if self._loaded_storage:
@@ -145,6 +212,12 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._history = data["mail_history"]
         if data and isinstance(data.get("mail_keywords_signature"), str):
             self._keywords_signature = data["mail_keywords_signature"]
+        if data and isinstance(data.get("mail_seen_uids"), list):
+            self._seen_uids = {u for u in data["mail_seen_uids"] if isinstance(u, int)}
+        if data and isinstance(data.get("mail_uidvalidity"), int):
+            self._uidvalidity = data["mail_uidvalidity"]
+        if data and isinstance(data.get("mail_scan_signature"), str):
+            self._scan_signature = data["mail_scan_signature"]
         self._loaded_storage = True
 
     async def _async_save_storage(self) -> None:
@@ -152,6 +225,9 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {
                 "mail_history": self._history,
                 "mail_keywords_signature": self._keywords_signature,
+                "mail_seen_uids": sorted(self._seen_uids),
+                "mail_uidvalidity": self._uidvalidity,
+                "mail_scan_signature": self._scan_signature,
             }
         )
 
@@ -236,6 +312,7 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     # ---------------- cập nhật ----------------
     async def _async_update_data(self) -> dict[str, Any]:
+        t_bat_dau = time.monotonic()
         await self._async_load_storage()
 
         # Đổi từ khóa -> xóa lịch sử, quét lại (giống lịch tuần), tránh
@@ -249,6 +326,20 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         groups = self.keyword_groups
         if not groups:
             return {"matches": [], "total_mails": 0, "new_matches": []}
+
+        # Cấu hình ảnh hưởng tới việc "mail nào đã xử lý xong" đổi (từ
+        # khóa, loại trừ, AI bật/tắt, hộp thư, phiên bản parser) -> bộ
+        # nhớ UID hết giá trị, tải lại cửa sổ mail MỘT lần. Lịch sử đã
+        # trích (kể cả kết quả AI) được giữ nguyên, không hỏi lại AI.
+        sig_quet = self._scan_signature_now
+        if self._scan_signature != sig_quet:
+            if self._seen_uids:
+                _LOGGER.info(
+                    "dut_mail: cấu hình quét đã đổi, tải lại cửa sổ mail một lần"
+                )
+            self._seen_uids = set()
+            self._uidvalidity = None
+        self._scan_signature = sig_quet
 
         # Dọn NGAY các mail đã lỡ lưu vào lịch sử TỪ TRƯỚC khi khớp
         # cụm loại trừ hiện tại — nếu không dọn, mail cũ vẫn hiện mãi
@@ -274,8 +365,10 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except Exception as err:  # noqa: BLE001
                 _LOGGER.warning("Lỗi khi dọn lịch sử theo cụm loại trừ: %s", err)
 
+        uidvalidity_cu = self._uidvalidity
+        t_tai = time.monotonic()
         try:
-            mails = await self.hass.async_add_executor_job(
+            ket_qua_tai = await self.hass.async_add_executor_job(
                 fetch_recent_mails,
                 str(self._opt(CONF_MAIL_HOST, DEFAULT_MAIL_HOST)),
                 int(self._opt(CONF_MAIL_PORT, DEFAULT_MAIL_PORT)),
@@ -284,9 +377,20 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 str(self._opt(CONF_MAIL_FOLDER, DEFAULT_MAIL_FOLDER)),
                 int(self._opt(CONF_MAIL_LIMIT, DEFAULT_MAIL_LIMIT)),
                 bool(self._opt(CONF_MAIL_UNSEEN_ONLY, DEFAULT_MAIL_UNSEEN_ONLY)),
+                sorted(self._seen_uids),
+                self._uidvalidity,
             )
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Lỗi đọc hộp thư: {err}") from err
+        t_tai = time.monotonic() - t_tai
+
+        mails = ket_qua_tai["mails"]  # CHỈ mail mới tải về
+        window_uids = set(ket_qua_tai["window_uids"])
+        so_bo_qua = ket_qua_tai["so_bo_qua"]
+        self._uidvalidity = ket_qua_tai["uidvalidity"]
+        if self._uidvalidity != uidvalidity_cu:
+            # Server đổi UIDVALIDITY -> UID đã nhớ vô nghĩa (fetch đã bỏ qua).
+            self._seen_uids = set()
 
         matches = mails
         try:
@@ -300,12 +404,8 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("Lỗi khi loại trừ mail theo tiêu đề, bỏ qua bước này: %s", err)
             matches = mails
         # Log rõ ràng để kiểm tra: cấu hình đang dùng, số mail trước/sau.
-        # Nếu dòng này KHÔNG xuất hiện trong log -> code exclude chưa
-        # thực sự chạy (chưa deploy/restart đúng bản); nếu xuất hiện mà
-        # "loại: 0" trong khi lẽ ra phải loại -> đúng là lỗi logic thật,
-        # cần xem tiếp phần "mail còn lại" để biết vì sao không khớp.
         _LOGGER.info(
-            "dut_mail loại trừ theo tiêu đề: cụm=%s | trước=%d | sau=%d | loại=%d",
+            "dut_mail loại trừ theo tiêu đề: cụm=%s | mới tải=%d | sau=%d | loại=%d",
             exclude_list,
             len(mails),
             len(matches),
@@ -319,83 +419,86 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Lỗi lọc từ khóa mail: {err}") from err
 
-        new_matches: list[dict[str, Any]] = []
-        # Chỉ hỏi AI khi HA đã khởi động xong — lúc đang bootstrap, gọi AI
-        # (mạng ngoài) có thể kéo dài làm gãy cả setup entry (Global task
-        # timeout). Mail chưa hỏi sẽ được hỏi ở lần quét đầu sau khởi động.
-        so_lan_goi_ai = 0
-        duoc_phep_hoi_ai = self.hass.is_running
+        # ---- Bước 1: tách bằng QUY TẮC cho từng mail khớp (rẻ, không ----
+        # ---- gửi nội dung mail ra ngoài). Chỉ lưu phần đã tách — KHÔNG ----
+        # ---- lưu toàn văn nội dung mail vào .storage.                  ----
+        t_luat = time.monotonic()
+        cong_viec: list[dict[str, Any]] = []
         for m in matches:
             key = mail_stable_id(m)
             # Mail ĐÃ được AI trả lời ở lần quét trước (kể cả trả lời
             # "không tìm thấy gì") -> giữ nguyên kết quả cũ, KHÔNG gửi
-            # lại nội dung mail cho AI mỗi lần quét (lãng phí + đi ngược
-            # nguyên tắc hạn chế đưa nội dung mail ra ngoài).
+            # lại nội dung mail cho AI (lãng phí + đi ngược nguyên tắc
+            # hạn chế đưa nội dung mail ra ngoài).
             truoc = self._history.get(key)
             if truoc is not None and (truoc.get("ai_tried") or truoc.get("ai_used")):
                 continue
-            # Tách thời gian/địa điểm cuộc họp bằng QUY TẮC trước (không
-            # dùng AI, không gửi nội dung mail ra ngoài); chỉ khi rule
-            # thất bại hoàn toàn mới nhờ AI (xem bên dưới). Chỉ lưu phần
-            # đã tách — KHÔNG lưu toàn văn nội dung mail vào .storage.
-            body_text = m.get("body", "")
-            info = parse_meeting_info(body_text)
-            # Mail không có dòng "Thời gian:" (mời phản biện, nộp hồ sơ...)
-            # thường chỉ nêu "trước ngày X" -> lấy làm mốc hạn.
-            # Mốc dạng danh sách "Nhãn: ngày" (mail hội thảo) + hạn nêu
-            # trong câu văn "trước ngày X" (mail mời phản biện).
-            han_list = parse_milestones(body_text) + parse_deadlines(body_text)
-            # Khử trùng theo ngày, ưu tiên nhãn ngắn gọn của danh sách
-            da_co: set = set()
-            han_gom = []
-            for h in han_list:
-                if h["date"] in da_co:
-                    continue
-                da_co.add(h["date"])
-                han_gom.append(h)
-            han_list = han_gom
-
-            # Khoảng "từ ngày X - Y" KHÔNG cần nhãn "Thời gian:" (mail
-            # liệt kê nhiều đợt, vd sinh hoạt lớp chủ nhiệm) -> mỗi
-            # khoảng thành 1 sự kiện CẢ NGÀY riêng.
-            date_ranges = parse_date_ranges(body_text)
-
-            # Rule-based KHÔNG tách được gì cả (mail đã khớp từ khóa
-            # nhưng không đúng khuôn nào) -> nhờ AI thử tìm giúp, CHỈ
-            # khi tính năng bật và có cấu hình entity. AI không được ưu
-            # tiên hơn rule; chỉ chạy khi rule đã thất bại hoàn toàn.
-            ai_used = False
-            ai_nhan_phan_loai = None
+            info, han_list, date_ranges = _phan_tich_luat(m.get("body", ""))
             rule_trong = not (
                 info.get("start")
                 or info.get("all_day_start")
                 or han_list
                 or date_ranges
             )
-            ai_da_tra_loi = False
-            if (
-                rule_trong
-                and self.ai_enabled
-                and self.ai_entity_id
-                and duoc_phep_hoi_ai
-                and so_lan_goi_ai < AI_MAX_CALLS_PER_REFRESH
-            ):
-                so_lan_goi_ai += 1
-                ai_da_tra_loi, ai_result = await self._async_ask_ai(
-                    m.get("subject", ""), body_text
+            cong_viec.append(
+                {
+                    "m": m,
+                    "key": key,
+                    "info": info,
+                    "han_list": han_list,
+                    "date_ranges": date_ranges,
+                    "rule_trong": rule_trong,
+                }
+            )
+        t_luat = time.monotonic() - t_luat
+
+        # ---- Bước 2: mail mà luật KHÔNG tách được gì -> nhờ AI, các lần ----
+        # ---- gọi chạy SONG SONG. Chỉ khi HA đã khởi động xong (lúc đang ----
+        # ---- bootstrap, gọi AI qua mạng ngoài có thể làm gãy cả setup), ----
+        # ---- tối đa AI_MAX_CALLS_PER_REFRESH mail mỗi lượt.              ----
+        co_the_hoi_ai = self.ai_enabled and bool(self.ai_entity_id)
+        ung_vien_ai = [cv for cv in cong_viec if cv["rule_trong"] and co_the_hoi_ai]
+        se_hoi_ai = (
+            ung_vien_ai[:AI_MAX_CALLS_PER_REFRESH] if self.hass.is_running else []
+        )
+        ket_qua_ai: dict[str, tuple[bool, dict[str, Any] | None]] = {}
+        t_ai = time.monotonic()
+        if se_hoi_ai:
+            tra_loi = await asyncio.gather(
+                *(
+                    self._async_ask_ai(cv["m"].get("subject", ""), cv["m"].get("body", ""))
+                    for cv in se_hoi_ai
                 )
-                if ai_result:
-                    ai_used = True
-                    if ai_result.get("start"):
-                        info["start"] = ai_result["start"]
-                        info["location"] = ai_result.get("location") or info.get("location")
-                    elif ai_result.get("all_day_start"):
-                        info["all_day_start"] = ai_result["all_day_start"]
-                        info["all_day_end"] = ai_result["all_day_end"]
-                        info["location"] = ai_result.get("location") or info.get("location")
-                    han_list = ai_result.get("deadlines") or []
-                    date_ranges = ai_result.get("date_ranges") or []
-                    ai_nhan_phan_loai = ai_result.get("nhan_phan_loai")
+            )
+            for cv, kq in zip(se_hoi_ai, tra_loi):
+                ket_qua_ai[cv["key"]] = kq
+        t_ai = time.monotonic() - t_ai
+
+        # ---- Bước 3: dựng kết quả từng mail ----
+        new_matches: list[dict[str, Any]] = []
+        cho_uids: set[int] = set()  # mail còn dở việc AI -> chưa coi là xong
+        for cv in cong_viec:
+            m, key = cv["m"], cv["key"]
+            info, han_list, date_ranges = cv["info"], cv["han_list"], cv["date_ranges"]
+            ai_used = False
+            ai_nhan_phan_loai = None
+            ai_da_tra_loi, ai_result = ket_qua_ai.get(key, (False, None))
+            if ai_result:
+                ai_used = True
+                if ai_result.get("start"):
+                    info["start"] = ai_result["start"]
+                    info["location"] = ai_result.get("location") or info.get("location")
+                elif ai_result.get("all_day_start"):
+                    info["all_day_start"] = ai_result["all_day_start"]
+                    info["all_day_end"] = ai_result["all_day_end"]
+                    info["location"] = ai_result.get("location") or info.get("location")
+                han_list = ai_result.get("deadlines") or []
+                date_ranges = ai_result.get("date_ranges") or []
+                ai_nhan_phan_loai = ai_result.get("nhan_phan_loai")
+            if cv["rule_trong"] and co_the_hoi_ai and not ai_da_tra_loi:
+                uid = m.get("uid")
+                if uid is not None:
+                    cho_uids.add(uid)
             item = {
                 "id": key,
                 "sender": m.get("sender"),
@@ -457,17 +560,85 @@ class DutMailCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self._first_run = False
 
+        # Cập nhật bộ nhớ UID: mail vừa tải xong (trừ mail còn dở việc AI,
+        # để lượt sau tải lại và hỏi tiếp) + mail đã biết còn trong cửa
+        # sổ. UID rơi khỏi cửa sổ thì bỏ, bộ nhớ không phình ra.
+        da_xu_ly = {m["uid"] for m in mails if m.get("uid") is not None} - cho_uids
+        self._seen_uids = (da_xu_ly | self._seen_uids) & window_uids
+
         self._prune_history()
         await self._async_save_storage()
+
+        # Còn mail chờ AI -> quét bù sớm thay vì đợi hết chu kỳ thường.
+        if cho_uids:
+            if self.hass.is_running and self._so_lan_quet_bu < QUET_BU_TOI_DA:
+                self._len_quet_bu()
+        else:
+            self._so_lan_quet_bu = 0
+
+        _LOGGER.info(
+            "dut_mail quét xong: tải %.1fs (mới=%d, bỏ qua=%d) | luật %.2fs | "
+            "AI %.1fs (%d mail, còn chờ=%d) | tổng %.1fs",
+            t_tai,
+            len(mails),
+            so_bo_qua,
+            t_luat,
+            t_ai,
+            len(se_hoi_ai),
+            len(cho_uids),
+            time.monotonic() - t_bat_dau,
+        )
 
         all_matches = sorted(
             self._history.values(), key=lambda m: m.get("received") or "", reverse=True
         )
         return {
             "matches": all_matches,
-            "total_mails": len(mails),
+            "total_mails": len(window_uids),
             "new_matches": new_matches,
         }
+
+    # ---------------- quét bù / quét lại ----------------
+    def _len_quet_bu(self) -> None:
+        """Hẹn 1 lượt quét bù sau QUET_BU_SAU_GIAY giây."""
+        self.huy_quet_bu()
+        self._so_lan_quet_bu += 1
+        self._cancel_followup = async_call_later(
+            self.hass, QUET_BU_SAU_GIAY, self._async_quet_bu
+        )
+
+    async def _async_quet_bu(self, _now: Any) -> None:
+        self._cancel_followup = None
+        await self.async_request_refresh()
+
+    def huy_quet_bu(self) -> None:
+        """Hủy lượt quét bù đang chờ (gọi khi gỡ entry)."""
+        if self._cancel_followup is not None:
+            self._cancel_followup()
+            self._cancel_followup = None
+
+    async def async_fresh_load(self) -> None:
+        """Quét lại TOÀN BỘ mail từ đầu (nút "Quét lại toàn bộ mail").
+
+        MỨC SẠCH: xóa lịch sử, bộ nhớ UID VÀ cả kết quả AI đã có — mail
+        nào luật không tách được sẽ bị hỏi lại AI (vẫn theo hạn mức
+        mỗi lượt, phần còn lại tự quét bù). Dùng khi đổi agent AI/prompt
+        hoặc muốn chắc chắn mọi thứ tính lại từ đầu. Mail cũ nạp nền,
+        KHÔNG bắn thông báo.
+
+        Chỉ xóa trong bộ nhớ; .storage được ghi lại sau khi quét thành
+        công — nếu lần quét này lỗi mạng, dữ liệu cũ trên Calendar vẫn
+        còn nguyên cho tới khi quét được.
+        """
+        _LOGGER.info("dut_mail: quét lại toàn bộ (xóa lịch sử, bộ nhớ UID, kết quả AI)")
+        self.huy_quet_bu()
+        await self._async_load_storage()
+        self._history = {}
+        self._seen_uids = set()
+        self._uidvalidity = None
+        self._so_lan_quet_bu = 0
+        self._first_run = True
+        await self.async_refresh()
 
     async def _async_notify(self, new_matches: list[dict[str, Any]]) -> None:
         service = self.notify_service

@@ -258,6 +258,16 @@ thường. Dùng App Password còn thu hồi riêng được khi cần.
   không, tiêu đề tiếng Việt sẽ không bao giờ khớp từ khóa.
 - Chỉ báo email **mới**, khử trùng theo `Message-ID`; lưu lịch sử
   **30 ngày**. Đổi từ khóa thì xóa lịch sử và quét lại (như lịch tuần).
+- **Chỉ tải mail mới**: nhớ các email đã xử lý theo **UID** IMAP (lưu bền,
+  chỉ số UID — không lưu tiêu đề/nội dung), nên mỗi lượt quét, kể cả sau
+  khi khởi động lại HA, chỉ tải mail mới thay vì cả N mail. Bộ nhớ này tự
+  hủy khi đổi từ khóa, danh sách loại trừ, bật/tắt AI, hộp thư/thư mục,
+  `UIDVALIDITY` của server đổi, hoặc nâng cấp logic tách thông tin.
+- **Nút "Quét lại toàn bộ mail"** (thiết bị *DUT Calendar - Email*): xóa
+  sạch lịch sử, bộ nhớ UID **và cả kết quả AI**, rồi quét ngay; mail nào
+  luật không tách được sẽ hỏi lại AI. Mail cũ nạp nền, không bắn thông báo.
+- **AI chạy song song** (tối đa 3 mail/lượt, mỗi lần gọi có timeout 25s);
+  còn mail chờ AI thì tự quét bù sau 60 giây (tối đa 5 lần liên tiếp).
 - **Phạm vi quét**: mỗi lần chỉ đọc **N email mới nhất** của thư mục
   (mặc định 50, chỉnh được) — không quét lại toàn bộ hộp thư. Với chu
   kỳ 15 phút thì cửa sổ 50 mail là quá đủ; chỉ cần tăng nếu bạn nhận

@@ -178,6 +178,19 @@ def exclude_mails_by_subject(
     return out
 
 
+def _doc_uidvalidity(conn: imaplib.IMAP4_SSL) -> int | None:
+    """UIDVALIDITY của thư mục vừa select — số do server cấp; nếu đổi thì
+    toàn bộ UID đã nhớ trước đó mất giá trị (hiếm gặp với Gmail).
+    """
+    try:
+        _typ, data = conn.response("UIDVALIDITY")
+        if data and data[0]:
+            return int(data[0])
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def fetch_recent_mails(
     host: str,
     port: int,
@@ -186,20 +199,31 @@ def fetch_recent_mails(
     folder: str = "INBOX",
     limit: int = 50,
     unseen_only: bool = False,
-) -> list[dict[str, Any]]:
-    """Kết nối IMAP, lấy `limit` email MỚI NHẤT của thư mục.
+    known_uids: list[int] | set[int] | None = None,
+    known_uidvalidity: int | None = None,
+) -> dict[str, Any]:
+    """Kết nối IMAP, xác định `limit` email MỚI NHẤT của thư mục và CHỈ
+    TẢI những mail mà `known_uids` chưa có.
 
-    `unseen_only=False` (mặc định): lấy N mail GẦN NHẤT rồi khử trùng
+    `known_uids`: các UID đã xử lý xong ở các lần quét trước. Mail đã
+    biết KHÔNG tải lại (trước đây mỗi lượt quét tải lại cả 50 mail đầy
+    đủ, kể cả file đính kèm). Nếu `UIDVALIDITY` của server khác với
+    `known_uidvalidity`, danh sách này bị bỏ hoàn toàn (UID cũ vô nghĩa).
+
+    `unseen_only=False` (mặc định): cửa sổ là N mail GẦN NHẤT, khử trùng
     theo Message-ID ở coordinator — an toàn nhất, không bỏ sót.
 
-    `unseen_only=True`: chỉ lấy mail CHƯA ĐỌC. Nhẹ hơn nhiều nếu hộp
-    thư lớn, NHƯNG có rủi ro: mail nào bạn mở trên điện thoại/máy tính
-    trước khi HA kịp quét sẽ thành "đã đọc" và bị BỎ SÓT vĩnh viễn.
+    `unseen_only=True`: cửa sổ chỉ gồm mail CHƯA ĐỌC. Nhẹ hơn nhiều nếu
+    hộp thư lớn, NHƯNG có rủi ro: mail nào bạn mở trên điện thoại/máy
+    tính trước khi HA kịp quét sẽ thành "đã đọc" và bị BỎ SÓT vĩnh viễn.
 
-    Hai tham số kết hợp theo kiểu VÀ: lọc UNSEEN trước, rồi mới cắt
-    lấy `limit` mail mới nhất trong số đó.
+    Trả về dict:
+    - `mails`: mail MỚI tải về (mới nhất trước), mỗi mail có thêm `uid`
+    - `window_uids`: toàn bộ UID trong cửa sổ quét
+    - `uidvalidity`: UIDVALIDITY hiện tại của server
+    - `so_bo_qua`: số mail trong cửa sổ đã biết nên không tải
 
-    Cả 2 chế độ đều KHÔNG đánh dấu đã đọc và KHÔNG xóa mail.
+    KHÔNG đánh dấu đã đọc và KHÔNG xóa mail (select readonly).
     """
     # BẮT BUỘC có timeout — không set thì socket mặc định KHÔNG giới
     # hạn thời gian, nếu mạng/Gmail trục trặc có thể TREO VÔ THỜI HẠN.
@@ -212,24 +236,40 @@ def fetch_recent_mails(
         conn.login(username, password)
         # readonly=True: tuyệt đối không làm thay đổi trạng thái hộp thư
         conn.select(folder, readonly=True)
+        uidvalidity = _doc_uidvalidity(conn)
 
-        typ, data = conn.search(None, "UNSEEN" if unseen_only else "ALL")
+        known: set[int] = set(known_uids or ())
+        if known and (known_uidvalidity is None or uidvalidity != known_uidvalidity):
+            known = set()  # UID cũ không còn đáng tin -> tải lại từ đầu
+
+        typ, data = conn.uid("SEARCH", None, "UNSEEN" if unseen_only else "ALL")
         if typ != "OK" or not data or not data[0]:
-            return []
+            return {"mails": [], "window_uids": [], "uidvalidity": uidvalidity, "so_bo_qua": 0}
 
-        ids = data[0].split()
-        ids = ids[-limit:] if limit > 0 else ids
+        uids = [int(x) for x in data[0].split()]
+        uids = uids[-limit:] if limit > 0 else uids
 
         mails: list[dict[str, Any]] = []
-        for num in reversed(ids):  # mới nhất trước
-            typ, msg_data = conn.fetch(num, "(RFC822)")
+        so_bo_qua = 0
+        for uid in reversed(uids):  # mới nhất trước
+            if uid in known:
+                so_bo_qua += 1
+                continue
+            typ, msg_data = conn.uid("FETCH", str(uid), "(RFC822)")
             if typ != "OK" or not msg_data or not msg_data[0]:
                 continue
             raw = msg_data[0][1]
             if not isinstance(raw, (bytes, bytearray)):
                 continue
-            mails.append(message_to_dict(email.message_from_bytes(raw)))
-        return mails
+            d = message_to_dict(email.message_from_bytes(raw))
+            d["uid"] = uid
+            mails.append(d)
+        return {
+            "mails": mails,
+            "window_uids": uids,
+            "uidvalidity": uidvalidity,
+            "so_bo_qua": so_bo_qua,
+        }
     finally:
         try:
             conn.close()

@@ -5,6 +5,49 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.40.0] - 2026-10-03
+
+### Thêm mới — duyệt mail nhanh hơn + nút quét lại
+- **Chỉ tải mail mới theo UID IMAP.** Trước đây mỗi lượt quét gửi 50 lệnh
+  `FETCH` riêng, mỗi lệnh tải toàn bộ thư (kể cả file đính kèm) dù gần
+  như tất cả đã xử lý ở lượt trước. Giờ nhớ UID đã xử lý xong và chỉ tải
+  UID chưa biết (thường 0–2 mail/lượt).
+- **Bộ nhớ UID lưu bền trong `.storage`** (chỉ số UID + `UIDVALIDITY` +
+  chữ ký cấu hình, KHÔNG lưu tiêu đề/nội dung) nên sau khi khởi động lại
+  HA không phải tải lại cả cửa sổ. Tự hủy khi: đổi từ khóa / danh sách
+  loại trừ / bật-tắt AI / hộp thư-thư mục-`unseen_only`, `UIDVALIDITY`
+  của server đổi, hoặc `MAIL_PARSER_REVISION` tăng (sửa logic tách).
+  Khi hủy chỉ tải lại mail, KHÔNG hỏi lại AI (kết quả AI giữ trong lịch sử).
+- **Mail còn dở việc AI (chưa trả lời/lỗi/HA đang khởi động) không được
+  coi là xong** — lượt sau tải lại và hỏi tiếp.
+- **AI chạy song song** (`asyncio.gather`, tối đa 3 mail/lượt) thay vì
+  tuần tự; còn mail chờ AI thì **tự quét bù sau 60 giây**, tối đa 5 lần
+  liên tiếp (không đợi hết chu kỳ 15 phút); hủy khi gỡ entry.
+- **Nút "Quét lại toàn bộ mail"** (entity `button`, thiết bị *DUT Calendar
+  - Email*): MỨC SẠCH — xóa lịch sử, bộ nhớ UID và kết quả AI rồi quét
+  ngay; mail cũ nạp nền không bắn thông báo. Chỉ xóa trong bộ nhớ, ghi
+  `.storage` sau khi quét thành công (lỗi mạng thì dữ liệu cũ vẫn còn).
+- **Log đo thời gian mỗi lượt quét**: `dut_mail quét xong: tải ... (mới,
+  bỏ qua) | luật | AI (số mail, còn chờ) | tổng`.
+- Tách `_phan_tich_luat()` thành hàm riêng; `fetch_recent_mails` trả về
+  dict (`mails`, `window_uids`, `uidvalidity`, `so_bo_qua`).
+
+### Lưu ý nâng cấp
+- Lượt quét đầu sau khi nâng cấp tải đủ cửa sổ mail một lần (chưa có bộ
+  nhớ UID), các lượt sau mới nhẹ.
+- Mail đã xử lý giữ nguyên kết quả cũ cho tới khi `MAIL_PARSER_REVISION`
+  tăng hoặc bấm nút "Quét lại toàn bộ mail".
+
+### Kiểm tra (giả lập IMAP + store bền, 22 kiểm tra đều đạt)
+- Lượt 1 tải 8 mail, AI chạy 3 cùng lúc (0,2s thay vì 0,6s), hẹn quét
+  bù; lượt 2–3 chỉ tải lại mail còn chờ (5 rồi 2), tổng đúng 8 lần gọi AI.
+- Không có mail mới → 0 lệnh FETCH; mail mới UID 9 → chỉ tải đúng UID 9.
+- Khởi động lại HA (coordinator mới, cùng `.storage`) → 0 mail tải lại.
+- Đổi danh sách loại trừ / `UIDVALIDITY` đổi → tải lại cửa sổ, không hỏi lại AI.
+- Nút quét lại: tải lại cả cửa sổ, hỏi lại AI, không bắn thông báo.
+- AI lỗi → mail chưa coi là xong; HA đang khởi động → 0 lần gọi AI.
+
+
 ## [1.39.2] - 2026-10-03
 
 ### Sửa lỗi — gọi AI làm treo setup `dut_mail` lúc khởi động HA
