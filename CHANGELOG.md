@@ -5,6 +5,27 @@ Phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 ## [Unreleased]
 
+## [1.39.1] - 2026-10-03
+
+### Sửa lỗi nghiêm trọng — setup `dut_mail` treo vô thời hạn, gãy khởi động HA
+- **Nguyên nhân**: `imaplib.IMAP4_SSL(host, port)` không truyền
+  `timeout=` — socket mặc định KHÔNG giới hạn thời gian chờ. Nếu mạng
+  hoặc Gmail trục trặc lúc HA khởi động, `conn.login()` có thể treo vô
+  thời hạn. Vì chạy trong executor job (thread pool), HA không hủy
+  được bằng cách thông thường khi đang treo — chỉ có cơ chế "Global
+  task timeout: Bootstrap stage 2 timeout" ở tầng framework HA mới
+  chặn được, sau vài phút treo, làm gãy cả `async_setup_entry` của
+  toàn bộ entry `dut_mail`.
+- **Sửa**: thêm `timeout=30` cho `IMAP4_SSL` — nếu mạng/Gmail trục
+  trặc, raise `socket.timeout` đúng sau 30 giây thay vì treo vô hạn,
+  rơi vào try/except có sẵn trong `coordinator_mail.py`, raise
+  `UpdateFailed` gọn gàng — HA tự retry theo lịch bình thường, không
+  còn chạm tới timeout bootstrap của framework nữa.
+- Xác nhận `timeout` là tham số keyword-only hợp lệ của
+  `imaplib.IMAP4_SSL` (kiểm tra qua `inspect.signature`).
+
+## [Unreleased]
+
 ## [1.39.0] - 2026-09-03
 
 ### Thay đổi — mail do AI xử lý dùng 1 nhãn gọn thay vì liệt kê đủ nhóm

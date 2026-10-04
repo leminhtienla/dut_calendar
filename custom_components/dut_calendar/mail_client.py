@@ -18,6 +18,13 @@ from typing import Any
 
 from .parser_public import _variant_matches
 
+# Giới hạn thời gian cho MỖI thao tác socket IMAP (connect/login/fetch
+# đều dùng chung timeout này qua imaplib.IMAP4_SSL(..., timeout=...)).
+# Không set sẽ TREO VÔ THỜI HẠN nếu mạng/Gmail trục trặc — xem
+# fetch_recent_mails() để biết hậu quả thật đã gặp (gãy cả setup entry
+# lúc khởi động HA).
+IMAP_TIMEOUT_SECONDS = 30
+
 
 def decode_mime(raw: str | None) -> str:
     """Giải mã header MIME (Subject/From) về chuỗi đọc được, chuẩn NFC.
@@ -194,7 +201,13 @@ def fetch_recent_mails(
 
     Cả 2 chế độ đều KHÔNG đánh dấu đã đọc và KHÔNG xóa mail.
     """
-    conn = imaplib.IMAP4_SSL(host, port)
+    # BẮT BUỘC có timeout — không set thì socket mặc định KHÔNG giới
+    # hạn thời gian, nếu mạng/Gmail trục trặc có thể TREO VÔ THỜI HẠN.
+    # Vì hàm này chạy trong executor job (thread pool), HA không hủy
+    # được bằng cách thông thường khi nó treo — từng gây "Global task
+    # timeout: Bootstrap stage 2 timeout" làm gãy cả async_setup_entry
+    # lúc khởi động HA (không phải lỗi logic, lỗi thiếu timeout).
+    conn = imaplib.IMAP4_SSL(host, port, timeout=IMAP_TIMEOUT_SECONDS)
     try:
         conn.login(username, password)
         # readonly=True: tuyệt đối không làm thay đổi trạng thái hộp thư
